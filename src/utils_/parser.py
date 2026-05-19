@@ -1,0 +1,38 @@
+import re
+from collections.abc import Callable
+from pathlib import Path
+
+import yaml
+
+
+class TxtParser:
+    @staticmethod
+    def get_txt_lines(file_path: Path) -> list[str]:
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if lines:
+            lines[0] = lines[0].removeprefix("\ufeff").removeprefix("\ufffe")
+        return lines
+
+    @staticmethod
+    def match(lines: list[str], regex: re.Pattern[str]) -> list[list[str]]:
+        parsed: list[list[str]] = []
+        for line in lines:
+            result = regex.match(line)
+            if not result:
+                continue
+            groups = result.groups()
+            parsed.append([str(groups[i]) for i in range(len(groups))])
+        return parsed
+
+    @staticmethod
+    def filter(lines: list[str], func: Callable[[str], bool]) -> list[str]:
+        return list(filter(func, lines))
+
+
+class YamlParser:
+    @staticmethod
+    def get_yaml_data(file_path: Path) -> dict:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return data

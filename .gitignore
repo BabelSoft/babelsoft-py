@@ -1,5 +1,7 @@
 c/
-data/
+data/ucd/
+data/unihan/
+data/babelstone/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
