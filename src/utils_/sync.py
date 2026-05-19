@@ -3,10 +3,9 @@ from pathlib import Path
 from shutil import rmtree
 
 import requests
-from paths import DATA_BABELSOFT_DIR, DATA_UCD_DIR, DATA_UNIHAN_DIR
+from paths import DATA_BABELSTONE_DIR, DATA_CHARTS_DIR, DATA_UCD_DIR, DATA_UNIHAN_DIR
 from rich.console import Console
-from rich.progress import (BarColumn, DownloadColumn, Progress, TextColumn,
-                           TimeRemainingColumn, TransferSpeedColumn)
+from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
 
 
 class UnicodeDataDownloader:
@@ -22,8 +21,8 @@ class UnicodeDataDownloader:
         folder.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def _download_file(cls, url: str, output_path: Path, debug: bool = True) -> None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+    def _download_file(cls, url: str, output: Path, debug: bool = True) -> None:
+        output.parent.mkdir(parents=True, exist_ok=True)
 
         progress = Progress(
             TextColumn("[bold blue]{task.description}"),
@@ -39,9 +38,9 @@ class UnicodeDataDownloader:
             response = requests.get(url, stream=True, timeout=600)
             response.raise_for_status()
             total_size = int(response.headers.get("content-length", 0))
-            task = progress.add_task(f"Downloading {output_path.name}", total=total_size)
+            task = progress.add_task(f"Downloading {output.name}", total=total_size)
 
-            with output_path.open("wb") as output_file:
+            with output.open("wb") as output_file:
                 for chunk in response.iter_content(chunk_size=1024 * 64):
                     if not chunk:
                         continue
@@ -49,7 +48,7 @@ class UnicodeDataDownloader:
                     progress.update(task, advance=len(chunk))
 
         if debug:
-            cls.console.print(f"✅ [green]Downloaded[/green] → {output_path}")
+            cls.console.print(f"✅ [green]Downloaded[/green] → {output}")
 
     @classmethod
     def _extract_zip(
@@ -97,21 +96,16 @@ class UnicodeDataDownloader:
     def _download_and_extract_zip(
         cls,
         url: str,
-        output_dir: Path,
+        output: Path,
         debug: bool = True,
         txt_only: bool = False,
         delete_zip: bool = True,
     ) -> None:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        zip_path = output_dir / Path(url).name
+        output.mkdir(parents=True, exist_ok=True)
+        zip_path = output / Path(url).name
 
-        cls._download_file(url=url, output_path=zip_path, debug=debug)
-        cls._extract_zip(
-            zip_path=zip_path,
-            output_dir=output_dir,
-            show_progress=debug,
-            txt_only=txt_only,
-        )
+        cls._download_file(url=url, output=zip_path, debug=debug)
+        cls._extract_zip(zip_path=zip_path, output_dir=output, show_progress=debug, txt_only=txt_only)
 
         if delete_zip and zip_path.exists():
             zip_path.unlink()
@@ -119,32 +113,40 @@ class UnicodeDataDownloader:
                 cls.console.print(f"🗑️  [yellow]Deleted zip[/yellow] → {zip_path}")
 
     @classmethod
-    def _download_and_extract_txt_only(cls, url: str, output_dir: Path, debug: bool = True) -> None:
-        cls._download_and_extract_zip(url=url, output_dir=output_dir, debug=debug, txt_only=True, delete_zip=True)
+    def _download_and_extract_txt_only(cls, url: str, output: Path, debug: bool = True) -> None:
+        cls._download_and_extract_zip(url=url, output=output, debug=debug, txt_only=True, delete_zip=True)
 
     @classmethod
     def sync_ucd(cls, debug: bool = True) -> None:
         cls._initialize_directories(DATA_UCD_DIR)
 
         cls.console.print("[bold yellow]=== Download UCD data ===")
-        cls._download_and_extract_txt_only(url=cls.DATA_UCD_URL, output_dir=DATA_UCD_DIR, debug=debug)
+        cls._download_and_extract_txt_only(url=cls.DATA_UCD_URL, output=DATA_UCD_DIR, debug=debug)
 
     @classmethod
     def sync_unihan(cls, debug: bool = True) -> None:
         cls._initialize_directories(DATA_UNIHAN_DIR)
 
         cls.console.print("[bold yellow]=== Download Unihan data ===")
-        cls._download_and_extract_txt_only(url=cls.DATA_UNIHAN_URL, output_dir=DATA_UNIHAN_DIR, debug=debug)
+        cls._download_and_extract_txt_only(url=cls.DATA_UNIHAN_URL, output=DATA_UNIHAN_DIR, debug=debug)
 
     @classmethod
     def sync_ids(cls, debug: bool = True) -> None:
         cls.console.print("[bold yellow]=== Download IDS data ===")
         ids_url = "https://www.babelstone.co.uk/CJK/IDS.TXT"
-        ids_output = DATA_BABELSOFT_DIR / "IDS.TXT"
-        cls._download_file(url=ids_url, output_path=ids_output, debug=debug)
+        ids_output = DATA_BABELSTONE_DIR / "IDS.TXT"
+        cls._download_file(url=ids_url, output=ids_output, debug=debug)
+
+    @classmethod
+    def sync_charts(cls, debug: bool = True) -> None:
+        cls._initialize_directories(DATA_CHARTS_DIR)
+        charts_url = "https://www.unicode.org/Public/latest/charts/RSIndex.txt"
+        cls.console.print("[bold yellow]=== Download charts data ===")
+        cls._download_file(url=charts_url, output=DATA_CHARTS_DIR / "RSIndex.txt", debug=debug)
 
 
 if __name__ == "__main__":
-    # UnicodeDataDownloader.sync_ucd()
-    # UnicodeDataDownloader.sync_unihan()
+    UnicodeDataDownloader.sync_ucd()
+    UnicodeDataDownloader.sync_unihan()
     UnicodeDataDownloader.sync_ids()
+    UnicodeDataDownloader.sync_charts()

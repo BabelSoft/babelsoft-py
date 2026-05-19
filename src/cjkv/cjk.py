@@ -7,9 +7,9 @@ from enum import Enum
 from pathlib import Path
 
 from src.utils_.parser import TxtParser
-from src.utils_.paths import DATA_BABELSTONE_DIR, DATA_UCD_DIR, DATA_UNIHAN_DIR
+from src.utils_.paths import DATA_BABELSTONE_DIR, DATA_CHARTS_DIR, DATA_UCD_DIR, DATA_UNIHAN_DIR
 
-DISCRIMINATED_IDEOGRAPHS = {
+DISCRIMINATED_CJK = {
     0xFA0E,
     0xFA0F,
     0xFA11,
@@ -26,6 +26,9 @@ DISCRIMINATED_IDEOGRAPHS = {
 
 
 class CodePoint(int):
+    def __repr__(self) -> str:
+        return f"0x{self:04X}"
+
     def __new__(cls, value: int | str):
         if isinstance(value, str):
             codepoint = cls.from_(value)
@@ -77,6 +80,22 @@ def load_Blocks() -> list[Block]:
     return [Block(int(start, 16), int(end, 16), name.strip()) for start, end, name in parsed]
 
 
+@functools.lru_cache(maxsize=1)
+def load_RSIndex() -> dict[RS, list[CJK]]:
+    rs_index_file = DATA_CHARTS_DIR / "RSIndex.txt"
+    lines = TxtParser.get_txt_lines(rs_index_file)
+    lines = TxtParser.filter(lines, line_has_content)
+
+    result = {}
+    for line in lines:
+        parts = line.split("\t")
+        rs_part, unicode_values = parts[0], parts[1].split()
+        rs_obj = RS.from_unihan(rs_part)
+        cjk_list = [CJK.from_(value) for value in unicode_values]
+        result[rs_obj] = cjk_list
+    return result
+
+
 @dataclass
 class RS:
     radical: int
@@ -87,6 +106,9 @@ class RS:
         variant_map = {0: "", 1: "'", 2: "''", 3: "'''"}
         variant = variant_map.get(self.variant, "")
         return f"{self.radical}{variant}.{self.stroke}"
+
+    def no_variant(self) -> RS:
+        return RS(radical=self.radical, variant=0, stroke=self.stroke)
 
     @classmethod
     def from_unihan(cls, text: str) -> RS:
@@ -111,6 +133,9 @@ class RS:
     def radical_char(self) -> str: ...
 
     def radical_char_normalized(self) -> str: ...
+
+    def ideographs(self) -> list[CJK]:
+        return load_RSIndex()[self.no_variant()]
 
 
 @dataclass
@@ -205,6 +230,9 @@ class Submitter(Enum):
     US_UTC = "UTC"
     VIETNAM = "V"
 
+    def __repr__(self):
+        return self.name
+
 
 @dataclass
 class SrcRef:
@@ -244,15 +272,14 @@ class CJK(CodePoint):
     __hash__ = int.__hash__
 
     def __repr__(self):
-        return f"CJK(U+{self:04X}, {chr(self)})"
+        return f"CJK({CodePoint(self)}, {chr(self)})"
 
     def __eq__(self, other):
         if isinstance(other, (CJK, CodePoint, int)):
             return int(self) == int(other)
         return False
 
-    @property
-    def is_cjk_unified_ideograph(self) -> bool:
+    def _is_cjk_unified_ideograph(self) -> bool:
         def _cjkui(b: Block) -> bool:
             return "CJK" in b.name and "Ideographs" in b.name and "Compatibility" not in b.name
 
@@ -262,8 +289,7 @@ class CJK(CodePoint):
                 return True
         return False
 
-    @property
-    def is_cjk_compatibility_ideograph(self) -> bool:
+    def _is_cjk_compatibility_ideograph(self) -> bool:
         def _compat(b: Block) -> bool:
             return "CJK" in b.name and "Ideographs" in b.name and "Compatibility" in b.name
 
@@ -274,12 +300,12 @@ class CJK(CodePoint):
         return False
 
     def is_cjk_ideograph(self, compatibility: bool = False) -> bool:
-        if self.is_cjk_unified_ideograph:
+        if self._is_cjk_unified_ideograph():
             return True
-        if self.is_cjk_compatibility_ideograph:
+        if self._is_cjk_compatibility_ideograph():
             if compatibility:
                 return True
-            return self in DISCRIMINATED_IDEOGRAPHS
+            return self in DISCRIMINATED_CJK
         return False
 
     def ids_babelsoft(self) -> IDSInfo | None:
@@ -320,8 +346,15 @@ class CJK(CodePoint):
     @staticmethod
     def to_jiuzixing(text: str) -> str: ...
 
+    def source_reference(self, *, submitters: Submitter | list[Submitter] | None = None) -> list[SrcRef]:
+        data = load_Unihan_IRGSources().get(self)
+        if not data:
+            return []
+        submitters = [submitters] if isinstance(submitters, Submitter) else (submitters or list(Submitter))
 
-def find_ideographs_by_radical_stroke(radical: int, stroke: int) -> list[CJK]: ...
-
-
-def get_source_references(zi: CJK, *, submitter: Submitter) -> list[SrcRef]: ...
+        results = []
+        for submitter in submitters:
+            result = data.get(f"kIRG_{submitter.value}Source", "")
+            if result:
+                results.append(SrcRef(submitter=submitter, reference=result[0]))
+        return results
