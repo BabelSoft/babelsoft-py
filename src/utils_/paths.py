@@ -1,0 +1,8 @@
+from pathlib import Path
+
+REPO_DIR = Path(__file__).parent.parent.parent
+SRC_DIR = REPO_DIR / "src"
+DATA_DIR = REPO_DIR / "data"
+DATA_BABELSOFT_DIR = DATA_DIR / "babelsoft"
+DATA_UCD_DIR = DATA_DIR / "ucd"
+DATA_UNIHAN_DIR = DATA_DIR / "unihan" 
