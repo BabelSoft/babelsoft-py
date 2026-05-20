@@ -81,7 +81,7 @@ def load_charts_RSIndex() -> dict[RS, list[CJK]]:
     def _add_entry(base_rs: RS, variant: int, data_str: str):
         if data_str:
             data_str = data_str.strip()
-            rs_obj = RS(radical=base_rs.radical, variant=variant, residual_stroke=base_rs.residual_stroke)
+            rs_obj = RS(radical=Radical(base_rs.radical.rad, variant), residual_stroke=base_rs.residual_stroke)
             result[rs_obj] = [CJK.from_(val) for val in data_str.split()]
 
     for line in lines:
@@ -119,36 +119,68 @@ def load_ucd_CJKRadicals() -> dict[RS, tuple[CJK, CJK]]:
 BIG_NUMBER = 100
 
 
+@dataclass(frozen=True)
+class Radical:
+    rad: int
+    var: int = 0
+
+    def __repr__(self) -> str:
+        return f"Radical({self.rad}, {self.var})"
+
+    def to_unihan(self) -> str:
+        return f"{self.rad}{self.var * "'"}"
+
+    def to_irg_radical(self) -> str:
+        return f"{self.rad}.{self.var}"
+
+    @classmethod
+    def from_unihan(cls, text: str) -> Radical:
+        radical = text.split(".")[0]
+        for i in range(BIG_NUMBER, 0, -1):
+            if radical.endswith("'" * i):
+                rad, var = radical[:-i], i
+                break
+        else:
+            rad, var = radical, 0
+        return cls(int(rad), var)
+
+    def __eq__(self, other: Radical):
+        return (self.rad, self.var) == (other.rad, other.var)
+
+
 @dataclass
 class RS:
-    radical: int
-    variant: int
+    radical: Radical
     residual_stroke: int
 
     def __hash__(self):
-        return hash((self.radical, self.variant, self.residual_stroke))
+        return hash((self.radical.rad, self.radical.var, self.residual_stroke))
+
+    @property
+    def variant(self) -> int:
+        return self.radical.var
 
     def to_unihan(self) -> str:
         """
-        >>> RS(radical=212, variant=3, residual_stroke=-1).to_unihan()
+        >>> RS(radical=Radical(212, 3), residual_stroke=-1).to_unihan()
         "212'''.-1"
         """
         variant_map = {0: "", 1: "'", 2: "''", 3: "'''"}
-        variant = variant_map.get(self.variant, "")
-        return f"{self.radical}{variant}.{self.residual_stroke}"
+        variant = variant_map.get(self.radical.var, "")
+        return f"{self.radical.rad}{variant}.{self.residual_stroke}"
 
     def no_variant(self) -> RS:
         """
-        >>> RS(radical=212, variant=3, residual_stroke=-1).no_variant()
-        RS(radical=212, variant=0, residual_stroke=-1)
+        >>> RS(radical=Radical(212, 3), residual_stroke=-1).no_variant()
+        RS(radical=Radical(212, 0), residual_stroke=-1)
         """
-        return RS(radical=self.radical, variant=0, residual_stroke=self.residual_stroke)
+        return RS(radical=Radical(self.radical.rad, 0), residual_stroke=self.residual_stroke)
 
     @classmethod
     def from_unihan(cls, text: str) -> RS:
         """
         >>> RS.from_unihan("212'''.6"), RS.from_unihan("212'''")
-        (RS(radical=212, variant=3, residual_stroke=6), RS(radical=212, variant=3, residual_stroke=0))
+        (RS(radical=Radical(212, 3), residual_stroke=6), RS(radical=Radical(212, 3), residual_stroke=0))
         """
         radical_variant, *stroke = text.split(".")
         stroke = stroke[0] if stroke else 0
@@ -158,28 +190,28 @@ class RS:
                 break
         else:
             radical, variant = radical_variant, 0
-        return cls(radical=int(radical), variant=variant, residual_stroke=int(stroke))
+        return cls(radical=Radical(int(radical), variant), residual_stroke=int(stroke))
 
     def to_irg_radical(self) -> str:
         """
-        >>> RS(radical=212, variant=3, residual_stroke=6).to_irg_radical()
+        >>> RS(radical=Radical(212, 3), residual_stroke=6).to_irg_radical()
         '212.3'
         """
-        return f"{self.radical}.{self.variant}"
+        return f"{self.radical.rad}.{self.radical.var}"
 
     @classmethod
     def from_irg_radical(cls, text: str) -> RS:
         """
         >>> RS.from_irg_radical("212.3"), RS.from_irg_radical("212.0")
-        (RS(radical=212, variant=3, residual_stroke=0), RS(radical=212, variant=0, residual_stroke=0))
+        (RS(radical=Radical(212, 3), residual_stroke=0), RS(radical=Radical(212, 0), residual_stroke=0))
         """
         radical, variant = text.split(".")
-        return cls(int(radical), int(variant), 0)
+        return cls(radical=Radical(int(radical), int(variant)), residual_stroke=0)
 
     def radical_char(self) -> CJK:
         """Use Kangxi radicals first."""
         data = load_ucd_CJKRadicals()
-        radical_variant = RS(self.radical, self.variant, 0)
+        radical_variant = RS(radical=self.radical, residual_stroke=0)
         if radical_variant not in data:
             raise ValueError(f"Radical variant {radical_variant} not found")
         if bad_radical := data[radical_variant][0]:
@@ -189,7 +221,7 @@ class RS:
     def radical_char_normalized(self) -> CJK:
         """Use CJKUI radicals first."""
         data = load_ucd_CJKRadicals()
-        radical_variant = RS(self.radical, self.variant, 0)
+        radical_variant = RS(radical=self.radical, residual_stroke=0)
         if radical_variant not in data:
             raise ValueError(f"Radical variant {radical_variant} not found")
         return data[radical_variant][1]
@@ -270,17 +302,17 @@ def load_ucd_EquivalentUnifiedIdeograph() -> dict[CodePoint, CodePoint]:
 
 @dataclass
 class SrcRef:
-    reference: str
-
-    @property
-    def submitter(self) -> Submitter:
-        return self.get_submitter_source(self.reference)
+    reference: str = ""
 
     @property
     def prefix(self) -> str:
         return self.reference.split("-")[0]
 
-    def get_submitter_source(self, ref: str) -> Submitter:
+    @property
+    def submitter(self) -> SrcRef.Submitter:
+        return self.get_submitter_source(self.reference)
+
+    def get_submitter_source(self, ref: str) -> SrcRef.Submitter:
         ref = ref.strip().upper()
         if ref.startswith("G"):
             return self.Submitter.CHINA_SINGAPORE
@@ -452,5 +484,5 @@ class CJK(CodePoint):
         results = []
         for submitter in submitters:
             if result := data.get(f"kIRG_{submitter.value}Source", ""):
-                results.append(SrcRef(submitter=submitter, reference=result[0]))
+                results.append(SrcRef(result[0]))
         return results

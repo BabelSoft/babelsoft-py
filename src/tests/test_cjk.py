@@ -5,7 +5,7 @@ LIB_DIR = Path(__file__).parent.parent.parent
 sys.path.append(str(LIB_DIR))
 
 
-from src.cjkv.cjk import CJK, IDS, RS, SrcRef  # noqa: E402
+from src.cjkv.cjk import CJK, IDS, RS, Radical, SrcRef  # noqa: E402
 
 
 def test_cjk():
@@ -26,20 +26,19 @@ def test_ids():
 def test_radical_strokes():
     rs = CJK("已").radical_strokes()
     assert len(rs) == 1
-    assert rs[0].radical == 49
-    assert rs[0].variant == 0
+    assert rs[0].radical == Radical(49, 0)
     assert rs[0].residual_stroke == 0
 
 
 def test_source_reference():
     assert CJK("已").source_reference() == [
-        SrcRef(submitter=SrcRef.Submitter.CHINA_SINGAPORE, reference="G0-5251"),
-        SrcRef(submitter=SrcRef.Submitter.HONG_KONG_SAR, reference="HB1-A477"),
-        SrcRef(submitter=SrcRef.Submitter.JAPAN, reference="J0-5661"),
-        SrcRef(submitter=SrcRef.Submitter.ROK, reference="K0-6C2B"),
-        SrcRef(submitter=SrcRef.Submitter.DPRK, reference="KP0-FCAC"),
-        SrcRef(submitter=SrcRef.Submitter.TCA, reference="T1-4458"),
-        SrcRef(submitter=SrcRef.Submitter.VIETNAM, reference="V1-5360"),
+        SrcRef(reference="G0-5251"),
+        SrcRef(reference="HB1-A477"),
+        SrcRef(reference="J0-5661"),
+        SrcRef(reference="K0-6C2B"),
+        SrcRef(reference="KP0-FCAC"),
+        SrcRef(reference="T1-4458"),
+        SrcRef(reference="V1-5360"),
     ]
 
 
