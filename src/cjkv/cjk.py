@@ -72,16 +72,30 @@ def load_ucd_Blocks() -> list[Block]:
 @functools.lru_cache(maxsize=1)
 def load_charts_RSIndex() -> dict[RS, list[CJK]]:
     rs_index_file = Dirs.CHARTS / "RSIndex.txt"
-    lines = TxtParser.get_txt(rs_index_file)
-    lines = TxtParser.filter(lines, line_has_content)
+    lines = TxtParser.filter(TxtParser.get_txt(rs_index_file), line_has_content)
+    lines = [line.split("#")[0].rstrip() for line in lines]
 
     result = {}
+    sep_pattern = re.compile(r"(\|+)\s*")
+
+    def _add_entry(base_rs: RS, variant: int, data_str: str):
+        if data_str:
+            data_str = data_str.strip()
+            rs_obj = RS(radical=base_rs.radical, variant=variant, residual_stroke=base_rs.residual_stroke)
+            result[rs_obj] = [CJK.from_(val) for val in data_str.split()]
+
     for line in lines:
-        parts = line.split("\t")
-        rs_part, unicode_values = parts[0], parts[1].split()
-        rs_obj = RS.from_unihan(rs_part)
-        cjk_list = [CJK.from_(value) for value in unicode_values]
-        result[rs_obj] = cjk_list
+        rs_part, data_part = line.split("\t", maxsplit=1)
+        base_rs = RS.from_unihan(rs_part)
+        matches = list(sep_pattern.finditer(data_part))
+        radical = data_part[: matches[0].start()].strip() if matches else data_part.strip()
+        _add_entry(base_rs, 0, radical)
+
+        for i, match in enumerate(matches):
+            variant = len(match.group(1))
+            end = matches[i + 1].start() if (i + 1 < len(matches)) else len(data_part)
+            variant_data = data_part[match.end() : end].strip()
+            _add_entry(base_rs, variant, variant_data)
     return result
 
 
@@ -110,6 +124,9 @@ class RS:
     radical: int
     variant: int
     residual_stroke: int
+
+    def __hash__(self):
+        return hash((self.radical, self.variant, self.residual_stroke))
 
     def to_unihan(self) -> str:
         """
@@ -178,7 +195,7 @@ class RS:
         return data[radical_variant][1]
 
     def ideographs(self) -> list[CJK]:
-        return load_charts_RSIndex().get(self.no_variant(), [])
+        return load_charts_RSIndex().get(self, [])
 
 
 @dataclass
@@ -187,7 +204,7 @@ class IDS:
 
 
 def line_has_content(line: str) -> bool:
-    return bool(line.split("#")[0].strip())
+    return bool(line.split("#")[0].rstrip())
 
 
 @dataclass
@@ -253,8 +270,11 @@ def load_ucd_EquivalentUnifiedIdeograph() -> dict[CodePoint, CodePoint]:
 
 @dataclass
 class SrcRef:
-    submitter: Submitter
     reference: str
+
+    @property
+    def submitter(self) -> Submitter:
+        return self.get_submitter_source(self.reference)
 
     @property
     def prefix(self) -> str:
@@ -303,6 +323,16 @@ class SrcRef:
 
         def __repr__(self):
             return self.name
+
+    def find(self) -> CJK | None:
+        for codepoint, fields in load_unihan_IRGSources().items():
+            for value in fields.values():
+                if self.reference in value:
+                    return CJK(codepoint)
+        return None
+
+    def is_valid(self) -> bool:
+        return self.find() is not None
 
 
 class CJK(CodePoint):
@@ -366,11 +396,23 @@ class CJK(CodePoint):
             values.extend([RS.from_unihan(token) for token in data.split()])
         return values
 
-    @staticmethod
-    def to_simplified(text: str) -> str: ...
+    def primary_radical_stroke(self) -> RS:
+        assert self.radical_strokes(), f"CJK {self} has no radical strokes"
+        return self.radical_strokes()[0]
 
     @staticmethod
-    def to_traditional(text: str) -> str: ...
+    def to_simplified() -> CJK | None:
+        # TODO: the logic may be related to `kSimplifiedVariant` in the Unihan database.
+        # Andrew have maintained the related data, but the data is quite different and
+        # needs to be reviewed and merged into the Unihan database.
+        ...
+
+    @staticmethod
+    def to_traditional() -> CJK | None:
+        # TODO: the logic may be related to `kTraditionalVariant` in the Unihan database.
+        # Andrew have maintained the related data, but the data is quite different and
+        # needs to be reviewed and merged into the Unihan database.
+        ...
 
     def to_equivalent(self) -> CJK | None:
         equivalents = load_ucd_EquivalentUnifiedIdeograph()
@@ -378,16 +420,28 @@ class CJK(CodePoint):
         return CJK.from_codepoint(target)
 
     @staticmethod
-    def to_shinjitai(text: str) -> str: ...
+    def to_shinjitai() -> CJK | None:
+        # TODO: the data has been extract to `babelsoft/ShinjitaiMapping.yaml`.
+        # We found multiple shinjitai mappings to multiple kyujitai, so the logic is complex.
+        ...
 
     @staticmethod
-    def to_kyujitai(text: str) -> str: ...
+    def to_kyujitai() -> CJK | None:
+        # TODO: the data has been extract to `babelsoft/ShinjitaiMapping.yaml`.
+        # We found multiple shinjitai mappings to multiple kyujitai, so the logic is complex.
+        ...
 
     @staticmethod
-    def to_xinzixing(text: str) -> str: ...
+    def to_xinzixing() -> CJK | None:
+        # TODO: the data has been extract to `babelsoft/XinJiuMapping.yaml`.
+        # The logic is simple.
+        ...
 
     @staticmethod
-    def to_jiuzixing(text: str) -> str: ...
+    def to_jiuzixing() -> CJK | None:
+        # TODO: the data has been extract to `babelsoft/XinJiuMapping.yaml`.
+        # The logic is simple.
+        ...
 
     def source_reference(self, *, submitter: SrcRef.Submitter | list[SrcRef.Submitter] | None = None) -> list[SrcRef]:
         data = load_unihan_IRGSources().get(self)

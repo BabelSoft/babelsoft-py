@@ -13,5 +13,22 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.testing.autoTestDiscoverOnSaveEnabled": true
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "cSpell.words": [
+        "babelsoft",
+        "BABELSTONE",
+        "cjkui",
+        "CJKUI",
+        "cjkv",
+        "codepoint",
+        "DPRK",
+        "jiuzixing",
+        "Kangxi",
+        "kyujitai",
+        "shinjitai",
+        "unihan",
+        "Unihan",
+        "UNIHAN",
+        "xinzixing"
+    ]
 }

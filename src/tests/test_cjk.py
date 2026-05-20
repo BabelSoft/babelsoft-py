@@ -5,7 +5,7 @@ LIB_DIR = Path(__file__).parent.parent.parent
 sys.path.append(str(LIB_DIR))
 
 
-from src.cjkv.cjk import CJK, IDS, SrcRef  # noqa: E402
+from src.cjkv.cjk import CJK, IDS, RS, SrcRef  # noqa: E402
 
 
 def test_cjk():
@@ -41,3 +41,15 @@ def test_source_reference():
         SrcRef(submitter=SrcRef.Submitter.TCA, reference="T1-4458"),
         SrcRef(submitter=SrcRef.Submitter.VIETNAM, reference="V1-5360"),
     ]
+
+
+def test_find():
+    src_ref = SrcRef(reference="G0-5251")
+    assert src_ref.find() == CJK("已")
+
+
+def test_ideographs():
+    assert RS.from_unihan("212.11").ideographs() == [CJK(0x2A6A3), CJK(0x2A6A4), CJK(0x32ACB), CJK(0x33476)]
+    assert RS.from_unihan("212'.11").ideographs() == [CJK(0x2CE9D)]
+    assert RS.from_unihan("212''.11").ideographs() == [CJK(0x2412F), CJK(0x2AC6F), CJK(0x2C099)]
+    assert RS.from_unihan("212'''.11").ideographs() == []
