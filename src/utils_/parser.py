@@ -7,7 +7,7 @@ import yaml
 
 class TxtParser:
     @staticmethod
-    def get_txt_lines(file_path: Path) -> list[str]:
+    def get_txt(file_path: Path) -> list[str]:
         with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
         if lines:

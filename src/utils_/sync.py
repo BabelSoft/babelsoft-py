@@ -3,25 +3,22 @@ from pathlib import Path
 from shutil import rmtree
 
 import requests
-from paths import DATA_BABELSTONE_DIR, DATA_CHARTS_DIR, DATA_UCD_DIR, DATA_UNIHAN_DIR
+from dirs import Dirs
 from rich.console import Console
 from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
 
 
 class UnicodeDataDownloader:
-    DATA_UCD_URL: str = "https://www.unicode.org/Public/latest/ucd/UCD.zip"
-    DATA_UNIHAN_URL: str = "https://www.unicode.org/Public/latest/ucd/Unihan.zip"
-
     console = Console()
 
     @classmethod
-    def _initialize_directories(cls, folder: Path) -> None:
+    def _initialize_folder(cls, folder: Path) -> None:
         if folder.exists():
             rmtree(folder)
         folder.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def _download_file(cls, url: str, output: Path, debug: bool = True) -> None:
+    def _download(cls, url: str, output: Path, debug: bool = True) -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
 
         progress = Progress(
@@ -51,13 +48,7 @@ class UnicodeDataDownloader:
             cls.console.print(f"✅ [green]Downloaded[/green] → {output}")
 
     @classmethod
-    def _extract_zip(
-        cls,
-        zip_path: Path,
-        output_dir: Path,
-        show_progress: bool = True,
-        txt_only: bool = False,
-    ) -> None:
+    def _extract_zip(cls, zip_path: Path, output_dir: Path, show_progress: bool = True, txt_only: bool = False) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         progress = Progress(
@@ -94,17 +85,12 @@ class UnicodeDataDownloader:
 
     @classmethod
     def _download_and_extract_zip(
-        cls,
-        url: str,
-        output: Path,
-        debug: bool = True,
-        txt_only: bool = False,
-        delete_zip: bool = True,
+        cls, url: str, output: Path, debug: bool = True, txt_only: bool = False, delete_zip: bool = True
     ) -> None:
         output.mkdir(parents=True, exist_ok=True)
         zip_path = output / Path(url).name
 
-        cls._download_file(url=url, output=zip_path, debug=debug)
+        cls._download(url=url, output=zip_path, debug=debug)
         cls._extract_zip(zip_path=zip_path, output_dir=output, show_progress=debug, txt_only=txt_only)
 
         if delete_zip and zip_path.exists():
@@ -118,31 +104,31 @@ class UnicodeDataDownloader:
 
     @classmethod
     def sync_ucd(cls, debug: bool = True) -> None:
-        cls._initialize_directories(DATA_UCD_DIR)
-
+        cls._initialize_folder(Dirs.UCD)
+        ucd_url: str = "https://www.unicode.org/Public/latest/ucd/UCD.zip"
         cls.console.print("[bold yellow]=== Download UCD data ===")
-        cls._download_and_extract_txt_only(url=cls.DATA_UCD_URL, output=DATA_UCD_DIR, debug=debug)
+        cls._download_and_extract_txt_only(url=ucd_url, output=Dirs.UCD, debug=debug)
 
     @classmethod
     def sync_unihan(cls, debug: bool = True) -> None:
-        cls._initialize_directories(DATA_UNIHAN_DIR)
-
+        cls._initialize_folder(Dirs.UNIHAN)
+        unihan_url: str = "https://www.unicode.org/Public/latest/ucd/Unihan.zip"
         cls.console.print("[bold yellow]=== Download Unihan data ===")
-        cls._download_and_extract_txt_only(url=cls.DATA_UNIHAN_URL, output=DATA_UNIHAN_DIR, debug=debug)
+        cls._download_and_extract_txt_only(url=unihan_url, output=Dirs.UNIHAN, debug=debug)
 
     @classmethod
     def sync_ids(cls, debug: bool = True) -> None:
+        cls._initialize_folder(Dirs.BABELSTONE)
+        ids_url: str = "https://www.babelstone.co.uk/CJK/IDS.TXT"
         cls.console.print("[bold yellow]=== Download IDS data ===")
-        ids_url = "https://www.babelstone.co.uk/CJK/IDS.TXT"
-        ids_output = DATA_BABELSTONE_DIR / "IDS.TXT"
-        cls._download_file(url=ids_url, output=ids_output, debug=debug)
+        cls._download(url=ids_url, output=Dirs.BABELSTONE / "IDS.TXT", debug=debug)
 
     @classmethod
     def sync_charts(cls, debug: bool = True) -> None:
-        cls._initialize_directories(DATA_CHARTS_DIR)
-        charts_url = "https://www.unicode.org/Public/latest/charts/RSIndex.txt"
+        cls._initialize_folder(Dirs.CHARTS)
+        charts_url: str = "https://www.unicode.org/Public/latest/charts/RSIndex.txt"
         cls.console.print("[bold yellow]=== Download charts data ===")
-        cls._download_file(url=charts_url, output=DATA_CHARTS_DIR / "RSIndex.txt", debug=debug)
+        cls._download(url=charts_url, output=Dirs.CHARTS / "RSIndex.txt", debug=debug)
 
 
 if __name__ == "__main__":

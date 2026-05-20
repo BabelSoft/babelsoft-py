@@ -4,30 +4,19 @@ import functools
 import re
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 
+from src.utils_.dirs import Dirs
 from src.utils_.parser import TxtParser
-from src.utils_.paths import DATA_BABELSTONE_DIR, DATA_CHARTS_DIR, DATA_UCD_DIR, DATA_UNIHAN_DIR
 
-DISCRIMINATED_CJK = {
-    0xFA0E,
-    0xFA0F,
-    0xFA11,
-    0xFA13,
-    0xFA14,
-    0xFA1F,
-    0xFA21,
-    0xFA23,
-    0xFA24,
-    0xFA27,
-    0xFA28,
-    0xFA29,
-}
+DISCRIMINATED_CJK = {0xFA0E, 0xFA0F, 0xFA11, 0xFA13, 0xFA14, 0xFA1F, 0xFA21, 0xFA23, 0xFA24, 0xFA27, 0xFA28, 0xFA29}
 
 
 class CodePoint(int):
     def __repr__(self) -> str:
         return f"0x{self:04X}"
+
+    def to_unicode(self) -> str:
+        return f"U+{self:04X}"
 
     def __new__(cls, value: int | str):
         if isinstance(value, str):
@@ -42,10 +31,10 @@ class CodePoint(int):
         return int.__new__(cls, value)
 
     @classmethod
-    def from_(cls, value: int | str) -> CodePoint:
+    def from_(cls, value: int | str | CodePoint | CJK | None) -> CodePoint | None:
         if not value:
             return None
-        if isinstance(value, int):
+        if isinstance(value, int | CodePoint | CJK):
             return cls(value)
         value = value.strip()
         if len(value) == 1:
@@ -72,18 +61,18 @@ class Block:
 
 
 @functools.lru_cache(maxsize=1)
-def load_Blocks() -> list[Block]:
-    blocks_dir = DATA_UCD_DIR / "Blocks.txt"
-    txt = TxtParser.get_txt_lines(blocks_dir)
+def load_ucd_Blocks() -> list[Block]:
+    blocks_dir = Dirs.UCD / "Blocks.txt"
+    txt = TxtParser.get_txt(blocks_dir)
     txt = TxtParser.filter(txt, line_has_content)
     parsed = TxtParser.match(txt, re.compile(r"([\da-fA-F]+)\.\.([\da-fA-F]+); (.+)"))
-    return [Block(int(start, 16), int(end, 16), name.strip()) for start, end, name in parsed]
+    return [Block(int(s, 16), int(e, 16), name.strip()) for s, e, name in parsed]  # type: ignore
 
 
 @functools.lru_cache(maxsize=1)
-def load_RSIndex() -> dict[RS, list[CJK]]:
-    rs_index_file = DATA_CHARTS_DIR / "RSIndex.txt"
-    lines = TxtParser.get_txt_lines(rs_index_file)
+def load_charts_RSIndex() -> dict[RS, list[CJK]]:
+    rs_index_file = Dirs.CHARTS / "RSIndex.txt"
+    lines = TxtParser.get_txt(rs_index_file)
     lines = TxtParser.filter(lines, line_has_content)
 
     result = {}
@@ -96,46 +85,100 @@ def load_RSIndex() -> dict[RS, list[CJK]]:
     return result
 
 
+@functools.lru_cache(maxsize=1)
+def load_ucd_CJKRadicals() -> dict[RS, tuple[CJK, CJK]]:
+    cjk_radicals_file = Dirs.UCD / "CJKRadicals.txt"
+    lines = TxtParser.get_txt(cjk_radicals_file)
+    lines = TxtParser.filter(lines, line_has_content)
+
+    cjk_radicals_dict = {}
+    for line in lines:
+        matches = re.match(r"([\da-fA-F]+); ([\da-fA-F]+); ([\da-fA-F]+)", line)
+        if matches:
+            cjk_radicals_dict[RS.from_unihan(matches.group(1))] = (
+                CJK.from_(matches.group(2)),
+                CJK.from_(matches.group(3)),
+            )
+    return cjk_radicals_dict
+
+
+BIG_NUMBER = 100
+
+
 @dataclass
 class RS:
     radical: int
     variant: int
-    stroke: int
+    residual_stroke: int
 
     def to_unihan(self) -> str:
+        """
+        >>> RS(radical=212, variant=3, residual_stroke=-1).to_unihan()
+        "212'''.-1"
+        """
         variant_map = {0: "", 1: "'", 2: "''", 3: "'''"}
         variant = variant_map.get(self.variant, "")
-        return f"{self.radical}{variant}.{self.stroke}"
+        return f"{self.radical}{variant}.{self.residual_stroke}"
 
     def no_variant(self) -> RS:
-        return RS(radical=self.radical, variant=0, stroke=self.stroke)
+        """
+        >>> RS(radical=212, variant=3, residual_stroke=-1).no_variant()
+        RS(radical=212, variant=0, residual_stroke=-1)
+        """
+        return RS(radical=self.radical, variant=0, residual_stroke=self.residual_stroke)
 
     @classmethod
     def from_unihan(cls, text: str) -> RS:
-        radical_variant, stroke = text.split(".")
-        if radical_variant.endswith("'''"):
-            radical, variant = radical_variant[:-3], 3
-        elif radical_variant.endswith("''"):
-            radical, variant = radical_variant[:-2], 2
-        elif radical_variant.endswith("'"):
-            radical, variant = radical_variant[:-1], 1
+        """
+        >>> RS.from_unihan("212'''.6"), RS.from_unihan("212'''")
+        (RS(radical=212, variant=3, residual_stroke=6), RS(radical=212, variant=3, residual_stroke=0))
+        """
+        radical_variant, *stroke = text.split(".")
+        stroke = stroke[0] if stroke else 0
+        for i in range(BIG_NUMBER, 0, -1):
+            if radical_variant.endswith("'" * i):
+                radical, variant = radical_variant[:-i], i
+                break
         else:
             radical, variant = radical_variant, 0
-        return cls(radical=int(radical), variant=variant, stroke=int(stroke))
+        return cls(radical=int(radical), variant=variant, residual_stroke=int(stroke))
 
     def to_irg_radical(self) -> str:
+        """
+        >>> RS(radical=212, variant=3, residual_stroke=6).to_irg_radical()
+        '212.3'
+        """
         return f"{self.radical}.{self.variant}"
 
-    def from_irg_radical(cls, text: str) -> tuple[int, int]:
+    @classmethod
+    def from_irg_radical(cls, text: str) -> RS:
+        """
+        >>> RS.from_irg_radical("212.3"), RS.from_irg_radical("212.0")
+        (RS(radical=212, variant=3, residual_stroke=0), RS(radical=212, variant=0, residual_stroke=0))
+        """
         radical, variant = text.split(".")
-        return int(radical), int(variant)
+        return cls(int(radical), int(variant), 0)
 
-    def radical_char(self) -> str: ...
+    def radical_char(self) -> CJK:
+        """Use Kangxi radicals first."""
+        data = load_ucd_CJKRadicals()
+        radical_variant = RS(self.radical, self.variant, 0)
+        if radical_variant not in data:
+            raise ValueError(f"Radical variant {radical_variant} not found")
+        if bad_radical := data[radical_variant][0]:
+            return bad_radical
+        return self.radical_char_normalized()
 
-    def radical_char_normalized(self) -> str: ...
+    def radical_char_normalized(self) -> CJK:
+        """Use CJKUI radicals first."""
+        data = load_ucd_CJKRadicals()
+        radical_variant = RS(self.radical, self.variant, 0)
+        if radical_variant not in data:
+            raise ValueError(f"Radical variant {radical_variant} not found")
+        return data[radical_variant][1]
 
     def ideographs(self) -> list[CJK]:
-        return load_RSIndex()[self.no_variant()]
+        return load_charts_RSIndex().get(self.no_variant(), [])
 
 
 @dataclass
@@ -168,19 +211,13 @@ class IDSInfo:
         comment = comment_fields[0].removeprefix("*") if comment_fields else ""
         return cls(cjk=cjk, ids_list=ids_list, comment=comment)
 
-    @classmethod
-    def from_dir(cls, dir_path: Path) -> list[IDSInfo]:
-        lines = TxtParser.get_txt_lines(dir_path / "IDS.TXT")
-        lines = TxtParser.filter(lines, line_has_content)
-        return [cls.from_line(line) for line in lines]
-
     def __repr__(self) -> str:
-        return f"IDSInfo(cjk={self.cjk}, ids_list={self.ids_list}, comment={self.comment})"
+        return f"IDSInfo(cjk={self.cjk}, ids={self.ids_list}, comment={self.comment})"
 
 
 @functools.lru_cache(maxsize=1)
-def load_Unihan_IRGSources() -> dict[CodePoint, dict[str, list[str]]]:
-    lines = TxtParser.get_txt_lines(DATA_UNIHAN_DIR / "Unihan_IRGSources.txt")
+def load_unihan_IRGSources() -> dict[CodePoint, dict[str, list[str]]]:
+    lines = TxtParser.get_txt(Dirs.UNIHAN / "Unihan_IRGSources.txt")
     values: dict[CodePoint, dict[str, list[str]]] = {}
     for line in lines:
         if not line.strip() or line.lstrip().startswith("#"):
@@ -197,12 +234,10 @@ def load_Unihan_IRGSources() -> dict[CodePoint, dict[str, list[str]]]:
 
 
 @functools.lru_cache(maxsize=1)
-def load_EquivalentUnifiedIdeograph() -> dict[CodePoint, CodePoint]:
-    lines = TxtParser.get_txt_lines(DATA_UCD_DIR / "EquivalentUnifiedIdeograph.txt")
+def load_ucd_EquivalentUnifiedIdeograph() -> dict[CodePoint, CodePoint]:
+    lines = TxtParser.get_txt(Dirs.UCD / "EquivalentUnifiedIdeograph.txt")
     lines = TxtParser.filter(lines, line_has_content)
-    parsed = TxtParser.match(
-        lines, re.compile(r"^\s*([0-9A-Fa-f]{4,6})(?:\.\.([0-9A-Fa-f]{4,6}))?\s*;\s*([0-9A-Fa-f]{4,6})")
-    )
+    parsed = TxtParser.match(lines, re.compile(r"^\s*([0-9A-Fa-f]+)(?:\.\.([0-9A-Fa-f]+))?\s*;\s*([0-9A-Fa-f]+)"))
     equivalents: dict[CodePoint, CodePoint] = {}
     for start_hex, end_hex, target_hex in parsed:
         start = CodePoint.from_(start_hex)
@@ -211,27 +246,9 @@ def load_EquivalentUnifiedIdeograph() -> dict[CodePoint, CodePoint]:
         else:
             end = CodePoint.from_(end_hex)
         target = CodePoint.from_(target_hex)
-        for codepoint in range(start, end + 1):
-            equivalents[codepoint] = target
+        for codepoint in range(start, end + 1):  # type: ignore
+            equivalents[codepoint] = target  # type: ignore
     return equivalents
-
-
-class Submitter(Enum):
-    CHINA_SINGAPORE = "G"
-    HONG_KONG_SAR = "H"
-    JAPAN = "J"
-    ROK = "K"
-    DPRK = "KP"
-    MACAO_SAR = "M"
-    MALAYSIA = "MY"
-    SAT = "SAT"
-    TCA = "T"
-    UK = "UK"
-    US_UTC = "UTC"
-    VIETNAM = "V"
-
-    def __repr__(self):
-        return self.name
 
 
 @dataclass
@@ -239,37 +256,63 @@ class SrcRef:
     submitter: Submitter
     reference: str
 
-    @staticmethod
-    def get_submitter_source(ref: str) -> Submitter:
+    @property
+    def prefix(self) -> str:
+        return self.reference.split("-")[0]
+
+    def get_submitter_source(self, ref: str) -> Submitter:
         ref = ref.strip().upper()
+        if ref.startswith("G"):
+            return self.Submitter.CHINA_SINGAPORE
+        if ref.startswith("H"):
+            return self.Submitter.HONG_KONG_SAR
+        if ref.startswith("T"):
+            return self.Submitter.TCA
+        if ref.startswith("J"):
+            return self.Submitter.JAPAN
         if ref.startswith("KP"):
-            return Submitter.DPRK
-        elif ref.startswith("K"):
-            return Submitter.ROK
-        elif ref.startswith("G"):
-            return Submitter.CHINA_SINGAPORE
-        elif ref.startswith("H"):
-            return Submitter.HONG_KONG_SAR
-        elif ref.startswith("J"):
-            return Submitter.JAPAN
-        elif ref.startswith("MY"):
-            return Submitter.MALAYSIA
-        elif ref.startswith("M"):
-            return Submitter.MACAO_SAR
-        elif ref.startswith("SAT"):
-            return Submitter.SAT
-        elif ref.startswith("T"):
-            return Submitter.TCA
-        elif ref.startswith("UK"):
-            return Submitter.UK
-        elif ref.startswith("UTC"):
-            return Submitter.US_UTC
+            return self.Submitter.DPRK
+        if ref.startswith("K"):
+            return self.Submitter.ROK
+        if ref.startswith("MY"):
+            return self.Submitter.MALAYSIA
+        if ref.startswith("M"):
+            return self.Submitter.MACAO_SAR
+        if ref.startswith("SAT"):
+            return self.Submitter.SAT
+        if ref.startswith("UK"):
+            return self.Submitter.UK
+        if ref.startswith("UTC"):
+            return self.Submitter.US_UTC
         assert ref.startswith("V"), f"Unknown submitter: {ref}"
-        return Submitter.VIETNAM
+        return self.Submitter.VIETNAM
+
+    class Submitter(Enum):
+        CHINA_SINGAPORE = "G"
+        HONG_KONG_SAR = "H"
+        JAPAN = "J"
+        ROK = "K"
+        DPRK = "KP"
+        MACAO_SAR = "M"
+        MALAYSIA = "MY"
+        SAT = "SAT"
+        TCA = "T"
+        UK = "UK"
+        US_UTC = "UTC"
+        VIETNAM = "V"
+
+        def __repr__(self):
+            return self.name
 
 
 class CJK(CodePoint):
     __hash__ = int.__hash__
+
+    @classmethod
+    def from_codepoint(cls, codepoint: CodePoint | None) -> CJK | None:
+        if codepoint is None:
+            return None
+        return cls(codepoint)
 
     def __repr__(self):
         return f"CJK({CodePoint(self)}, {chr(self)})"
@@ -283,7 +326,7 @@ class CJK(CodePoint):
         def _cjkui(b: Block) -> bool:
             return "CJK" in b.name and "Ideographs" in b.name and "Compatibility" not in b.name
 
-        blocks = filter(_cjkui, load_Blocks())
+        blocks = filter(_cjkui, load_ucd_Blocks())
         for block in blocks:
             if block.start <= self <= block.end:
                 return True
@@ -293,7 +336,7 @@ class CJK(CodePoint):
         def _compat(b: Block) -> bool:
             return "CJK" in b.name and "Ideographs" in b.name and "Compatibility" in b.name
 
-        blocks = filter(_compat, load_Blocks())
+        blocks = filter(_compat, load_ucd_Blocks())
         for block in blocks:
             if block.start <= self <= block.end:
                 return True
@@ -309,11 +352,13 @@ class CJK(CodePoint):
         return False
 
     def ids_babelsoft(self) -> IDSInfo | None:
-        ids_info_list = IDSInfo.from_dir(DATA_BABELSTONE_DIR)
-        return next(filter(lambda x: x.cjk == self, ids_info_list), None)
+        lines = TxtParser.get_txt(Dirs.BABELSTONE / "IDS.TXT")
+        lines = TxtParser.filter(lines, line_has_content)
+        ids_info_list = [IDSInfo.from_line(line) for line in lines]
+        return next(filter(lambda x: x.cjk == self, ids_info_list), None)  # type: ignore
 
     def radical_strokes(self) -> list[RS]:
-        sources = load_Unihan_IRGSources().get(self)
+        sources = load_unihan_IRGSources().get(self)
         if not sources:
             return []
         values = []
@@ -328,11 +373,9 @@ class CJK(CodePoint):
     def to_traditional(text: str) -> str: ...
 
     def to_equivalent(self) -> CJK | None:
-        equivalents = load_EquivalentUnifiedIdeograph()
+        equivalents = load_ucd_EquivalentUnifiedIdeograph()
         target = equivalents.get(self)
-        if target is None:
-            return None
-        return CJK.from_(target)
+        return CJK.from_codepoint(target)
 
     @staticmethod
     def to_shinjitai(text: str) -> str: ...
@@ -346,15 +389,14 @@ class CJK(CodePoint):
     @staticmethod
     def to_jiuzixing(text: str) -> str: ...
 
-    def source_reference(self, *, submitters: Submitter | list[Submitter] | None = None) -> list[SrcRef]:
-        data = load_Unihan_IRGSources().get(self)
+    def source_reference(self, *, submitter: SrcRef.Submitter | list[SrcRef.Submitter] | None = None) -> list[SrcRef]:
+        data = load_unihan_IRGSources().get(self)
         if not data:
             return []
-        submitters = [submitters] if isinstance(submitters, Submitter) else (submitters or list(Submitter))
+        submitters = [submitter] if isinstance(submitter, SrcRef.Submitter) else (submitter or list(SrcRef.Submitter))
 
         results = []
         for submitter in submitters:
-            result = data.get(f"kIRG_{submitter.value}Source", "")
-            if result:
+            if result := data.get(f"kIRG_{submitter.value}Source", ""):
                 results.append(SrcRef(submitter=submitter, reference=result[0]))
         return results
