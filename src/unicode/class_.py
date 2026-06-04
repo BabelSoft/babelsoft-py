@@ -26,10 +26,10 @@ class CodePoint(int):
         return int.__new__(cls, value)
 
     @classmethod
-    def from_(cls, value: int | str | CodePoint | CJK | None) -> CodePoint | None:
+    def from_(cls, value: int | str | CodePoint | None = None) -> CodePoint | None:
         if not value:
             return None
-        if isinstance(value, int | CodePoint | CJK):
+        if isinstance(value, int):  # catches CodePoint and CJK subclasses too
             return cls(value)
         value = value.strip()
         if len(value) == 1:

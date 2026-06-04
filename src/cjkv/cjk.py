@@ -3,10 +3,15 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from enum import Enum
+from typing import ClassVar
 
 from src.unicode.class_ import CodePoint
-from src.utils_.loader import CJKLoader, DISCRIMINATED_CJK, _SRC_BIT_MAP, _SRC_PATTERN_MAP
+from src.utils_.loader import CJKLoader
 from src.utils_.parser import TxtParser, line_has_content
+
+DISCRIMINATED_CJK = frozenset(
+    (0xFA0E, 0xFA0F, 0xFA11, 0xFA13, 0xFA14, 0xFA1F, 0xFA21, 0xFA23, 0xFA24, 0xFA27, 0xFA28, 0xFA29)
+)
 
 
 @dataclass(frozen=True)
@@ -110,51 +115,85 @@ class IDSInfo:
         return f"IDSInfo(cjk={self.cjk}, ids={self.ids_list}, comment={self.comment})"
 
 
+@dataclass(frozen=True)
+class _Src:
+    """Metadata for a single IRG submitter source."""
+
+    name: str
+    label: str
+    bit: int
+    pattern: str
+    field: str
+
+
 @dataclass
 class SrcRef:
     reference: str = ""
 
-    class Submitter(Enum):
-        CHINA_SINGAPORE = "G"
-        HONG_KONG_SAR = "H"
-        JAPAN = "J"
-        ROK = "K"
-        DPRK = "KP"
-        MACAO_SAR = "M"
-        MALAYSIA = "MY"
-        SAT = "SAT"
-        TCA = "T"
-        UK = "UK"
-        US_UTC = "UTC"
-        VIETNAM = "V"
+    class IRGSrc:
+        """Central registry of IRG submitter sources."""
 
-        def __repr__(self):
-            return self.name
+        G = _Src("CHINA_SINGAPORE", "China", 0x0001, " G", "kIRG_GSource")
+        H = _Src("HONG_KONG_SAR", "HongKong", 0x0002, " H", "kIRG_HSource")
+        J = _Src("JAPAN", "Japan", 0x0004, " J", "kIRG_JSource")
+        KP = _Src("DPRK", "DPRK", 0x0008, " KP", "kIRG_KPSource")
+        K = _Src("ROK", "ROK", 0x0010, " K", "kIRG_KSource")
+        M = _Src("MACAO_SAR", "Macau", 0x0020, " M", "kIRG_MSource")
+        S = _Src("SAT", "SAT", 0x0040, " S", "kIRG_SSource")
+        T = _Src("TCA", "TCA", 0x0080, " T", "kIRG_TSource")
+        UK = _Src("UK", "UK", 0x0100, " UK", "kIRG_UKSource")
+        U = _Src("US_UTC", "UTC", 0x0200, " UTC", "kIRG_USource")
+        V = _Src("VIETNAM", "Vietnam", 0x0400, " V", "kIRG_VSource")
+
+        _BY_CODE: ClassVar[dict[str, _Src]] = {
+            "G": G,
+            "H": H,
+            "J": J,
+            "KP": KP,
+            "K": K,
+            "M": M,
+            "S": S,
+            "T": T,
+            "UK": UK,
+            "U": U,
+            "V": V,
+        }
+
+        _REF_PREFIX: ClassVar[dict[str, str | None]] = {
+            "G": "G",
+            "H": "H",
+            "J": "J",
+            "KP": "KP",
+            "K": "K",
+            "M": "M",
+            "MY": None,
+            "SAT": "S",
+            "T": "T",
+            "UK": "UK",
+            "UTC": "U",
+            "V": "V",
+        }
+
+        @classmethod
+        def by_code(cls, code: str) -> _Src:
+            return cls._BY_CODE[code]
+
+        @classmethod
+        def all(cls) -> dict[str, _Src]:
+            return cls._BY_CODE
 
     @property
     def prefix(self) -> str:
         return self.reference.split("-", 1)[0]
 
     @property
-    def submitter(self) -> SrcRef.Submitter:
+    def submitter(self) -> _Src | None:
         ref = self.reference.strip().upper()
-        mapping = {
-            "G": self.Submitter.CHINA_SINGAPORE,
-            "H": self.Submitter.HONG_KONG_SAR,
-            "T": self.Submitter.TCA,
-            "J": self.Submitter.JAPAN,
-            "KP": self.Submitter.DPRK,
-            "K": self.Submitter.ROK,
-            "MY": self.Submitter.MALAYSIA,
-            "M": self.Submitter.MACAO_SAR,
-            "UK": self.Submitter.UK,
-            "UTC": self.Submitter.US_UTC,
-            "V": self.Submitter.VIETNAM,
-        }
-        for key, val in mapping.items():
-            if ref.startswith(key):
-                return val
-        raise ValueError(f"Unknown submitter: {ref}")
+        for prefix in sorted(SrcRef.IRGSrc._REF_PREFIX, key=len, reverse=True):
+            if ref.startswith(prefix):
+                code = SrcRef.IRGSrc._REF_PREFIX[prefix]
+                return SrcRef.IRGSrc.by_code(code) if code else None
+        return None
 
     def find(self) -> CJK | None:
         cp = CJKLoader.load_cjk_irg_reverse().get(self.reference)
@@ -162,6 +201,12 @@ class SrcRef:
 
     def is_valid(self) -> bool:
         return self.find() is not None
+
+
+# Derived convenience maps from SrcRef.IRGSource
+SRC_PATTERN_MAP = {k: v.pattern for k, v in SrcRef.IRGSrc.all().items()}
+SRC_BIT_MAP = {k: v.bit for k, v in SrcRef.IRGSrc.all().items()}
+IRG_FIELD_TO_SOURCE = {v.field: k for k, v in SrcRef.IRGSrc.all().items()}
 
 
 class CJKFlags(Enum):
@@ -203,7 +248,7 @@ class CJK(CodePoint):
         if self._in_blocks("Unified Ideograph"):
             return True
         if self._in_blocks("Compatibility Ideograph"):
-            return compatibility and self in DISCRIMINATED_CJK
+            return compatibility or self in DISCRIMINATED_CJK
         return False
 
     def ids_babelsoft(self) -> IDSInfo | None:
@@ -274,6 +319,19 @@ class CJK(CodePoint):
     def is_zhuang(self) -> bool:
         return self._has_flag(CJKFlags.ZHUANG.value)
 
+    def filter_traditional(self) -> bool:
+        return not self._has_flag(CJKFlags.JIANTI.value)
+
+    def filter_simplified(self) -> bool:
+        return not self._has_flag(CJKFlags.FANTI.value)
+
+    def source_refs(self) -> str:
+        irg = self._irg_data()
+        return irg[1] if irg else ""
+
+    def readings(self) -> dict[str, str]:
+        return CJKLoader.load_unihan_Readings().get(int(self), {})
+
     def to_simplified(self):
         return CJK.from_codepoint(self._get_simplified_mapping(int(self)))
 
@@ -303,16 +361,16 @@ class CJK(CodePoint):
         return None
 
     def to_shinjitai(self):
-        return CJK.from_codepoint(CJKLoader.load_shinjitai_maps()[0].get(int(self))) if self.is_kyujitai() else None
+        return CJK.from_codepoint(CJKLoader.load_shinjitai_maps()[1].get(int(self))) if self.is_kyujitai() else None
 
     def to_kyujitai(self):
-        return CJK.from_codepoint(CJKLoader.load_shinjitai_maps()[1].get(int(self))) if self.is_shinjitai() else None
+        return CJK.from_codepoint(CJKLoader.load_shinjitai_maps()[0].get(int(self))) if self.is_shinjitai() else None
 
     def to_xinzixing(self):
-        return CJK.from_codepoint(CJKLoader.load_xinjiu_maps()[0].get(int(self))) if self.is_jiuzixing() else None
+        return CJK.from_codepoint(CJKLoader.load_xinjiu_maps()[1].get(int(self))) if self.is_jiuzixing() else None
 
     def to_jiuzixing(self):
-        return CJK.from_codepoint(CJKLoader.load_xinjiu_maps()[1].get(int(self))) if self.is_xinzixing() else None
+        return CJK.from_codepoint(CJKLoader.load_xinjiu_maps()[0].get(int(self))) if self.is_xinzixing() else None
 
     def _irg_data(self):
         return CJKLoader.load_cjk_irg_sources().get(int(self))
@@ -321,7 +379,7 @@ class CJK(CodePoint):
         irg = self._irg_data()
         if not irg or source not in irg[0]:
             return ""
-        pattern = _SRC_PATTERN_MAP.get(source, f" {source}")
+        pattern = SRC_PATTERN_MAP.get(source, f" {source}")
         ref_str = f" {irg[1]},"
         idx = ref_str.find(pattern)
         if idx == -1:
@@ -353,7 +411,7 @@ class CJK(CodePoint):
         if unified_only and not self._in_blocks("Unified Ideograph"):
             return False, ""
         src_list, refs = irg
-        mask = sum(_SRC_BIT_MAP[s] for s in src_list if s in _SRC_BIT_MAP)
+        mask = sum(SRC_BIT_MAP[s] for s in src_list if s in SRC_BIT_MAP)
 
         if match == 0:
             ok = (mask & sources) != 0
@@ -434,13 +492,20 @@ class CJK(CodePoint):
         return ct, cs, cj
 
     def get_xml_data(self, indent: bool = False) -> str:
+        _RTYPES = {0: "Traditional", 1: "Simplified", 2: "Japanese", 3: "Vietnamese"}
         char = ET.Element("Character", cp=f"{int(self):04X}", unicode=chr(self))
 
         rs_elem = ET.SubElement(char, "RadicalStrokes")
         if rsl := self.radical_strokes():
             rs = rsl[0]
             rg = rs.radical_char() if rs.variant == 0 else rs.radical_char_normalized()
-            rad = ET.SubElement(rs_elem, "Radical", cp=f"{int(rg):04X}", index=str(rs.radical.rad), type="Traditional")
+            rad = ET.SubElement(
+                rs_elem,
+                "Radical",
+                cp=f"{int(rg):04X}",
+                index=str(rs.radical.rad),
+                type=_RTYPES.get(rs.variant, "Traditional"),
+            )
             rad.text = chr(rg)
             ET.SubElement(rs_elem, "RadicalStrokeCodes").text = rs.to_unihan()
 
@@ -456,6 +521,28 @@ class CJK(CodePoint):
         if sj:
             ET.SubElement(rc_elem, "SimplifiedJapanese", cp=f"{int(sj):04X}").text = chr(sj)
 
+        # Readings from Unihan
+        rd = self.readings()
+        if rd:
+            r_elem = ET.SubElement(char, "Readings")
+            for field, tag in (
+                ("kMandarin", "Mandarin"),
+                ("kCantonese", "Cantonese"),
+                ("kKorean", "Korean"),
+                ("kVietnamese", "Vietnamese"),
+                ("kZhuang", "Zhuang"),
+            ):
+                if val := rd.get(field):
+                    ET.SubElement(r_elem, tag).text = val
+
+        # Source references from IRG
+        src_data = {v.label: self.get_source_ref(k) for k, v in SrcRef.IRGSrc.all().items()}
+        if any(src_data.values()):
+            sr_elem = ET.SubElement(char, "SourceReferences")
+            for tag, ref in src_data.items():
+                if ref:
+                    ET.SubElement(sr_elem, tag).text = ref
+
         ET.indent(char, space="\t")
         raw = ET.tostring(char, encoding="unicode")
         lines = raw.rstrip().split("\n")
@@ -463,7 +550,7 @@ class CJK(CodePoint):
             lines = ["\t\t" + line for line in lines]
         return "\r\n".join(lines)
 
-    def source_reference(self, *, submitter: SrcRef.Submitter | list[SrcRef.Submitter] | None = None) -> list[SrcRef]:
+    def source_reference(self, *, submitter: _Src | list[_Src] | None = None) -> list[SrcRef]:
         data = CJKLoader.load_unihan_IRGSources().get(self, {})
-        submitters = [submitter] if isinstance(submitter, SrcRef.Submitter) else (submitter or list(SrcRef.Submitter))
-        return [SrcRef(data[f"kIRG_{s.value}Source"][0]) for s in submitters if data.get(f"kIRG_{s.value}Source")]
+        submitters = [submitter] if isinstance(submitter, _Src) else (submitter or list(SrcRef.IRGSrc.all().values()))
+        return [SrcRef(data[src.field][0]) for src in submitters if data.get(src.field)]

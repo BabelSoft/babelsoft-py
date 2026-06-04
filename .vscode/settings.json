@@ -22,13 +22,23 @@
         "cjkv",
         "codepoint",
         "DPRK",
+        "equivs",
+        "JIANTI",
         "jiuzixing",
+        "JYUTPING",
         "Kangxi",
         "kyujitai",
+        "quoc",
+        "QUOC",
+        "RTYPES",
         "shinjitai",
         "unihan",
         "Unihan",
         "UNIHAN",
-        "xinzixing"
+        "xinjiu",
+        "xinzixing",
+        "zhuang",
+        "Zhuang",
+        "ZHUANG"
     ]
 }

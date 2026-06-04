@@ -8,10 +8,6 @@ from src.unicode.class_ import Block, CodePoint
 from src.utils_.dirs import Dirs
 from src.utils_.parser import TsvParser, TxtParser, YamlParser, line_has_content
 
-DISCRIMINATED_CJK = frozenset(
-    (0xFA0E, 0xFA0F, 0xFA11, 0xFA13, 0xFA14, 0xFA1F, 0xFA21, 0xFA23, 0xFA24, 0xFA27, 0xFA28, 0xFA29)
-)
-
 
 def _parse_rs_unihan(text: str) -> tuple[int, int, int]:
     """Parse Unihan RS string like "212'''.6" -> (212, 3, 6)."""
@@ -21,34 +17,6 @@ def _parse_rs_unihan(text: str) -> tuple[int, int, int]:
     radical = int(radical_part.rstrip("'")) if variant else int(radical_part)
     return radical, variant, stroke
 
-
-_SRC_PATTERN_MAP = {
-    "G": " G",
-    "H": " H",
-    "J": " J",
-    "KP": " KP",
-    "K": " K",
-    "M": " M",
-    "S": " S",
-    "T": " T",
-    "UK": " UK",
-    "U": " UTC",
-    "V": " V",
-}
-_SRC_BIT_MAP = {"G": 1, "H": 2, "J": 4, "KP": 8, "K": 16, "M": 32, "S": 64, "T": 128, "UK": 256, "U": 512, "V": 1024}
-IRG_FIELD_TO_SOURCE = {
-    "kIRG_GSource": "G",
-    "kIRG_HSource": "H",
-    "kIRG_JSource": "J",
-    "kIRG_KPSource": "KP",
-    "kIRG_KSource": "K",
-    "kIRG_MSource": "M",
-    "kIRG_SSource": "S",
-    "kIRG_TSource": "T",
-    "kIRG_UKSource": "UK",
-    "kIRG_USource": "U",
-    "kIRG_VSource": "V",
-}
 
 _FLAG_NAME_TO_BIT = {
     "IVS": 0x0001,
@@ -91,7 +59,7 @@ class CJKLoader:
             rad, base_var, base_stroke = _parse_rs_unihan(rs_part)
             parts = sep.split(data_part, maxsplit=1)
             key = (rad, base_var, base_stroke)
-            result[key] = [int(val) for val in parts[0].split() if val]
+            result[key] = [int(val[2:], 16) if val.startswith("U+") else int(val) for val in parts[0].split() if val]
 
             for i, match in enumerate(sep.finditer(data_part)):
                 var = len(match.group(1))
@@ -103,7 +71,7 @@ class CJKLoader:
                 val = data_part[match.end() : end].strip()
                 if val:
                     key = (rad, var, base_stroke)
-                    result[key] = [int(v) for v in val.split()]
+                    result[key] = [int(v[2:], 16) if v.startswith("U+") else int(v) for v in val.split()]
         return result
 
     @staticmethod
@@ -156,29 +124,32 @@ class CJKLoader:
     @staticmethod
     @functools.lru_cache(maxsize=1)
     def load_xinjiu_maps():
-        return CJKLoader._load_yaml_pair_map(Dirs.BABELSOFT / "XinJiuMpping.yaml")
+        return CJKLoader._load_yaml_pair_map(Dirs.BABELSOFT / "XinJiuMapping.yaml")
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
     def load_cjk_irg_sources() -> dict[int, tuple[list[str], str]]:
         raw = CJKLoader.load_unihan_IRGSources()
-        return {
-            int(cp): (
-                [s for f, s in IRG_FIELD_TO_SOURCE.items() for v in fields.get(f, [])],
-                ", ".join(v for f in IRG_FIELD_TO_SOURCE for v in fields.get(f, [])),
-            )
-            for cp, fields in raw.items()
-        }
+        result: dict[int, tuple[list[str], str]] = {}
+        for cp, fields in raw.items():
+            parts: list[tuple[str, str]] = []
+            for field, values in fields.items():
+                if field.startswith("kIRG_") and field.endswith("Source"):
+                    code = field.removeprefix("kIRG_").removesuffix("Source")
+                    parts.extend((code, v) for v in values)
+            result[int(cp)] = ([p[0] for p in parts], ", ".join(p[1] for p in parts))
+        return result
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
     def load_cjk_irg_reverse() -> dict[str, int]:
-        return {
-            v: int(cp)
-            for cp, fields in CJKLoader.load_unihan_IRGSources().items()
-            for f in IRG_FIELD_TO_SOURCE
-            for v in fields.get(f, [])
-        }
+        result: dict[str, int] = {}
+        for cp, fields in CJKLoader.load_unihan_IRGSources().items():
+            for field, values in fields.items():
+                if field.startswith("kIRG_") and field.endswith("Source"):
+                    for v in values:
+                        result[v] = int(cp)
+        return result
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
@@ -241,6 +212,23 @@ class CJKLoader:
             if not cp:
                 continue
             res.setdefault(cp, {}).setdefault(parts[1], []).append(parts[2])
+        return res
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_unihan_Readings() -> dict[int, dict[str, str]]:
+        """Load Unihan_Readings.txt -> {codepoint: {kMandarin, kCantonese, kKorean, kVietnamese, kZhuang, ...}}."""
+        READING_FIELDS = {"kMandarin", "kCantonese", "kKorean", "kVietnamese", "kZhuang"}
+        res: dict[int, dict[str, str]] = {}
+        for line in TxtParser.get_txt(Dirs.UNIHAN / "Unihan_Readings.txt"):
+            if not line.strip() or line.startswith("#"):
+                continue
+            parts = line.strip().split("\t", 2)
+            if len(parts) < 3 or parts[1] not in READING_FIELDS:
+                continue
+            cp = CodePoint.from_(parts[0])
+            if cp is not None:
+                res.setdefault(int(cp), {})[parts[1]] = parts[2]
         return res
 
     @staticmethod
