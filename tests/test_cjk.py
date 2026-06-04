@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-LIB_DIR = Path(__file__).parent.parent.parent
+LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
 

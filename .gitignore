@@ -3,6 +3,7 @@ data/ucd/
 data/unihan/
 data/babelstone/
 data/charts/
+tools/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
