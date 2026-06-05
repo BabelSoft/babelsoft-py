@@ -15,23 +15,36 @@
     "python.testing.pytestEnabled": true,
     "python.testing.autoTestDiscoverOnSaveEnabled": true,
     "cSpell.words": [
+        "alef",
         "babelsoft",
         "BABELSTONE",
+        "baluda",
+        "Brda",
         "cjkui",
         "CJKUI",
         "cjkv",
         "codepoint",
+        "DEADKEY",
+        "deadkeys",
         "DPRK",
         "equivs",
+        "fullwidth",
+        "halfwidth",
         "JIANTI",
         "jiuzixing",
         "JYUTPING",
         "Kangxi",
         "kyujitai",
+        "Phags",
+        "PHRU",
         "quoc",
         "QUOC",
+        "Rten",
         "RTYPES",
+        "SHIFTKEY",
         "shinjitai",
+        "titlecase",
+        "tsheg",
         "unihan",
         "Unihan",
         "UNIHAN",
@@ -40,5 +53,8 @@
         "zhuang",
         "Zhuang",
         "ZHUANG"
-    ]
+    ],
+    "[markdown]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
 }
