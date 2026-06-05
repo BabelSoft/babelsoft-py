@@ -18,27 +18,6 @@ def _parse_rs_unihan(text: str) -> tuple[int, int, int]:
     return radical, variant, stroke
 
 
-_FLAG_NAME_TO_BIT = {
-    "IVS": 0x0001,
-    "Fanti": 0x0002,
-    "FantiPlus": 0x0002,
-    "Jianti": 0x0004,
-    "JiantiPlus": 0x0004,
-    "FantiJianti": 0x0008,
-    "Xinzixing": 0x0010,
-    "Jiuzixing": 0x0020,
-    "Shinjitai": 0x0040,
-    "Kyujitai": 0x0080,
-    "Pinyin": 0x0100,
-    "Jyutping": 0x0200,
-    "YaleKorean": 0x0400,
-    "QuocNgu": 0x0800,
-    "Zhuang": 0x1000,
-    "SIP": 0x2000,
-    "TIP": 0x4000,
-}
-
-
 class CJKLoader:
     @staticmethod
     @functools.lru_cache(maxsize=1)
@@ -364,3 +343,308 @@ class CJKLoader:
             for cp in range(s, e + 1):
                 res[cp] = t
         return res
+
+
+# ─── Scripts Loader ────────────────────────────────────────────────────
+
+
+class ScriptsLoader:
+    """Load script-specific data from data/scripts/*.tsv files."""
+
+    DATA_DIR = Dirs.DATA / "scripts"
+
+    # ─── Nushu ───────────────────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_nushu() -> tuple[dict[int, str], dict[int, str]]:
+        """Load Nushu readings and Duben references from NushuSources.txt."""
+        readings: dict[int, str] = {}
+        refs: dict[int, str] = {}
+        for line in filter(line_has_content, TxtParser.get_txt(Dirs.UCD / "NushuSources.txt")):
+            parts = line.strip().split("\t")
+            if len(parts) < 3:
+                continue
+            try:
+                cp = int(parts[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            tag = parts[1]
+            value = parts[2]
+            if tag == "kNSHU_Reading":
+                readings[cp] = value
+            elif tag == "kNSHU_DubenSrc":
+                refs[cp] = value
+        return readings, refs
+
+    # ─── Khitan ─────────────────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_khitan() -> tuple[dict[int, str], dict[int, str]]:
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "khitan.tsv")
+        readings: dict[int, str] = {}
+        meanings: dict[int, str] = {}
+        for row in rows:
+            if len(row) < 3:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            if row[1]:
+                readings[cp] = row[1]
+            if row[2]:
+                meanings[cp] = row[2]
+        return readings, meanings
+
+    # ─── Egyptian Hieroglyphs ───────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_hieroglyph_descriptions() -> dict[int, str]:
+        """Load Egyptian hieroglyph descriptions from Unikemet.txt."""
+        result: dict[int, str] = {}
+        for line in filter(line_has_content, TxtParser.get_txt(Dirs.UCD / "Unikemet.txt")):
+            parts = line.strip().split("\t")
+            if len(parts) < 3 or parts[1] != "kEH_Desc":
+                continue
+            try:
+                cp = int(parts[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            if parts[2]:
+                result[cp] = parts[2]
+        return result
+
+    # ─── Tangut: Li Fanwen ──────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tangut_li_fanwen() -> list[dict]:
+        """Returns list indexed by offset from TANGUT_START."""
+        TANGUT_START = 0x17000
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_li_fanwen.tsv")
+        data: list[dict] = []
+        for row in rows:
+            if len(row) < 8:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            offset = cp - TANGUT_START
+            while len(data) <= offset:
+                data.append({})
+            data[offset] = {
+                "number": int(row[1]) if row[1] else 0,
+                "variant": int(row[2]) if row[2] else 0,
+                "additional": int(row[3]) if row[3] else 0,
+                "reading": row[4],
+                "english": row[5],
+                "tone": int(row[6]) if row[6] else 0,
+                "rime": int(row[7]) if row[7] else 0,
+            }
+        return data
+
+    # ─── Tangut: Kychanov ───────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tangut_kychanov() -> list[dict]:
+        TANGUT_START = 0x17000
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_kychanov.tsv")
+        data: list[dict] = []
+        for row in rows:
+            if len(row) < 6:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            offset = cp - TANGUT_START
+            while len(data) <= offset:
+                data.append({})
+            data[offset] = {
+                "number": int(row[1]) if row[1] else 0,
+                "additional": int(row[2]) if row[2] else 0,
+                "reading": row[3],
+                "tone": int(row[4]) if row[4] else 0,
+                "rime": int(row[5]) if row[5] else 0,
+            }
+        return data
+
+    # ─── Tangut: Sofronov ───────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tangut_sofronov() -> list[dict]:
+        TANGUT_START = 0x17000
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_sofronov.tsv")
+        data: list[dict] = []
+        for row in rows:
+            if len(row) < 6:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            offset = cp - TANGUT_START
+            while len(data) <= offset:
+                data.append({})
+            data[offset] = {
+                "number": int(row[1]) if row[1] else 0,
+                "additional": int(row[2]) if row[2] else 0,
+                "reading": row[3],
+                "tone": int(row[4]) if row[4] else 0,
+                "rime": int(row[5]) if row[5] else 0,
+            }
+        return data
+
+    # ─── Tangut: Nishida ────────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tangut_nishida() -> list[dict]:
+        TANGUT_START = 0x17000
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_nishida.tsv")
+        data: list[dict] = []
+        for row in rows:
+            if len(row) < 4:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            offset = cp - TANGUT_START
+            while len(data) <= offset:
+                data.append({})
+            data[offset] = {
+                "reference1": row[1],
+                "reference2": row[2],
+                "reading": row[3],
+            }
+        return data
+
+    # ─── Tangut: Miyake ─────────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tangut_miyake() -> list[dict]:
+        TANGUT_START = 0x17000
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_miyake.tsv")
+        data: list[dict] = []
+        for row in rows:
+            if len(row) < 3:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            offset = cp - TANGUT_START
+            while len(data) <= offset:
+                data.append({})
+            syllable = row[1]
+            parts = syllable.split("-")
+            data[offset] = {
+                "initial": int(parts[0]) if len(parts) > 0 and parts[0] else 0,
+                "medial": int(parts[1]) if len(parts) > 1 and parts[1] else 0,
+                "final": int(parts[2]) if len(parts) > 2 and parts[2] else 0,
+                "tone": int(parts[3]) if len(parts) > 3 and parts[3] else 0,
+                "rime": int(row[2]) if row[2] else 0,
+            }
+        return data
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_miyake_phonetic_tables() -> dict:
+        """Load merged Miyake phonetic table from tangut_miyake_phonetics.tsv.
+
+        Format: key, miyake2015, miyake2012
+        Keys: initial-N, medial-N, final-N
+        """
+        d = ScriptsLoader.DATA_DIR
+        initials: dict[str, list[str]] = {"2015": [], "2012": []}
+        medials: list[str] = []
+        finals: dict[str, list[str]] = {"2015": [], "2012": []}
+        for row in TsvParser.get_tsv(d / "tangut_miyake_phonetics.tsv")[1:]:
+            if len(row) < 3:
+                continue
+            key = row[0]
+            v2015 = row[1]
+            v2012 = row[2]
+            if key.startswith("initial-"):
+                initials["2015"].append(v2015)
+                initials["2012"].append(v2012)
+            elif key.startswith("medial-"):
+                medials.append(v2015)
+            elif key.startswith("final-"):
+                finals["2015"].append(v2015)
+                finals["2012"].append(v2012)
+        return {"initials": initials, "medials": medials, "finals": finals}
+
+    # ─── Tangut: merged character data ──────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tangut_character_data() -> list[dict]:
+        TANGUT_START = 0x17000
+        TANGUT_SUPP_START = 0x18D00
+        TANGUT_COUNT = 0x187FF - TANGUT_START + 1
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_character_data.tsv")
+        data: list[dict] = []
+        for row in rows:
+            if len(row) < 7:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            if TANGUT_START <= cp <= 0x187FF:
+                offset = cp - TANGUT_START
+            elif TANGUT_SUPP_START <= cp <= 0x18D7F:
+                offset = (cp - TANGUT_SUPP_START) + TANGUT_COUNT
+            else:
+                continue
+            while len(data) <= offset:
+                data.append({})
+            var1_str, var2_str = row[5], row[6]
+            var1 = int(var1_str, 16) if var1_str.startswith("0x") else (int(var1_str) if var1_str.isdigit() else 0)
+            var2 = int(var2_str, 16) if var2_str.startswith("0x") else (int(var2_str) if var2_str.isdigit() else 0)
+            data[offset] = {
+                "merged_source": row[1],
+                "radical": int(row[2]) if row[2] else 0,
+                "stroke_count": int(row[3]) if row[3] else 0,
+                "ids": row[4],
+                "variant1": var1,
+                "variant2": var2,
+            }
+        return data
+
+    # ─── Tangut: component data ─────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tangut_component_data() -> list[dict]:
+        TANGUT_COMPS_START = 0x18800
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_component_data.tsv")
+        data: list[dict] = []
+        for row in rows:
+            if len(row) < 6:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            offset = cp - TANGUT_COMPS_START
+            while len(data) <= offset:
+                data.append({})
+            fc = row[4]
+            data[offset] = {
+                "stroke_count": int(row[1]) if row[1] else 0,
+                "radical": int(row[2]) if row[2] else 0,
+                "char_count": int(row[3]) if row[3] else 0,
+                "first_character": int(fc, 16) if fc.startswith("0x") else 0,
+                "extra_count": int(row[5]) if row[5] else 0,
+            }
+        return data

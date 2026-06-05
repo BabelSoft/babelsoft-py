@@ -1,0 +1,193 @@
+# BabelSoft Script Data: Miyake Phonetic Tables
+# Source: C++ codebase (c/Scripts/Miyake.cpp)
+#
+# Description:
+#   Phonetic value tables for Miyake 2012 and 2015 Tangut reconstructions.
+#   Keys are prefixed by type: initial-N, medial-N, final-N.  Look up
+#   the N-th element in each table to resolve the indices from
+#   tangut_miyake.tsv syllable field.
+#
+# Fields:
+#   1. key          - Table key: initial-N | medial-N | final-N
+#   2. miyake2015   - Phonetic value in Miyake 2015 reconstruction
+#   3. miyake2012   - Phonetic value in Miyake 2012 reconstruction
+#
+# Encoding: UTF-8
+# Delimiter: TAB
+#
+initial-0		
+initial-1	p	p
+initial-2	ph	ph
+initial-3	b	b
+initial-4	m	m
+initial-5	v	v
+initial-6	h	x
+initial-7	t	t
+initial-8	th	th
+initial-9	d	d
+initial-10	n	n
+initial-11	n	n
+initial-12	j	dʒ
+initial-13	k	k
+initial-14	kh	kh
+initial-15	g	g
+initial-16	ng	ŋ
+initial-17	ts	ts
+initial-18	tsh	tsh
+initial-19	dz	dz
+initial-20	s	s
+initial-21	ch	tʃ
+initial-22	chh	tʃh
+initial-23	j	dʒ
+initial-24	sh	ʃ
+initial-25		ʔ
+initial-26	h	x
+initial-27	gh	ɣ
+initial-28	l	l
+initial-29	lh	lh
+initial-30	z	z
+initial-31	zh	ʒ
+initial-32	r	r
+initial-33		
+medial-0		
+medial-1	w	w
+medial-2		
+final-0		
+final-1	u1	əu
+final-2	u3	ɨu
+final-3	u4	iu
+final-4	u2	ʊ
+final-5	u'1	əəu
+final-6	u'2	ʊʊ
+final-7	u'3	ɨuu
+final-8	u'4	iuu
+final-9	i1	əi
+final-10	i2	ɪ
+final-11	i3	ɨi
+final-12	i4	i
+final-13	i'1	əəi
+final-14	i'2	ɪɪ
+final-15	i'3	ɨii
+final-16	i'4	ii
+final-17	in1	əĩ
+final-18	in2	ɪ̃
+final-19	in3	ɨĩ
+final-20	in4	ĩ
+final-21	a1	a
+final-22	a2	æ
+final-23	a3	ɨa
+final-24	a4	ia
+final-25	a'3	ɨaa
+final-26	a'1	aa
+final-27	a'2	ææ
+final-28	a'4	iaa
+final-29	an1	ã
+final-30	an2	æ̃
+final-31	an3	ɨã
+final-32	an4	iã
+final-33	y1	ə
+final-34	y2	ʌ
+final-35	y3	ɨə
+final-36	y4	iə
+final-37	y'1	əə
+final-38	y'3	ɨəə
+final-39	y'4	iəə
+final-40	e1	e
+final-41	e2	ɛ
+final-42	e3	ɨe
+final-43	e4	ie
+final-44	e'1	ee
+final-45	e'2	ɛɛ
+final-46	e'3	ɨee
+final-47	e'4	iee
+final-48	en1	ẽ
+final-49	en2	ɛ̃
+final-50	en3	ɨẽ
+final-51	en4	iẽ
+final-52	ew1	ew
+final-53	ew2	ɛw
+final-54	ew3	ɨew
+final-55	ew4	iew
+final-56	iw3	ɨiw
+final-57	iw4	iw
+final-58	ew'1	eew
+final-59	ew'3	ɨeew
+final-60	ew'4	ieew
+final-61	o1	o
+final-62	o2	ɔ
+final-63	o3	ɨo
+final-64	o4	io
+final-65	o'1	oo
+final-66	o'2	ɔɔ
+final-67	o'3	ɨoo
+final-68	o'4	ioo
+final-69	on1	õ
+final-70	on2	ɔ̃
+final-71	on3	ɨõ
+final-72	on4	iõ
+final-73	on'2	ɔ̃ɔ̃
+final-74	on'3	ɨõõ
+final-75	on'4	iõõ
+final-76	uq1	əụ
+final-77	uq3	ɨụ
+final-78	uq4	iụ
+final-79	eq2	ɛ̣
+final-80	eq3	ɨẹ
+final-81	eq4	iẹ
+final-82	enq3	ɨẹ̃
+final-83	enq4	iẹ̃
+final-84	aq1	ạ
+final-85	aq3	ɨạ
+final-86	aq4	iạ
+final-87	iq1	əị
+final-88	iq2	ɪ̣
+final-89	iq3	ɨị
+final-90	iq4	ị
+final-91	yq1	ə̣
+final-92	yq3	ɨə̣
+final-93	yq4	iə̣
+final-94	oq1	ọ
+final-95	oq2	ɔ̣
+final-96	oq3	ɨọ
+final-97	oq4	iọ
+final-98	enq2	ɛ̣̃
+final-99	er1	eʳ
+final-100	er2	ɛʳ
+final-101	er3	ɨeʳ
+final-102	er4	ieʳ
+final-103	ur1	əuʳ
+final-104	ur4	iuʳ
+final-105	ir1	əiʳ
+final-106	ir2	ɪʳ
+final-107	ir3	ɨiʳ
+final-108	ir4	iʳ
+final-109	ar1	aʳ
+final-110	ar2	æʳ
+final-111	ar3	ɨaʳ
+final-112	ar4	iaʳ
+final-113	ar'1	aaʳ
+final-114	ar'3	ɨaaʳ
+final-115	ar'4	iaaʳ
+final-116	yr1	əʳ
+final-117	yr2	ʌʳ
+final-118	yr3	ɨəʳ
+final-119	yr4	iəʳ
+final-120	ewr1	eʳw
+final-121	ewr4	i(e)ʳw
+final-122	or1	oʳ
+final-123	or2	ɔʳ
+final-124	or3	ɨoʳ
+final-125	or4	ioʳ
+final-126	orn1	õʳ
+final-127	orn4	iõʳ
+final-128	ir'1	əəiʳ
+final-129	yr'3	ɨəəʳ
+final-130	yr'4	iəəʳ
+final-131	er'3	ɨiiʳ
+final-132	er'4	iiʳ
+final-133	or'1	ooʳ
+final-134	or'4	iooʳ
+final-135	un1	əũ
+final-136	wya4	ya
+final-137	i?	i?
+final-138		

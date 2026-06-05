@@ -10,15 +10,15 @@
 #   1. codepoint   - Unicode codepoint in U+XXXXXX format
 #   2. field       - Reading type: kCantonese, kMandarin, kKorean, kVietnamese, kZhuang
 #   3. value       - Space-separated reading(s) in the appropriate romanization:
-#                     kCantonese   → Jyutping with tone numbers (1-6)
-#                     kMandarin    → Pinyin with tone numbers (1-5)
-#                     kKorean      → Yale romanization
-#                     kVietnamese  → Quốc Ngữ (Vietnamese national script)
-#                     kZhuang      → Zhuang romanization (capitalised, tone letters)
+#                     kCantonese   -> Jyutping with tone numbers (1-6)
+#                     kMandarin    -> Pinyin with tone numbers (1-5)
+#                     kKorean      -> Yale romanization
+#                     kVietnamese  -> Quốc Ngữ (Vietnamese national script)
+#                     kZhuang      -> Zhuang romanization (capitalised, tone letters)
 #
 # Encoding: UTF-8
 # Delimiter: TAB
-
+#
 U+3400	kCantonese	jau1
 U+3401	kCantonese	tim2
 U+3401	kMandarin	tian4

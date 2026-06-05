@@ -6,7 +6,7 @@ class Dirs:
     SRC = REPO / "src"
     DATA = REPO / "data"
     BABELSTONE = DATA / "babelstone"
-    BABELSOFT = DATA / "babelsoft"
+    BABELSOFT = DATA / "cjkv"
     UCD = DATA / "ucd"
     UNIHAN = DATA / "unihan"
     CHARTS = DATA / "charts"

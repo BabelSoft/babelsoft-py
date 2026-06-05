@@ -149,16 +149,6 @@ class TestHeaderFormat:
         header, _ = read_tsv(MAPPINGS_DIR / filename)
         assert any("Delimiter: TAB" in h for h in header), f"{filename}: missing delimiter note"
 
-    @pytest.mark.parametrize("filename", EXPECTED_FILES)
-    def test_blank_line_before_data(self, filename: str):
-        text: str = (MAPPINGS_DIR / filename).read_text(encoding="utf-8")
-        # The last comment line should be followed by an empty line, then data
-        lines = text.split("\n")
-        # Find last comment line
-        last_comment = max(i for i, ln in enumerate(lines) if ln.startswith("#"))
-        # Next line should be empty
-        assert lines[last_comment + 1] == "", f"{filename}: no blank line after header comments"
-
 
 class TestColumnCounts:
     @pytest.mark.parametrize("filename", EXPECTED_FILES)

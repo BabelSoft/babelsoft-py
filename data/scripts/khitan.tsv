@@ -1,0 +1,485 @@
+# BabelSoft Script Data: Khitan Small Script
+# Source: C++ codebase (c/Scripts/Khitan.cpp)
+#
+# Description:
+#   Readings and meanings for Khitan small script characters
+#   (Unicode block: Khitan Small Script, U+18B00–U+18CD5).
+#
+# Fields:
+#   1. codepoint   - Unicode codepoint in U+XXXXX format
+#   2. reading     - Khitan reading (romanized)
+#   3. meaning     - English meaning
+#
+# Encoding: UTF-8
+# Delimiter: TAB
+#
+U+18B00		ditto
+U+18B01		north / above
+U+18B02		twenty
+U+18B03		
+U+18B04	hong	
+U+18B05	iû	
+U+18B06		
+U+18B07		
+U+18B08		white
+U+18B09		white
+U+18B0A		mountain / tomb
+U+18B0B	ai	
+U+18B0C		eight
+U+18B0D		eight
+U+18B0E		north+d
+U+18B0F		
+U+18B10	an	
+U+18B11		
+U+18B12		
+U+18B13	húr	
+U+18B14		
+U+18B15	jau	hundred
+U+18B16	in	
+U+18B17	od	
+U+18B18		
+U+18B19		
+U+18B1A	in	
+U+18B1B	iu	
+U+18B1C	y	
+U+18B1D	mo	
+U+18B1E	cau	
+U+18B1F	ih	
+U+18B20		
+U+18B21		
+U+18B22		
+U+18B23		one
+U+18B24		one
+U+18B25	sh	
+U+18B26	tau	five
+U+18B27	tau	five
+U+18B28		
+U+18B29		
+U+18B2A	is	nine
+U+18B2B	is	nine
+U+18B2C		
+U+18B2D	xu	
+U+18B2E	di	
+U+18B2F	zhi	
+U+18B30		
+U+18B31	zhi	
+U+18B32		
+U+18B33		
+U+18B34		
+U+18B35		
+U+18B36		west
+U+18B37	su	
+U+18B38		
+U+18B39		
+U+18B3A		
+U+18B3B		
+U+18B3C		
+U+18B3D	hor	
+U+18B3E	hor	
+U+18B3F		
+U+18B40	ai	
+U+18B41		
+U+18B42	ha	
+U+18B43		record
+U+18B44		record
+U+18B45	qa	
+U+18B46		
+U+18B47		
+U+18B48		
+U+18B49		
+U+18B4A	xo	
+U+18B4B		
+U+18B4C	uni	
+U+18B4D	bai	
+U+18B4E	bai	
+U+18B4F	iáng	
+U+18B50		eternal
+U+18B51	lu	
+U+18B52		
+U+18B53		
+U+18B54		
+U+18B55	eu	
+U+18B56	us	
+U+18B57	rí	
+U+18B58	w	
+U+18B59	ong	
+U+18B5A		east
+U+18B5B	ên	
+U+18B5C	tir	
+U+18B5D	hong	
+U+18B5E	ho	
+U+18B5F		
+U+18B60		
+U+18B61		
+U+18B62	ii	
+U+18B63		
+U+18B64		
+U+18B65		
+U+18B66		tent
+U+18B67		month
+U+18B68	üe	
+U+18B69	sï	
+U+18B6A	ra	
+U+18B6B	ra	
+U+18B6C		six
+U+18B6D		six
+U+18B6E		
+U+18B6F	jï	
+U+18B70		
+U+18B71	zu	
+U+18B72	ó	
+U+18B73		
+U+18B74	ud	
+U+18B75		
+U+18B76	ud	
+U+18B77	ung	
+U+18B78	oi	
+U+18B79		
+U+18B7A	e	
+U+18B7B		
+U+18B7C		
+U+18B7D	ge	
+U+18B7E	ï	
+U+18B7F	î	
+U+18B80		some
+U+18B81		
+U+18B82		
+U+18B83	qú	
+U+18B84	qú	
+U+18B85	al	
+U+18B86		
+U+18B87	ad	
+U+18B88	én	
+U+18B89	deu	
+U+18B8A	cu	
+U+18B8B	us	
+U+18B8C	jïh	
+U+18B8D		
+U+18B8E	én	
+U+18B8F	dz	
+U+18B90		
+U+18B91		
+U+18B92	úr	
+U+18B93		
+U+18B94		
+U+18B95		
+U+18B96		
+U+18B97	po	
+U+18B98	áng	
+U+18B99		
+U+18B9A		
+U+18B9B	k	
+U+18B9C		
+U+18B9D		gold
+U+18B9E		gold
+U+18B9F	to	
+U+18BA0	bun	
+U+18BA1	iú	
+U+18BA2	án	
+U+18BA3		
+U+18BA4		
+U+18BA5		
+U+18BA6		south
+U+18BA7	p	
+U+18BA8		
+U+18BA9		
+U+18BAA	pú	
+U+18BAB	co	
+U+18BAC		
+U+18BAD		seventy
+U+18BAE		seventy
+U+18BAF	il	
+U+18BB0	ing	
+U+18BB1		
+U+18BB2		
+U+18BB3		
+U+18BB4		
+U+18BB5		compose
+U+18BB6	hó	
+U+18BB7		compose
+U+18BB8		
+U+18BB9		compose
+U+18BBA	tum	
+U+18BBB		
+U+18BBC		
+U+18BBD	b	
+U+18BBE	tum	
+U+18BBF	lo	
+U+18BC0	iang	
+U+18BC1	she	
+U+18BC2		
+U+18BC3		text
+U+18BC4		
+U+18BC5		
+U+18BC6	go	
+U+18BC7		
+U+18BC8		
+U+18BC9		
+U+18BCA		
+U+18BCB		
+U+18BCC		
+U+18BCD	yo	
+U+18BCE	ón	
+U+18BCF	qi	
+U+18BD0	üen	
+U+18BD1		
+U+18BD2		
+U+18BD3		
+U+18BD4		
+U+18BD5		
+U+18BD6		
+U+18BD7	gu	
+U+18BD8	gu	
+U+18BD9		three
+U+18BDA		three
+U+18BDB	qo	
+U+18BDC	qó	
+U+18BDD		mr
+U+18BDE	da	
+U+18BDF	uh	
+U+18BE0	uh	
+U+18BE1	eng	
+U+18BE2	as	
+U+18BE3	bú	
+U+18BE4		
+U+18BE5	ku	
+U+18BE6		
+U+18BE7		
+U+18BE8	dú	
+U+18BE9	shï	
+U+18BEA	ku	
+U+18BEB		
+U+18BEC		
+U+18BED		
+U+18BEE		
+U+18BEF		
+U+18BF0	iúng	
+U+18BF1		
+U+18BF2	car	
+U+18BF3	car	
+U+18BF4	am	
+U+18BF5	am	
+U+18BF6	o	
+U+18BF7		
+U+18BF8		ten thousand
+U+18BF9		small
+U+18BFA	a	
+U+18BFB		
+U+18BFC		
+U+18BFD	mó	
+U+18BFE		mrs
+U+18BFF		
+U+18C00		
+U+18C01		chief
+U+18C02	bu	
+U+18C03		
+U+18C04	ah	
+U+18C05		
+U+18C06	ang	
+U+18C07		
+U+18C08		
+U+18C09		
+U+18C0A	tu	
+U+18C0B		
+U+18C0C		
+U+18C0D	de	
+U+18C0E	li	
+U+18C0F	ming	thousand
+U+18C10	lu	
+U+18C11	lu	
+U+18C12	aú	
+U+18C13	mú	
+U+18C14	ñ	
+U+18C15	ñ	
+U+18C16	mu	
+U+18C17	mu	
+U+18C18	bi	
+U+18C19	ü	
+U+18C1A		
+U+18C1B		
+U+18C1C	lú	
+U+18C1D	ta	
+U+18C1E		
+U+18C1F		
+U+18C20		
+U+18C21	kú	
+U+18C22	ta	
+U+18C23	ri	
+U+18C24		
+U+18C25	ur	
+U+18C26	du	
+U+18C27		born
+U+18C28		li
+U+18C29	pu	
+U+18C2A	fu	
+U+18C2B	ú	
+U+18C2C	heu	
+U+18C2D	n	
+U+18C2E	ô	
+U+18C2F		ten
+U+18C30		ten
+U+18C31		
+U+18C32		heaven
+U+18C33		young
+U+18C34	d	
+U+18C35	mû	
+U+18C36		
+U+18C37	s	
+U+18C38		
+U+18C39	qu	
+U+18C3A	t	
+U+18C3B	dû	
+U+18C3C	ô	
+U+18C3D	or	
+U+18C3E		
+U+18C3F	em	
+U+18C40	em	
+U+18C41	z	
+U+18C42	hur	
+U+18C43	t	
+U+18C44	l	
+U+18C45		
+U+18C46	ui	
+U+18C47	ui	
+U+18C48		
+U+18C49		
+U+18C4A	ng	
+U+18C4B	ui	
+U+18C4C		sixty
+U+18C4D		sixty
+U+18C4E		sixty
+U+18C4F	xe	
+U+18C50	er	
+U+18C51	ém	
+U+18C52	ie	
+U+18C53	ie	
+U+18C54	hong	
+U+18C55	ün	
+U+18C56	zh	
+U+18C57	neu	
+U+18C58	nai	
+U+18C59		queen
+U+18C5A	g	
+U+18C5B	ia	
+U+18C5C		
+U+18C5D	gi	
+U+18C5E	ji	
+U+18C5F	fen	
+U+18C60		
+U+18C61		
+U+18C62	ih	
+U+18C63		
+U+18C64	i	
+U+18C65	x	
+U+18C66	er	
+U+18C67		
+U+18C68		wine
+U+18C69		
+U+18C6A	ud	
+U+18C6B	ung	
+U+18C6C	ung	
+U+18C6D	oi	
+U+18C6E	e	
+U+18C6F	ge	
+U+18C70	d	
+U+18C71		
+U+18C72	í	
+U+18C73	ï	
+U+18C74	dz	
+U+18C75	udu	
+U+18C76	úng	
+U+18C77	p+ong	
+U+18C78	én	
+U+18C79	iau	
+U+18C7A		
+U+18C7B		
+U+18C7C		
+U+18C7D		
+U+18C7E		
+U+18C7F	qid	
+U+18C80	ul	
+U+18C81	zhung	
+U+18C82		four
+U+18C83		four
+U+18C84		region
+U+18C85		region
+U+18C86	û	
+U+18C87		great
+U+18C88	tai	
+U+18C89	ca	
+U+18C8A		
+U+18C8B	oh	
+U+18C8C	dau	
+U+18C8D		
+U+18C8E		
+U+18C8F		
+U+18C90	ai	
+U+18C91	ar	
+U+18C92		
+U+18C93	aû	
+U+18C94		
+U+18C95	an	
+U+18C96	zhi	
+U+18C97		
+U+18C98	xa	
+U+18C99		
+U+18C9A	u	
+U+18C9B	m	
+U+18C9C	m	
+U+18C9D		two
+U+18C9E		two
+U+18C9F		
+U+18CA0		
+U+18CA1		
+U+18CA2	ir	
+U+18CA3	iû	
+U+18CA4	na	
+U+18CA5		
+U+18CA6	en	
+U+18CA7		seven
+U+18CA8		seven
+U+18CA9		manage / know
+U+18CAA	xua	
+U+18CAB	ún	
+U+18CAC		forty
+U+18CAD	gi	
+U+18CAE	ju	
+U+18CAF	ju	
+U+18CB0	ju	
+U+18CB1	ja	
+U+18CB2	hu	
+U+18CB3	ji	
+U+18CB4	ji	
+U+18CB5	on	
+U+18CB6		fifty
+U+18CB7		
+U+18CB8		
+U+18CB9		
+U+18CBA		day
+U+18CBB	giu	
+U+18CBC	au	
+U+18CBD	ci	
+U+18CBE	ki	
+U+18CBF		
+U+18CC0		thirty
+U+18CC1		
+U+18CC2		
+U+18CC3	to	
+U+18CC4	da	
+U+18CC5		
+U+18CC6		
+U+18CC7	do	
+U+18CC8		seal
+U+18CC9	én	
+U+18CCA	da	
+U+18CCB		eighty
+U+18CCC		thirty
+U+18CCD	iá	
+U+18CCE		
+U+18CCF		luck
+U+18CD0		luck
+U+18CD1		luck
+U+18CD2		luck
+U+18CD3		
+U+18CD4	bú	
+U+18CD5	un	

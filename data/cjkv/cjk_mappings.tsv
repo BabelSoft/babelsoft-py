@@ -6,9 +6,9 @@
 #   Bidirectional simplified-traditional Chinese character mappings with
 #   explicit direction. The direction column tells you which way the
 #   mapping goes:
-#     fanti        → source is traditional, target is simplified (繁體→简体)
-#     jianti       → source is simplified, target is traditional (简体→繁體)
-#     fanti_jianti → ambiguous form mapped to its traditional equivalent
+#     fanti        -> source is traditional, target is simplified (繁體→简体)
+#     jianti       -> source is simplified, target is traditional (简体→繁體)
+#     fanti_jianti -> ambiguous form mapped to its traditional equivalent
 #   Blocks are separated by blank lines with Unicode block headers.
 #
 # Fields:
@@ -20,7 +20,7 @@
 #
 # Encoding: UTF-8
 # Delimiter: TAB
-
+#
 U+4E07	万	U+842C	萬	jianti
 U+4E0E	与	U+8207	與	jianti
 U+4E13	专	U+5C08	專	jianti
