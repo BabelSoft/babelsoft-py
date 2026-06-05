@@ -1,0 +1,170 @@
+# BabelSoft XinJiu Zixing (新字形/旧字形) Mappings
+# Data generated: 2026-06-05 13:36:14
+# Source: C++ codebase (CJKV/CJK.cpp XINJIU_MAPPING_TABLE)
+#
+# Description:
+#   Mappings between new (新字形 Xin Zixing) and old (旧字形 Jiu Zixing)
+#   Chinese character forms. This is distinct from simplified/traditional;
+#   it covers orthographic form differences within the same script.
+#
+# Fields:
+#   1. source_codepoint     - Unicode codepoint in U+XXXXXX format
+#   2. target_codepoint     - Unicode codepoint in U+XXXXXX format
+#   3. source_character     - The source character
+#   4. target_character     - The target character
+#
+# Encoding: UTF-8
+# Delimiter: TAB
+
+U+347A	U+5101	㑺	儁
+U+3766	U+5BEF	㝦	寯
+U+3A57	U+22E42	㩗	𢹂
+U+3DEA	U+243B1	㷪	𤎱
+U+3EEA	U+3EFD	㻪	㻽
+U+442A	U+81C7	䐪	臇
+U+4E89	U+722D	争	爭
+U+4E8F	U+4E90	亏	亐
+U+4EDE	U+4EED	仞	仭
+U+4F75	U+5002	併	倂
+U+4FA3	U+4FB6	侣	侶
+U+4FDE	U+516A	俞	兪
+U+4FE3	U+4FC1	俣	俁
+U+503C	U+5024	值	値
+U+5077	U+5078	偷	偸
+U+507D	U+50DE	偽	僞
+U+5151	U+514C	兑	兌
+U+5156	U+5157	兖	兗
+U+5185	U+5167	内	內
+U+51C0	U+51C8	净	凈
+U+5203	U+5204	刃	刄
+U+5211	U+206EC	刑	𠛬
+U+522B	U+5225	别	別
+U+5239	U+524E	刹	剎
+U+5265	U+525D	剥	剝
+U+5292	U+5294	劒	劔
+U+5373	U+537D	即	卽
+U+5415	U+5442	吕	呂
+U+5434	U+5433	吴	吳
+U+5450	U+5436	呐	吶
+U+5524	U+559A	唤	喚
+U+55BB	U+55A9	喻	喩
+U+5618	U+5653	嘘	噓
+U+5848	U+588D	塈	墍
+U+5942	U+5950	奂	奐
+U+5965	U+5967	奥	奧
+U+598D	U+59F8	妍	姸
+U+5A31	U+5A1B	娱	娛
+U+5AAA	U+5ABC	媪	媼
+U+5AAE	U+5A7E	媮	婾
+U+5AAF	U+5B00	媯	嬀
+U+5BAB	U+5BAE	宫	宮
+U+5C4F	U+5C5B	屏	屛
+U+5CE5	U+5D22	峥	崢
+U+5E21	U+5E32	帡	帲
+U+5E76	U+5E77	并	幷
+U+5F00	U+5E75	开	幵
+U+5F11	U+5F12	弑	弒
+U+5F55	U+5F54	录	彔
+U+5F66	U+5F65	彦	彥
+U+60A6	U+6085	悦	悅
+U+60AE	U+609E	悮	悞
+U+60EA	U+60B3	惪	悳
+U+6120	U+614D	愠	慍
+U+622C	U+6229	戬	戩
+U+622F	U+6231	戯	戱
+U+6237	U+6236	户	戶
+U+6323	U+6399	挣	掙
+U+635D	U+6329	捝	挩
+U+6362	U+63DB	换	換
+U+63FE	U+6435	揾	搵
+U+643A	U+64D5	携	擕
+U+6447	U+6416	摇	搖
+U+655A	U+6553	敚	敓
+U+65E2	U+65E3	既	旣
+U+6637	U+25055	昷	𥁕
+U+664B	U+6649	晋	晉
+U+6740	U+233C2	杀	𣏂
+U+68C1	U+68B2	棁	梲
+U+6985	U+69B2	榅	榲
+U+6986	U+6961	榆	楡
+U+69DC	U+6A87	槜	檇
+U+6A2A	U+6A6B	横	橫
+U+6B81	U+6B7F	殁	歿
+U+6C32	U+6C33	氲	氳
+U+6C61	U+6C5A	污	汚
+U+6CA1	U+6C92	没	沒
+U+6D44	U+6DE8	浄	淨
+U+6D9A	U+6D97	涚	涗
+U+6DA3	U+6E19	涣	渙
+U+6E05	U+6DF8	清	淸
+U+6E0C	U+6DE5	渌	淥
+U+6E29	U+6EAB	温	溫
+U+6E88	U+6F59	溈	潙
+U+6EDA	U+6EFE	滚	滾
+U+70BA	U+7232	為	爲
+U+7115	U+7165	焕	煥
+U+7174	U+7185	煴	熅
+U+72F0	U+7319	狰	猙
+U+7476	U+7464	瑶	瑤
+U+74F6	U+7501	瓶	甁
+U+7523	U+7522	産	產
+U+75EA	U+7613	痪	瘓
+U+7741	U+775C	睁	睜
+U+7814	U+784F	研	硏
+U+78D9	U+25566	磙	𥕦
+U+7984	U+797F	禄	祿
+U+7A0E	U+7A05	税	稅
+U+7B04	U+7B53	笄	筓
+U+7B5D	U+7B8F	筝	箏
+U+7CA4	U+7CB5	粤	粵
+U+7DA0	U+7DD1	綠	緑
+U+7DFC	U+7E15	緼	縕
+U+80FC	U+8141	胼	腁
+U+8131	U+812B	脱	脫
+U+817D	U+8183	腽	膃
+U+8480	U+8495	蒀	蒕
+U+848D	U+853F	蒍	蔿
+U+84D8	U+8509	蓘	蔉
+U+8570	U+8580	蕰	薀
+U+85F4	U+860A	藴	蘊
+U+865A	U+865B	虚	虛
+U+8715	U+86FB	蜕	蛻
+U+886E	U+889E	衮	袞
+U+8A2E	U+8A7D	訮	詽
+U+8AAC	U+8AAA	説	說
+U+8B21	U+8B20	謡	謠
+U+8C5C	U+8C63	豜	豣
+U+8EFF	U+8F27	軿	輧
+U+8F3C	U+8F40	輼	轀
+U+8FF8	U+902C	迸	逬
+U+9065	U+9059	遥	遙
+U+90A2	U+90C9	邢	郉
+U+90F7	U+9115	郷	鄕
+U+9196	U+919E	醖	醞
+U+91F0	U+91FC	釰	釼
+U+9203	U+9292	鈃	銒
+U+92ED	U+92B3	鋭	銳
+U+9304	U+9332	錄	録
+U+93B8	U+942B	鎸	鐫
+U+954C	U+30FB9	镌	𰾹
+U+95B2	U+95B1	閲	閱
+U+96BD	U+96CB	隽	雋
+U+9752	U+9751	青	靑
+U+9759	U+975C	静	靜
+U+976D	U+9771	靭	靱
+U+9854	U+984F	顔	顏
+U+9905	U+9920	餅	餠
+U+99E2	U+9A08	駢	騈
+U+9C1B	U+9C2E	鰛	鰮
+U+9EC4	U+9EC3	黄	黃
+U+21A21	U+5BCF	𡨡	寏
+U+21ECE	U+5DB2	𡻎	嶲
+U+226BE	U+610C	𢚾	愌
+U+2497A	U+744D	𤥺	瑍
+U+27924	U+89F9	𧤤	觹
+U+27945	U+89FD	𧥅	觽
+U+2837D	U+2838A	𨍽	𨎊
+U+28B7D	U+4974	𨭽	䥴
+U+29EAB	U+33383	𩺫	𳎃
+U+2D268	U+20FD8	𭉨	𠿘
+U+2EC8B	U+61CF	𮲋	懏

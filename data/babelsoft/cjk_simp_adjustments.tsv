@@ -1,7 +1,22 @@
-# Context-Based Simplified Adjustments (from CJK.cpp TableSimplifiedAdjustments)
-# Format: prev<TAB>source<TAB>next<TAB>target
-# Columns: prev_char, source_char, next_char, adjusted_char
-# 'any' means no constraint on that position.
+# BabelSoft Context-Based Simplified Chinese Adjustments
+# Data generated: 2026-06-05 13:36:14
+# Source: C++ codebase (CJKV/CJK.cpp TableSimplifiedAdjustments)
+#
+# Description:
+#   Context-sensitive simplified Chinese character adjustments.
+#   When converting from traditional to simplified, a traditional character
+#   may map to different simplified characters depending on neighboring
+#   characters. This table defines those context-dependent overrides.
+#   'any' means no constraint on that position.
+#
+# Fields:
+#   1. prev_char    - Preceding character (U+XXXX(字) or 'any')
+#   2. source_char  - The character to adjust (U+XXXX(字))
+#   3. next_char    - Following character (U+XXXX(字) or 'any')
+#   4. target_char  - The adjusted character (U+XXXX(字))
+#
+# Encoding: UTF-8
+# Delimiter: TAB
 
 U+5E7A(幺)	U+4E48(么)	any	U+9EBD(麽)
 any	U+4E8E(于)	U+4E4E(乎)	U+65BC(於)

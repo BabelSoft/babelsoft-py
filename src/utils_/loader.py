@@ -6,7 +6,7 @@ from pathlib import Path
 
 from src.unicode.class_ import Block, CodePoint
 from src.utils_.dirs import Dirs
-from src.utils_.parser import TsvParser, TxtParser, YamlParser, line_has_content
+from src.utils_.parser import TsvParser, TxtParser, line_has_content
 
 
 def _parse_rs_unihan(text: str) -> tuple[int, int, int]:
@@ -93,38 +93,157 @@ class CJKLoader:
     @staticmethod
     @functools.lru_cache(maxsize=1)
     def load_flags() -> dict[int, int]:
-        return {
-            int(row[0][2:], 16): sum(_FLAG_NAME_TO_BIT[label] for label in row[2].split() if label in _FLAG_NAME_TO_BIT)
-            for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_flags.tsv")
-            if len(row) >= 3
+        """Compute CJK character flags from derived data files.
+
+        Flags are derived from:
+          - IVD_Sequences.txt        → IVS (any character appearing as a base)
+          - cjk_mappings.tsv         → Fanti / Jianti / FantiJianti (via direction column)
+          - cjk_xinjiu_mapping.tsv   → Xinzixing / Jiuzixing
+          - cjk_shinjitai_mapping.tsv → Shinjitai / Kyujitai
+          - cjk_readings.tsv         → Pinyin / Jyutping / YaleKorean / QuocNgu / Zhuang
+          - codepoint range          → SIP (>= 0x20000) / TIP (>= 0x30000)
+        """
+        flags: dict[int, int] = {}
+
+        # ── IVS from IVD_Sequences.txt ──
+        for row in CJKLoader.load_ivd_sequences():
+            flags[row[0]] = flags.get(row[0], 0) | 0x0001
+
+        # ── Fanti / Jianti / FantiJianti from mappings direction ──
+        DIR_MAP = {"fanti": 0x0002, "jianti": 0x0004, "fanti_jianti": 0x0008}
+        for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_mappings.tsv"):
+            if len(row) >= 5:
+                cp = int(row[0][2:], 16)
+                direction = row[4].strip()
+                if direction in DIR_MAP:
+                    flags[cp] = flags.get(cp, 0) | DIR_MAP[direction]
+
+        # ── Xinzixing / Jiuzixing ──
+        for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_xinjiu_mapping.tsv"):
+            if len(row) >= 2:
+                src = int(row[0][2:], 16)
+                tgt = int(row[1][2:], 16)
+                flags[src] = flags.get(src, 0) | 0x0010  # XINZIXING
+                flags[tgt] = flags.get(tgt, 0) | 0x0020  # JIUZIXING
+
+        # ── Shinjitai / Kyujitai ──
+        for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_shinjitai_mapping.tsv"):
+            if len(row) >= 2:
+                src = int(row[0][2:], 16)
+                tgt = int(row[1][2:], 16)
+                flags[src] = flags.get(src, 0) | 0x0040  # SHINJITAI
+                flags[tgt] = flags.get(tgt, 0) | 0x0080  # KYUJITAI
+
+        # ── Pinyin / Jyutping / YaleKorean / QuocNgu / Zhuang from readings ──
+        FIELD_FLAGS = {
+            "kMandarin": 0x0100,
+            "kCantonese": 0x0200,
+            "kKorean": 0x0400,
+            "kVietnamese": 0x0800,
+            "kZhuang": 0x1000,
         }
+        for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_readings.tsv"):
+            if len(row) >= 2:
+                cp = int(row[0][2:], 16)
+                field = row[1]
+                if field in FIELD_FLAGS:
+                    flags[cp] = flags.get(cp, 0) | FIELD_FLAGS[field]
+
+        # ── SIP / TIP by range ──
+        for cp in list(flags.keys()):
+            if cp >= 0x30000:
+                flags[cp] |= 0x4000  # TIP
+            elif cp >= 0x20000:
+                flags[cp] |= 0x2000  # SIP
+
+        return flags
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
-    def load_mappings() -> dict[int, int]:
-        return {
-            int(row[0][2:], 16): int(row[2][2:], 16)
-            for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_mappings.tsv")
-            if len(row) >= 4
-        }
+    def load_mappings() -> dict[int, tuple[int, str]]:
+        """Load cjk_mappings.tsv → {source_cp: (target_cp, direction)}.
+        Direction is one of: fanti, jianti, fanti_jianti.
+        """
+        result: dict[int, tuple[int, str]] = {}
+        for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_mappings.tsv"):
+            if len(row) >= 5:
+                src = int(row[0][2:], 16)
+                tgt = int(row[2][2:], 16)
+                direction = row[4].strip()
+                if direction in ("fanti", "jianti", "fanti_jianti"):
+                    result[src] = (tgt, direction)
+        return result
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
-    def _load_yaml_pair_map(path: Path) -> tuple[dict[int, int], dict[int, int]]:
+    def load_ivd_sequences() -> list[tuple[int, int, str, str]]:
+        """Load IVD_Sequences.txt → [(base_cp, vs_cp, collection, reference), ...].
+
+        Format: base_cp vs_cp; collection; reference
+        e.g. "3402 E0100; Adobe-Japan1; CID+13698"
+        """
+        result: list[tuple[int, int, str, str]] = []
+        for line in TxtParser.get_txt(Dirs.IVD / "IVD_Sequences.txt"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(";", 2)
+            if len(parts) < 3:
+                continue
+            seq_parts = parts[0].strip().split()
+            if len(seq_parts) != 2:
+                continue
+            base = int(seq_parts[0], 16)
+            vs = int(seq_parts[1], 16)
+            collection = parts[1].strip()
+            ref = parts[2].strip()
+            result.append((base, vs, collection, ref))
+        return result
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_ivs_chars() -> set[int]:
+        """Load set of all base codepoints that have IVS sequences."""
+        return {base for base, vs, collection, ref in CJKLoader.load_ivd_sequences()}
+
+    @staticmethod
+    def get_ideographic_variant(base_cp: int, vs_cp: int, start_index: int = 0):
+        """Look up IVS: given base character + variation selector, return
+        (collection, reference, next_index) or None if not found.
+        Corresponds to Unicode::GetIdeographicVariant in C++.
+        """
+        UNICODE_IVS_MIN = 0xE0100
+        if vs_cp < UNICODE_IVS_MIN:
+            return None
+        vs_offset = vs_cp - UNICODE_IVS_MIN
+        base16 = base_cp & 0xFFFF
+        for i, (base, vs, collection, ref) in enumerate(CJKLoader.load_ivd_sequences()):
+            if i < start_index:
+                continue
+            if (base & 0xFFFF) == base16 and (vs - UNICODE_IVS_MIN) == vs_offset:
+                return (collection, ref, i + 1)
+        return None
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _load_tsv_pair_map(path: Path) -> tuple[dict[int, int], dict[int, int]]:
         a2b, b2a = {}, {}
-        for x, y in YamlParser.get_yaml(path):
-            a2b[x], b2a[y] = y, x
+        for row in TsvParser.get_tsv(path):
+            if len(row) >= 2:
+                a = int(row[0][2:], 16)
+                b = int(row[1][2:], 16)
+                a2b[a], b2a[b] = b, a
         return a2b, b2a
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
     def load_shinjitai_maps():
-        return CJKLoader._load_yaml_pair_map(Dirs.BABELSOFT / "ShinjitaiMapping.yaml")
+        return CJKLoader._load_tsv_pair_map(Dirs.BABELSOFT / "cjk_shinjitai_mapping.tsv")
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
     def load_xinjiu_maps():
-        return CJKLoader._load_yaml_pair_map(Dirs.BABELSOFT / "XinJiuMapping.yaml")
+        return CJKLoader._load_tsv_pair_map(Dirs.BABELSOFT / "cjk_xinjiu_mapping.tsv")
 
     @staticmethod
     @functools.lru_cache(maxsize=1)

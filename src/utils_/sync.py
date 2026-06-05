@@ -130,9 +130,33 @@ class UnicodeDataDownloader:
         cls.console.print("[bold yellow]=== Download charts data ===")
         cls._download(url=charts_url, output=Dirs.CHARTS / "RSIndex.txt", debug=debug)
 
+    @classmethod
+    def sync_ivd(cls, debug: bool = True) -> None:
+        """Download IVD (Ideographic Variation Database) data from unicode.org."""
+
+        def _get_latest_ivd_date() -> str:
+            """Scrape https://www.unicode.org/ivd/data/ to find the latest IVD release date."""
+            import re
+
+            response = requests.get("https://www.unicode.org/ivd/data/", timeout=30)
+            response.raise_for_status()
+            dates = re.findall(r'href="(\d{4}-\d{2}-\d{2})/"', response.text)
+            if not dates:
+                raise RuntimeError("No IVD date directories found")
+            return max(dates)
+
+        cls._initialize_folder(Dirs.IVD)
+        latest = _get_latest_ivd_date()
+        base_url = f"https://www.unicode.org/ivd/data/{latest}"
+        files = ["IVD_Sequences.txt", "IVD_Collections.txt", "IVD_Stats.txt"]
+        cls.console.print(f"[bold yellow]=== Download IVD data ({latest}) ===")
+        for filename in files:
+            cls._download(url=f"{base_url}/{filename}", output=Dirs.IVD / filename, debug=debug)
+
 
 if __name__ == "__main__":
     UnicodeDataDownloader.sync_ucd()
     UnicodeDataDownloader.sync_unihan()
     UnicodeDataDownloader.sync_ids()
     UnicodeDataDownloader.sync_charts()
+    UnicodeDataDownloader.sync_ivd()

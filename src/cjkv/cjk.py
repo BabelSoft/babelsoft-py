@@ -332,19 +332,39 @@ class CJK(CodePoint):
     def readings(self) -> dict[str, str]:
         return CJKLoader.load_unihan_Readings().get(int(self), {})
 
+    # ── IVD (Ideographic Variation Database) ──────────────────────────
+    # These correspond to the C++ functions in Unicode.cpp.
+
+    def ivs_sequences(self) -> list[tuple[int, str, str]]:
+        """Return all IVS sequences for this character.
+        Each is (vs_codepoint, collection, reference).
+        """
+        cp = int(self)
+        return [(vs, coll, ref) for base, vs, coll, ref in CJKLoader.load_ivd_sequences() if base == cp]
+
+    def get_ideographic_variant(self, vs_cp: int):
+        """Look up a specific IVS for this base character + variation selector.
+        Returns (collection, reference) or None.
+        Corresponds to C++ Unicode::GetIdeographicVariant.
+        """
+        result = CJKLoader.get_ideographic_variant(int(self), vs_cp)
+        if result is None:
+            return None
+        return (result[0], result[1])
+
     def to_simplified(self):
         return CJK.from_codepoint(self._get_simplified_mapping(int(self)))
 
     @classmethod
     def _get_simplified_mapping(cls, cp: int):
-        mapping = CJKLoader.load_mappings().get(cp)
-        if not mapping:
+        entry = CJKLoader.load_mappings().get(cp)
+        if not entry:
             return None
-        flags = CJKLoader.load_flags().get(cp, 0)
-        if flags & CJKFlags.FANTI.value:
-            return mapping
-        if flags & CJKFlags.FANTI_JIANTI.value:
-            return cls._get_simplified_mapping(mapping)
+        target, direction = entry
+        if direction == "fanti":
+            return target
+        if direction == "fanti_jianti":
+            return cls._get_simplified_mapping(target)
         return None
 
     def to_traditional(self):
@@ -352,12 +372,12 @@ class CJK(CodePoint):
 
     @classmethod
     def _get_traditional_mapping(cls, cp: int):
-        mapping = CJKLoader.load_mappings().get(cp)
-        if not mapping:
+        entry = CJKLoader.load_mappings().get(cp)
+        if not entry:
             return None
-        flags = CJKLoader.load_flags().get(cp, 0)
-        if flags & (CJKFlags.JIANTI.value | CJKFlags.FANTI_JIANTI.value):
-            return mapping
+        target, direction = entry
+        if direction in ("jianti", "fanti_jianti"):
+            return target
         return None
 
     def to_shinjitai(self):

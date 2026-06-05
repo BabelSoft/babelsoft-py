@@ -2,8 +2,6 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
-import yaml
-
 
 def line_has_content(line: str) -> bool:
     return bool(line.split("#")[0].rstrip())
@@ -47,11 +45,3 @@ class TsvParser:
                     continue
                 rows.append(line.split("\t"))
         return rows
-
-
-class YamlParser:
-    @staticmethod
-    def get_yaml(file_path: Path) -> dict:
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        return data

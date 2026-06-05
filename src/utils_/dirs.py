@@ -10,3 +10,4 @@ class Dirs:
     UCD = DATA / "ucd"
     UNIHAN = DATA / "unihan"
     CHARTS = DATA / "charts"
+    IVD = DATA / "ivd"
