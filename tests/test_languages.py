@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from languages import (
     Language,
-    InputType,
+    EInput,
     ELanguage,
     Yi,
     Manchu,
@@ -94,7 +94,7 @@ class TestLanguage:
 
             def on_input(self, code):
                 self.chars.append(code)
-                return InputType.CHARACTER
+                return EInput.CHARACTER
 
         lang = MockLang()
         lang.on_text("ABC")
@@ -105,76 +105,76 @@ class TestLanguage:
 
         class MockLang(Language):
             def on_input(self, code):
-                return InputType.CHARACTER
+                return EInput.CHARACTER
 
         lang = MockLang()
         lang._escape = True
 
         # Type '\'
         result = lang.on_char("\\")
-        assert result == InputType.FINISHED_IN_PROGRESS
+        assert result == EInput.FINISHED_IN_PROGRESS
 
         # Type 'u'
         result = lang.on_char("u")
-        assert result == InputType.IN_PROGRESS
+        assert result == EInput.IN_PROGRESS
 
         # Type hex digits '0041' (U+0041 = 'A') - exactly 4 hex digits
         # After 4 digits the escape completes with CHAR32
         for i, ch in enumerate("0041"):
             result = lang.on_char(ch)
             if i < 3:
-                assert result == InputType.IN_PROGRESS
+                assert result == EInput.IN_PROGRESS
             else:
                 # 4th hex digit completes the sequence
-                assert result == InputType.CHAR32
+                assert result == EInput.CHAR32
 
     def test_backspace_handling(self):
         """Test backspace returns BACKSPACE_REDO."""
 
         class MockLang(Language):
             def on_input(self, code):
-                return InputType.CHARACTER
+                return EInput.CHARACTER
 
         lang = MockLang()
         # Send backspace when step > 0 to avoid ignorable handling
         lang._step = 1
         result = lang.on_char("\x08")
-        assert result == InputType.BACKSPACE_REDO
+        assert result == EInput.BACKSPACE_REDO
 
     def test_escape_key_clear(self):
         """Test Escape key is ignored at step 0 (not in input mode)."""
 
         class MockLang(Language):
             def on_input(self, code):
-                return InputType.CHARACTER
+                return EInput.CHARACTER
 
         lang = MockLang()
         result = lang.on_char("\x1b")
         # At step 0, ESC is an ignorable character
-        assert result == InputType.IGNORE
+        assert result == EInput.IGNORE
 
     def test_return_key(self):
         """Test Return key is ignored at step 0 (not in input mode)."""
 
         class MockLang(Language):
             def on_input(self, code):
-                return InputType.CHARACTER
+                return EInput.CHARACTER
 
         lang = MockLang()
         result = lang.on_char("\r")
         # At step 0, RETURN is an ignorable character
-        assert result == InputType.IGNORE
+        assert result == EInput.IGNORE
 
     def test_number_at_step_zero(self):
         """Test number input at step 0 goes to _on_number."""
 
         class MockLang(Language):
             def on_input(self, code):
-                return InputType.CHARACTER
+                return EInput.CHARACTER
 
         lang = MockLang()
         result = lang.on_char("5")
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
 
     def test_enums(self):
         """Test enum values are distinct."""
@@ -374,14 +374,14 @@ class TestLanguageManchu:
         """Test special character mappings."""
         manchu = Manchu()
         result = manchu.on_char("+")
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
         assert manchu.ch_output == 0x1807  # Sibe Syllable Boundary Marker
 
     def test_on_return(self):
         """Test return key finishes input."""
         manchu = Manchu()
         result = manchu.on_return()
-        assert result == InputType.FINISHED
+        assert result == EInput.FINISHED
 
     def test_do_conversion_basic(self):
         """Test basic Latin to Manchu conversion."""
@@ -409,7 +409,7 @@ class TestLanguageMongolian:
         """Test Mongolian digit conversion."""
         mong = Mongolian()
         result = mong._on_number(ord("3"))
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
         assert mong.ch_output == 0x1813  # Mongolian digit 3
 
     def test_is_vowel(self):
@@ -433,7 +433,7 @@ class TestLanguageMongolian:
         """Test Mongolian special character mapping."""
         mong = Mongolian()
         result = mong.on_char("+")
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
         assert mong.ch_output == 0x180E  # MVS
 
     def test_do_conversion_basic(self):
@@ -486,7 +486,7 @@ class TestLanguagePhagsPa:
         # + is invalid for Phags-pa
         result = pp.on_char("+")
         # Should be invalid since Phags-pa doesn't use MVS
-        assert result == InputType.INVALID
+        assert result == EInput.INVALID
 
     def test_do_conversion_basic(self):
         """Test basic Latin to Phags-pa conversion."""
@@ -529,7 +529,7 @@ class TestLanguageTibetan:
         """Test number conversion to Tibetan digits."""
         tib = Tibetan()
         result = tib._on_number(ord("5"))
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
         # 5 -> Tibetan digit 5 (0x0F25)
         assert tib.ch_output == 0x0F25
 
@@ -538,13 +538,13 @@ class TestLanguageTibetan:
         tib = Tibetan()
         tib._bracket_count = 1
         result = tib._on_number(ord("5"))
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
 
     def test_on_return(self):
         """Test return key."""
         tib = Tibetan()
         result = tib.on_return()
-        assert result == InputType.FINISHED
+        assert result == EInput.FINISHED
 
     def test_is_punctuation(self):
         """Test Tibetan punctuation detection."""
@@ -577,21 +577,21 @@ class TestLanguageUyghur:
         """Test keyboard layout mapping for ASCII."""
         uy = Uyghur()
         result = uy.on_char("a")  # lowercase 'a' -> Uyghur H (0x06BE)
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
         assert uy.ch_output == 0x06BE
 
     def test_keyboard_layout_L_special(self):
         """Test special L mapping to LA ligature."""
         uy = Uyghur()
         result = uy.on_char("L")
-        assert result == InputType.FINISHED
+        assert result == EInput.FINISHED
         assert uy.str_output == chr(0x0644) + chr(0x0627)
 
     def test_keyboard_layout_unmapped(self):
         """Test unmapped key returns NULL."""
         uy = Uyghur()
         result = uy.on_char("A")  # Uppercase A is unmapped
-        assert result == InputType.NULL
+        assert result == EInput.NULL
 
     def test_convert_arabic_to_latin(self):
         """Test Arabic to Latin conversion."""
@@ -723,7 +723,7 @@ class TestLanguageUnicode:
         """Test Unicode on_input passes through."""
         uni = Unicode()
         result = uni.on_input(0x41)
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
         assert uni.ch_output == 0x41
 
 
@@ -744,13 +744,13 @@ class TestLanguageDefault:
         """Test BMP character input."""
         default = Default()
         result = default.on_input(0x41)
-        assert result == InputType.CHARACTER
+        assert result == EInput.CHARACTER
 
     def test_on_input_high_surrogate(self):
         """Test high surrogate input."""
         default = Default()
         result = default.on_input(0xD800)
-        assert result == InputType.NULL
+        assert result == EInput.NULL
         assert default._high_surrogate == 0xD800
 
     def test_on_input_surrogate_pair(self):
@@ -758,7 +758,7 @@ class TestLanguageDefault:
         default = Default()
         default.on_input(0xD800)  # High
         result = default.on_input(0xDC00)  # Low
-        assert result == InputType.CHAR32
+        assert result == EInput.CHAR32
         assert default.ch_output >= 0x10000
         assert default._high_surrogate == FF_16
 
@@ -766,7 +766,7 @@ class TestLanguageDefault:
         """Test invalid low surrogate without high."""
         default = Default()
         result = default.on_input(0xDC00)
-        assert result == InputType.INVALID
+        assert result == EInput.INVALID
 
     def test_hiragana_to_katakana(self):
         """Test Hiragana -> Katakana conversion."""
@@ -992,7 +992,7 @@ class TestIntegration:
         yi = Yi()
         # Test on_char with valid initial
         result = yi.on_char("b")
-        assert result in (InputType.IN_PROGRESS, InputType.IGNORE, InputType.INVALID)
+        assert result in (EInput.IN_PROGRESS, EInput.IGNORE, EInput.INVALID)
         yi.on_clear()
 
         # Test Latin-to-Yi conversion

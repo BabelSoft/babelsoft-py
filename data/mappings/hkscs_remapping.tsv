@@ -1,0 +1,35 @@
+# BabelSoft Encoding Mapping: HKSCS Remapping
+# Data generated: 2026-06-05 16:11:44
+# Source: C++ codebase (c/Mappings/)
+#
+#   HKSCS codepoint remapping (old->new).
+#
+# Fields:
+#   1. source_cp
+#   2. target_cp
+#
+# Encoding: UTF-8
+# Delimiter: TAB
+
+U+514C	U+5151
+U+544A	U+543F
+U+5ABC	U+5AAA
+U+6085	U+60A6
+U+614D	U+6120
+U+6329	U+635D
+U+6553	U+655A
+U+68B2	U+68C1
+U+6C33	U+6C32
+U+6D97	U+6D9A
+U+7185	U+7174
+U+7A05	U+7A0E
+U+7E15	U+7DFC
+U+812B	U+8131
+U+8183	U+817D
+U+860A	U+85F4
+U+86FB	U+8715
+U+8AAA	U+8AAC
+U+8F40	U+8F3C
+U+919E	U+9196
+U+92B3	U+92ED
+U+95B1	U+95B2
