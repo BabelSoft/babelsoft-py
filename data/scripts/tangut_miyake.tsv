@@ -1,5 +1,5 @@
 # BabelSoft Script Data: Miyake Tangut Phonetic Reconstruction
-# Source: C++ codebase (c/Scripts/Miyake.cpp)
+# Source: C++ codebase (Scripts/Miyake.cpp)
 #
 # Description:
 #   Miyake phonetic reconstruction data for Tangut characters. Each entry

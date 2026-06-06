@@ -283,3 +283,137 @@ class SorterWindows(Sorter):
         except locale.Error:
             # Fall back to codepoint compare
             return SorterUnicode().compare(a, b)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Static CompareStrings helpers (mirroring C++ signatures)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class CompareStrings:
+    """Static comparison helpers corresponding to C++ SorterXxx::CompareStrings.
+
+    Each static method compares two strings with specific sort options,
+    returning -1, 0, or 1.
+    """
+
+    @staticmethod
+    def unicode(a: str, b: str, config: SortConfig | None = None) -> int:
+        """Compare strings by Unicode codepoint values."""
+        return SorterUnicode(config).compare(a, b)
+
+    @staticmethod
+    def hexadecimal(a: str, b: str, config: SortConfig | None = None) -> int:
+        """Compare strings as hexadecimal values."""
+        return SorterHexadecimal(config).compare(a, b)
+
+    @staticmethod
+    def length(a: str, b: str, config: SortConfig | None = None) -> int:
+        """Compare strings by length."""
+        return SorterLength(config).compare(a, b)
+
+    @staticmethod
+    def numeric(a: str, b: str, config: SortConfig | None = None) -> int:
+        """Compare strings with natural numeric ordering."""
+        return SorterNumeric(config).compare(a, b)
+
+    @staticmethod
+    def glyphs(a: str, b: str, order: list[str] | None = None, config: SortConfig | None = None) -> int:
+        """Compare strings using glyph order."""
+        return SorterGlyphs(order, config).compare(a, b)
+
+    @staticmethod
+    def custom(a: str, b: str, custom_order: str = "", config: SortConfig | None = None) -> int:
+        """Compare strings using custom character order."""
+        return SorterCustom(custom_order, config).compare(a, b)
+
+    @staticmethod
+    def uca(a: str, b: str, sort_options: SortOptions | None = None, config: SortConfig | None = None) -> int:
+        """Compare strings using UCA collation."""
+        return SorterUCA(sort_options, config).compare(a, b)
+
+    @staticmethod
+    def windows(a: str, b: str, locale_name: str = "", config: SortConfig | None = None) -> int:
+        """Compare strings using locale-aware collation."""
+        return SorterWindows(locale_name, config).compare(a, b)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Enhanced Sorter base with subrange and equal-range iteration
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class SorterWithRange(Sorter):
+    """Extended sorter supporting subrange sort and equal-range iteration.
+
+    Mirrors the C++ Sorter::Sort(int firstLine, int lastLine)
+    and Sorter::GetNextEqualRange APIs.
+    """
+
+    def sort_range(self, items: list[str], first: int = 0, last: int = -1) -> list[str]:
+        """Sort a subrange of items. Items outside [first, last] are unchanged.
+
+        Equivalent to C++ Sorter::Sort(int nFirstLine, int nLastLine).
+        """
+        if last < 0:
+            last = len(items) - 1
+        if first >= len(items) or last < first:
+            return items
+
+        import functools
+
+        subset = items[first : last + 1]
+        sorted_subset = sorted(
+            subset,
+            key=functools.cmp_to_key(self.compare),
+            reverse=(self._config.direction == SortDirection.DESCENDING),
+        )
+        result = items[:first] + sorted_subset + items[last + 1 :]
+        return result
+
+    def get_next_equal_range(self, items: list[str], start: int) -> tuple[int, int] | None:
+        """Find the next range of equal items starting from start.
+
+        Equivalent to C++ Sorter::GetNextEqualRange(int& nFirstEqualLine, int& nLastEqualLine).
+        Returns (first_equal, last_equal) or None if at end.
+        """
+        if start >= len(items):
+            return None
+
+        first = start
+        last = start
+        while last + 1 < len(items) and self.compare(items[last], items[last + 1]) == 0:
+            last += 1
+        return (first, last)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Sorter factory
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def create_sorter(sort_type: str, **kwargs) -> Sorter:
+    """Create a sorter instance by type name.
+
+    Args:
+        sort_type: One of 'unicode', 'hexadecimal', 'length',
+                   'numeric', 'glyphs', 'custom', 'uca', 'windows'.
+        **kwargs: Passed to the sorter constructor.
+
+    Returns:
+        A Sorter instance.
+    """
+    sorters: dict[str, type[Sorter]] = {
+        "unicode": SorterUnicode,
+        "hexadecimal": SorterHexadecimal,
+        "length": SorterLength,
+        "numeric": SorterNumeric,
+        "glyphs": SorterGlyphs,
+        "custom": SorterCustom,
+        "uca": SorterUCA,
+        "windows": SorterWindows,
+    }
+    cls = sorters.get(sort_type)
+    if cls is None:
+        raise ValueError(f"Unknown sort type: {sort_type}. Available: {list(sorters.keys())}")
+    return cls(**kwargs)

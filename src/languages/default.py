@@ -242,3 +242,169 @@ class Default(Language):
             else:
                 result.append(ch)
         return "".join(result), count
+
+    # ─── Public static conversion methods (mirroring C++ public API) ──
+
+    @staticmethod
+    def to_simplified_chinese(text: str) -> str:
+        """Convert Traditional Chinese text to Simplified Chinese.
+        Equivalent to C++ LanguageDefault::ToSimplifiedChinese.
+        """
+        from src.cjkv.cjk import CJK
+
+        result = []
+        for ch in text:
+            cp = ord(ch)
+            try:
+                cjk = CJK(cp)
+                if cjk.is_cjk_ideograph():
+                    simplified = cjk.to_simplified()
+                    result.append(chr(int(simplified)) if simplified else ch)
+                else:
+                    result.append(ch)
+            except (ValueError, TypeError):
+                result.append(ch)
+        return "".join(result)
+
+    @staticmethod
+    def to_traditional_chinese(text: str) -> str:
+        """Convert Simplified Chinese text to Traditional Chinese.
+        Equivalent to C++ LanguageDefault::ToTraditionalChinese.
+        """
+        from src.cjkv.cjk import CJK
+
+        result = []
+        for ch in text:
+            cp = ord(ch)
+            try:
+                cjk = CJK(cp)
+                if cjk.is_cjk_ideograph():
+                    traditional = cjk.to_traditional()
+                    result.append(chr(int(traditional)) if traditional else ch)
+                else:
+                    result.append(ch)
+            except (ValueError, TypeError):
+                result.append(ch)
+        return "".join(result)
+
+    @staticmethod
+    def convert_han_to_reading(text: str, cjkv_type: str, all_readings: bool = True) -> tuple[str, int]:
+        """Convert Han characters to their readings.
+        Equivalent to C++ LanguageDefault::ConvertHanToReading.
+
+        Args:
+            text: Input text with CJK characters.
+            cjkv_type: One of 'pinyin', 'jyutping', 'korean', 'vietnamese', 'zhuang'.
+            all_readings: If True, return all readings. If False, return first only.
+
+        Returns:
+            Tuple of (converted_text, count_of_converted_characters).
+        """
+        from src.cjkv.cjk import CJK
+
+        result_parts = []
+        count = 0
+
+        for ch in text:
+            cp = ord(ch)
+            try:
+                cjk = CJK(cp)
+                if cjk.is_cjk_ideograph():
+                    reading = Default._get_reading_for_cjkv(cp, cjkv_type, all_readings)
+                    if reading:
+                        result_parts.append(reading)
+                        count += 1
+                        continue
+            except (ValueError, TypeError):
+                pass
+            result_parts.append(ch)
+
+        return " ".join(result_parts), count
+
+    @staticmethod
+    def _get_reading_for_cjkv(cp: int, cjkv_type: str, all_readings: bool) -> str:
+        """Get reading for a CJK character based on type."""
+        if cjkv_type == "pinyin":
+            from src.cjkv.pinyin import Pinyin
+
+            return Pinyin.get_pinyin_for_char(cp, first_reading_only=not all_readings)
+        elif cjkv_type == "jyutping":
+            from src.cjkv.jyutping import Jyutping
+
+            return Jyutping.get_jyutping_for_char(cp)
+        elif cjkv_type == "korean":
+            from src.cjkv.korean import Korean
+
+            return Korean.get_korean_for_char(cp)
+        elif cjkv_type == "vietnamese":
+            from src.cjkv.vietnamese import Vietnamese
+
+            return Vietnamese.get_vietnamese_for_char(cp)
+        elif cjkv_type == "zhuang":
+            from src.cjkv.zhuang import Zhuang
+
+            return Zhuang.get_zhuang_for_char(cp)
+        return ""
+
+    @staticmethod
+    def convert_tangut_to_reading(text: str) -> tuple[str, int]:
+        """Convert Tangut characters to their readings.
+        Equivalent to C++ LanguageDefault::ConvertTangutToReading.
+        """
+        from src.scripts.tangut import Tangut
+
+        result_parts = []
+        count = 0
+
+        for ch in text:
+            cp = ord(ch)
+            if Tangut.is_tangut_ideograph(cp):
+                reading = Tangut.get_li_fanwen_reading(cp)
+                if reading:
+                    result_parts.append(reading)
+                    count += 1
+                    continue
+            result_parts.append(ch)
+
+        return " ".join(result_parts), count
+
+    @staticmethod
+    def convert_to_viqr(text: str) -> str:
+        """Convert Vietnamese text to VIQR encoding.
+        Equivalent to C++ LanguageDefault::ConvertToVIQR.
+        """
+        from src.cjkv.vietnamese import Vietnamese
+
+        result = []
+        for ch in text:
+            viqr = Vietnamese.unicode_to_viqr(ch)
+            result.append(viqr if viqr else ch)
+        return "".join(result)
+
+    @staticmethod
+    def convert_from_viqr(text: str) -> str:
+        """Convert VIQR-encoded text to Unicode Vietnamese.
+        Equivalent to C++ LanguageDefault::ConvertFromVIQR.
+        """
+        from src.cjkv.vietnamese import Vietnamese
+
+        return Vietnamese.viqr_to_unicode(text)
+
+    @staticmethod
+    def convert_pua_to_hkscs(text: str) -> str:
+        """Convert PUA codepoints to HKSCS equivalents.
+        Equivalent to C++ LanguageDefault::ConvertPUAtoHKSCS.
+        """
+        from src.cjkv.cjk import CJKLoader
+
+        result = []
+        for ch in text:
+            cp = ord(ch)
+            # Check if this is a PUA codepoint mapped to HKSCS
+            if 0xE000 <= cp <= 0xF8FF:
+                equiv = CJKLoader.load_ucd_EquivalentUnifiedIdeograph().get(cp)
+                if equiv:
+                    result.append(chr(int(equiv)))
+                    continue
+            result.append(ch)
+        return "".join(result)

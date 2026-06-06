@@ -1,4 +1,4 @@
-"""Tests for src/main_/ package — BabelString, SCSU, CharList."""
+"""Tests for src/main_/ package — BabelString, SCSU, CharList, SymbolMappings, PostScriptNames."""
 
 import sys
 from pathlib import Path
@@ -9,6 +9,8 @@ LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
 from src.main_ import BabelString, CharList, SCSU  # noqa: E402
+from src.main_.symbol_mappings import SymbolMappings  # noqa: E402
+from src.main_.postscript_names import PostScriptNames  # noqa: E402
 
 # ═════════════════════  BabelString  ═════════════════════
 
@@ -267,3 +269,167 @@ class TestCharList:
     def test_init_with_none(self):
         cl = CharList(None)
         assert cl.count == 0
+
+
+# ═════════════════════  SymbolMappings  ═════════════════════
+
+
+class TestSymbolMappings:
+    def test_get_symbol_mapping_for_ascii(self):
+        assert SymbolMappings.get_symbol_mapping_for_ascii(0x41) == 0xF041  # 'A'
+        assert SymbolMappings.get_symbol_mapping_for_ascii(0x20) == 0xF020  # space
+
+    def test_get_symbol_mapping_for_ascii_below_range(self):
+        assert SymbolMappings.get_symbol_mapping_for_ascii(0x10) == 0x10  # unchanged
+
+    def test_get_symbol_mapping_for_ascii_above_range(self):
+        assert SymbolMappings.get_symbol_mapping_for_ascii(0x0100) == 0x0100  # unchanged
+
+    def test_get_ascii_mapping_for_symbol(self):
+        assert SymbolMappings.get_ascii_mapping_for_symbol(0xF041) == 0x41
+        assert SymbolMappings.get_ascii_mapping_for_symbol(0xF020) == 0x20
+
+    def test_get_ascii_mapping_for_non_symbol(self):
+        assert SymbolMappings.get_ascii_mapping_for_symbol(0x0041) == 0x0041
+
+    def test_get_symbol_font_mapping(self):
+        # space -> space glyph
+        assert SymbolMappings.get_symbol_font_mapping(0) == 0x0020
+        # '!' -> 0x0021
+        assert SymbolMappings.get_symbol_font_mapping(1) == 0x0021
+
+    def test_get_symbol_font_mapping_out_of_range(self):
+        assert SymbolMappings.get_symbol_font_mapping(999) == 0
+
+    def test_get_symbol_font_mapping_count(self):
+        assert SymbolMappings.get_symbol_font_mapping_count() == 224
+
+
+# ═════════════════════  PostScriptNames  ═════════════════════
+
+
+class TestPostScriptNames:
+    def test_get_name_for_codepoint(self):
+        assert PostScriptNames.get_name_for_codepoint(0x0041) == "A"
+        assert PostScriptNames.get_name_for_codepoint(0x0020) == "space"
+        assert PostScriptNames.get_name_for_codepoint(0x00E9) == "eacute"
+
+    def test_get_name_for_codepoint_not_found(self):
+        assert PostScriptNames.get_name_for_codepoint(0x4E00) == ""  # CJK
+
+    def test_get_codepoint_for_name(self):
+        assert PostScriptNames.get_codepoint_for_name("A") == 0x0041
+        assert PostScriptNames.get_codepoint_for_name("space") == 0x0020
+        assert PostScriptNames.get_codepoint_for_name("copyright") == 0x00A9
+
+    def test_get_codepoint_for_name_not_found(self):
+        assert PostScriptNames.get_codepoint_for_name("nonexistent") == 0
+
+    def test_get_name_for_glyph_id(self):
+        assert PostScriptNames.get_name_for_glyph_id(3) == "space"
+        assert PostScriptNames.get_name_for_glyph_id(68) == "a"
+
+    def test_get_name_for_glyph_id_out_of_range(self):
+        assert PostScriptNames.get_name_for_glyph_id(999) == ""
+
+    def test_get_codepoint_for_glyph_id(self):
+        assert PostScriptNames.get_codepoint_for_glyph_id(68) == 0x0061  # 'a'
+        assert PostScriptNames.get_codepoint_for_glyph_id(3) == 0x0020  # space
+
+    def test_get_standard_names_count(self):
+        assert PostScriptNames.get_standard_names_count() == 196
+
+    def test_all_names(self):
+        names = PostScriptNames.all_names()
+        assert len(names) == 196
+        assert names[3] == ("space", 0x0020)
+        assert names[-1] == ("periodcentered", 0x2219)
+
+
+# ═════════════════════  BabelString — extended  ═════════════════════
+
+
+class TestBabelStringExtended:
+    """Tests for newly added BabelString methods."""
+
+    # ── Cursor movement ──
+    def test_go_left(self):
+        assert BabelString.go_left("AB", 2) == 1
+        assert BabelString.go_left("AB", 1) == 0
+        assert BabelString.go_left("AB", 0) == 0
+
+    def test_go_right(self):
+        assert BabelString.go_right("AB", 0) == 1
+        assert BabelString.go_right("AB", 1) == 2
+        assert BabelString.go_right("AB", 2) == 2
+
+    def test_go_up_down(self):
+        text = "line1\nline2\nline3"
+        pos_end_l1 = 5  # position at end of "line1"
+        result = BabelString.go_down(text, 2)
+        assert result > 0  # moved down
+
+    # ── Backspace / Delete ──
+    def test_backspace(self):
+        new_text, new_pos = BabelString.backspace("AB", 1)
+        assert new_text == "B"
+        assert new_pos == 0
+
+    def test_delete_at(self):
+        assert BabelString.delete_at("ABC", 1, 1) == "AC"
+        assert BabelString.delete_at("ABC", 0, 2) == "C"
+
+    def test_delete_line_break(self):
+        text, pos, length = BabelString.delete_line_break("A\nB", 1, before=False)
+        assert text == "AB"
+        assert length == 1
+
+    # ── Search ──
+    def test_find_string(self):
+        assert BabelString.find_string("hello world", "world") == 6
+        assert BabelString.find_string("hello", "x") == -1
+
+    def test_find_string_reverse(self):
+        assert BabelString.find_string_reverse("abab", "ab", start=3) == 2
+
+    def test_is_same_wild(self):
+        assert BabelString.is_same_wild("hello", "hello") is True
+        assert BabelString.is_same_wild("hello", "h.llo") is False  # no regex, exact match
+        assert BabelString.is_same_wild("hello", "world") is False
+
+    # ── String operations ──
+    def test_count(self):
+        assert BabelString.count("hello", "l") == 2
+        assert BabelString.count("hello", ord("l")) == 2
+
+    def test_remove(self):
+        assert BabelString.remove("hello", ord("l")) == "heo"
+
+    def test_replace(self):
+        assert BabelString.replace("hello", ord("l"), ord("w")) == "hewwo"
+
+    def test_remove_trailing_whitespace(self):
+        assert BabelString.remove_trailing_whitespace("hello   ") == "hello"
+
+    # ── Conversion ──
+    def test_add_comma(self):
+        assert BabelString.add_comma(1234567) == "1,234,567"
+        assert BabelString.add_comma("1234") == "1,234"
+
+    def test_hex_string_to_unicode(self):
+        assert BabelString.hex_string_to_unicode("0041") == 0x41
+        assert BabelString.hex_string_to_unicode("1F600") == 0x1F600
+
+    def test_string_to_integer(self):
+        assert BabelString.string_to_integer("123") == 123
+        assert BabelString.string_to_integer("") == 0
+
+    # ── Selection ──
+    def test_select_word(self):
+        start, end = BabelString.select_word("hello world", 0)
+        assert (start, end) == (0, 5)
+
+    def test_get_next_word(self):
+        word, wlen, pos = BabelString.get_next_word("hello world", 0)
+        assert word == "hello"
+        assert wlen == 5

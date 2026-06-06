@@ -170,3 +170,106 @@ class TestSorterWindows:
     def test_sort_fallback(self):
         s = SorterWindows()
         assert s.sort(["c", "a", "b"]) == ["a", "b", "c"]
+
+
+# ═════════════════════  CompareStrings  ═════════════════════
+
+
+class TestCompareStrings:
+    def test_unicode(self):
+        from src.sort.sorters import CompareStrings
+
+        assert CompareStrings.unicode("a", "b") < 0
+        assert CompareStrings.unicode("b", "a") > 0
+        assert CompareStrings.unicode("a", "a") == 0
+
+    def test_hexadecimal(self):
+        from src.sort.sorters import CompareStrings
+
+        assert CompareStrings.hexadecimal("A", "FF") < 0
+
+    def test_length(self):
+        from src.sort.sorters import CompareStrings
+
+        assert CompareStrings.length("a", "aa") < 0
+
+    def test_numeric(self):
+        from src.sort.sorters import CompareStrings
+
+        assert CompareStrings.numeric("item2", "item10") < 0
+
+    def test_custom(self):
+        from src.sort.sorters import CompareStrings
+
+        assert CompareStrings.custom("a", "b", "ba") > 0
+
+
+# ═════════════════════  create_sorter  ═════════════════════
+
+
+class TestCreateSorter:
+    def test_unicode(self):
+        from src.sort.sorters import create_sorter
+
+        s = create_sorter("unicode")
+        assert isinstance(s, SorterUnicode)
+
+    def test_numeric(self):
+        from src.sort.sorters import create_sorter
+
+        s = create_sorter("numeric")
+        assert isinstance(s, SorterNumeric)
+
+    def test_invalid(self):
+        from src.sort.sorters import create_sorter
+
+        with pytest.raises(ValueError, match="Unknown sort type"):
+            create_sorter("invalid")
+
+
+# ═════════════════════  SorterWithRange  ═════════════════════
+
+
+class TestSorterWithRange:
+    def test_sort_range(self):
+        from src.sort.sorters import SorterWithRange, SortConfig
+
+        class AscendingSorter(SorterWithRange):
+            def compare(self, a, b):
+                if a < b:
+                    return -1
+                if a > b:
+                    return 1
+                return 0
+
+        s = AscendingSorter()
+        items = ["d", "c", "b", "a"]
+        result = s.sort_range(items, 1, 2)  # sort items[1:3]
+        assert result == ["d", "b", "c", "a"]
+
+    def test_get_next_equal_range(self):
+        from src.sort.sorters import SorterWithRange, SortConfig
+
+        class AscendingSorter(SorterWithRange):
+            def compare(self, a, b):
+                if a < b:
+                    return -1
+                if a > b:
+                    return 1
+                return 0
+
+        s = AscendingSorter()
+        items = ["a", "a", "a", "b", "c"]
+        result = s.get_next_equal_range(items, 0)
+        assert result == (0, 2)
+
+    def test_get_next_equal_range_none(self):
+        from src.sort.sorters import SorterWithRange
+
+        class AscendingSorter(SorterWithRange):
+            def compare(self, a, b):
+                return -1 if a < b else (1 if a > b else 0)
+
+        s = AscendingSorter()
+        items = []
+        assert s.get_next_equal_range(items, 0) is None

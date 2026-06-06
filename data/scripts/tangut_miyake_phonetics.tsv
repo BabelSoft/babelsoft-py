@@ -1,5 +1,5 @@
 # BabelSoft Script Data: Miyake Phonetic Tables
-# Source: C++ codebase (c/Scripts/Miyake.cpp)
+# Source: C++ codebase (Scripts/Miyake.cpp)
 #
 # Description:
 #   Phonetic value tables for Miyake 2012 and 2015 Tangut reconstructions.

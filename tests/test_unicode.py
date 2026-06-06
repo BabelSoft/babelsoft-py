@@ -291,14 +291,14 @@ class TestUCA:
         assert u1.compare(u2) == 0
 
     def test_sort_options_default(self):
-        from src.unicode.uca import SortOptions, SortType, Locale, VariableWeighting
+        from src.unicode.uca import SortOptions, SortType, Locale
 
         so = SortOptions()
         assert so.sort_type == SortType.UCA
         assert so.locale == Locale.NEUTRAL
 
     def test_empty_string(self):
-        from src.unicode.uca import UCA, collation_compare
+        from src.unicode.uca import collation_compare
 
         assert collation_compare("", "") == 0
         assert collation_compare("", "a") < 0
@@ -446,3 +446,23 @@ class TestNewUnicodeMethods:
         count, first, last = Unicode.letters_in_block("Basic Latin")
         assert count > 0
         assert first > 0
+
+    # ── Word boundary (new) ──
+
+    def test_is_word_starter(self):
+        assert Unicode.is_word_starter(0x41) is True  # 'A'
+        assert Unicode.is_word_starter(0x20) is False  # space not a word character
+
+    def test_is_word_boundary(self):
+        # Between 'A' and space = word boundary (letter→non-letter)
+        assert Unicode.is_word_boundary(0x41, 0x20, 0x20) is True
+        # Both letters, no boundary
+        assert Unicode.is_word_boundary(0x41, 0x42, 0x43) is False
+        # Both non-letters, no boundary
+        assert Unicode.is_word_boundary(0x20, 0x2C, 0x2E) is False
+
+    # ── CJK static check (new) ──
+
+    def test_is_cjk_ideograph_static(self):
+        assert Unicode.is_cjk_ideograph_static(0x4E00) is True
+        assert Unicode.is_cjk_ideograph_static(0x41) is False

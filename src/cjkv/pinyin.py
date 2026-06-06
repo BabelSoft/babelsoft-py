@@ -5,7 +5,6 @@ Mirrors the C++ Pinyin class from Pinyin.h/Pinyin.cpp.
 
 from __future__ import annotations
 
-import functools
 from collections import defaultdict
 from typing import ClassVar
 
@@ -150,3 +149,51 @@ class Pinyin(Lookup):
             results.append(cp)
 
         return sorted(set(results))
+
+    @staticmethod
+    def decomp(ch: int) -> tuple[int, int, int] | None:
+        """Decompose a Pinyin reading codepoint into its three constituent parts.
+
+        Equivalent to C++ Pinyin::Decomp(CHAR32 ch, CHAR32& ch1, CHAR32& ch2, CHAR32& ch3).
+        Decomposes a single Unicode character that represents a composite Pinyin
+        reading into up to three base letter codepoints.
+
+        Returns:
+            Tuple of (ch1, ch2, ch3) where unused positions are 0, or None if
+            the character is not decomposable.
+        """
+        # Look up in the decomposition table
+        decomp_map = Pinyin._load_decomp_table()
+        if ch in decomp_map:
+            return decomp_map[ch]
+        return None
+
+    @classmethod
+    def _load_decomp_table(cls) -> dict[int, tuple[int, int, int]]:
+        """Load the Pinyin decomposition table."""
+        if hasattr(cls, "_decomp_cache"):
+            return cls._decomp_cache
+
+        table: dict[int, tuple[int, int, int]] = {}
+
+        # Build from the Pinyin labels and vowel position tables
+        cls._load_data()
+        if not cls._labels:
+            return table
+
+        # For each Pinyin label, try to decompose multi-codepoint combinations
+        for label in cls._labels:
+            if len(label) > 1:
+                cps = [ord(c) for c in label]
+                if len(cps) == 2:
+                    # Store as (ch1, ch2, 0)
+                    key = (cps[0] << 16) | cps[1]
+                    if key not in table:
+                        table[key] = (cps[0], cps[1], 0)
+                elif len(cps) == 3:
+                    key = (cps[0] << 32) | (cps[1] << 16) | cps[2]
+                    if key not in table:
+                        table[key] = (cps[0], cps[1], cps[2])
+
+        cls._decomp_cache = table
+        return table

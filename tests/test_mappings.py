@@ -13,13 +13,74 @@ LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
 from src.mappings import (  # noqa: E402
+    ARMSCII8,
+    ASCII,
     Big5,
+    BrdaRten,
     CP932,
     CP936,
     CP949,
+    CP950,
+    DOSCP437,
+    DOSCP737,
+    DOSCP775,
+    DOSCP850,
+    DOSCP852,
+    DOSCP855,
+    DOSCP857,
+    DOSCP860,
+    DOSCP861,
+    DOSCP862,
+    DOSCP863,
+    DOSCP864,
+    DOSCP865,
+    DOSCP866,
+    DOSCP869,
+    EBCDIC,
     Encoding,
+    EUCJP,
+    EUCKR,
     GB18030,
+    GB2312,
+    GBK,
+    HKSCS,
+    ISO8859_2,
+    ISO8859_3,
+    ISO8859_4,
+    ISO8859_5,
+    ISO8859_6,
+    ISO8859_7,
+    ISO8859_8,
+    ISO8859_9,
+    ISO8859_10,
+    ISO8859_11,
+    ISO8859_13,
+    ISO8859_14,
+    ISO8859_15,
+    ISO8859_16,
+    JIS,
+    JIS0212,
+    KOI8R,
+    KOI8U,
+    KPS9566,
+    LaoMuleLao1,
     Mapper,
+    ShiftJIS,
+    TamilTAB,
+    TamilTAM,
+    TamilTSCII,
+    TIS620,
+    VISCII,
+    Windows874,
+    Windows1250,
+    Windows1251,
+    Windows1252,
+    Windows1253,
+    Windows1254,
+    Windows1255,
+    Windows1256,
+    Windows1257,
+    Windows1258,
 )
 
 MAPPINGS_DIR = Path(__file__).parent.parent / "data" / "mappings"
@@ -457,3 +518,904 @@ class TestSourceByteFormat:
         if col0.startswith("0x"):
             for i, row in enumerate(data):
                 assert re.match(r"^0x[0-9A-F]+$", row[0]), f"{filename} row {i+1}: bad source format '{row[0]}'"
+
+
+# ═════════════════════  BrdaRten  ═════════════════════
+
+
+class TestBrdaRten:
+    def test_class_exists(self):
+        assert BrdaRten.ENCODING == Encoding.BRDA_RTEN
+
+    def test_encoding_value(self):
+        assert Encoding.BRDA_RTEN.value == "brda_rten"
+
+    def test_to_unicode_fallback_ascii(self):
+        """BrdaRten is a custom encoding; ASCII subset may fail over to replacement."""
+        result = BrdaRten.to_unicode(b"ABC")
+        assert len(result) == 3
+
+    def test_from_unicode_fallback(self):
+        result = BrdaRten.from_unicode("ABC")
+        assert isinstance(result, bytes)
+
+
+# ═════════════════════  DOS Code Pages  ═════════════════════
+
+
+class TestDOSCP437:
+    def test_to_unicode_ascii(self):
+        result = DOSCP437.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_from_unicode_ascii(self):
+        result = DOSCP437.from_unicode("Hello")
+        assert result == b"Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP437.value == "cp437"
+
+
+class TestDOSCP737:
+    def test_to_unicode_ascii(self):
+        result = DOSCP737.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP737.value == "cp737"
+
+
+class TestDOSCP850:
+    def test_to_unicode_ascii(self):
+        result = DOSCP850.to_unicode(b"Test")
+        assert result == "Test"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP850.value == "cp850"
+
+
+class TestDOSCP852:
+    def test_to_unicode_ascii(self):
+        result = DOSCP852.to_unicode(b"XYZ")
+        assert result == "XYZ"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP852.value == "cp852"
+
+
+class TestDOSCP866:
+    def test_to_unicode_ascii(self):
+        result = DOSCP866.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP866.value == "cp866"
+
+
+class TestAllDOSEncodings:
+    """Verify all 15 DOS code page enum values exist."""
+
+    DOS_ENUMS = [
+        "DOS_CP437",
+        "DOS_CP737",
+        "DOS_CP775",
+        "DOS_CP850",
+        "DOS_CP852",
+        "DOS_CP855",
+        "DOS_CP857",
+        "DOS_CP860",
+        "DOS_CP861",
+        "DOS_CP862",
+        "DOS_CP863",
+        "DOS_CP864",
+        "DOS_CP865",
+        "DOS_CP866",
+        "DOS_CP869",
+    ]
+
+    def test_all_dos_enums_exist(self):
+        for name in self.DOS_ENUMS:
+            assert hasattr(Encoding, name), f"Encoding.{name} missing"
+
+    def test_all_dos_classes_exist(self):
+        classes = [
+            DOSCP437,
+            DOSCP737,
+            DOSCP775,
+            DOSCP850,
+            DOSCP852,
+            DOSCP855,
+            DOSCP857,
+            DOSCP860,
+            DOSCP861,
+            DOSCP862,
+            DOSCP863,
+            DOSCP864,
+            DOSCP865,
+            DOSCP866,
+            DOSCP869,
+        ]
+        for cls in classes:
+            assert hasattr(cls, "ENCODING")
+            assert hasattr(cls, "to_unicode")
+            assert hasattr(cls, "from_unicode")
+
+
+# ═════════════════════  KPS 9566  ═════════════════════
+
+
+class TestKPS9566:
+    def test_class_exists(self):
+        assert KPS9566.ENCODING == Encoding.KPS_9566
+
+    def test_encoding_value(self):
+        assert Encoding.KPS_9566.value == "kps_9566"
+
+    def test_to_unicode_ascii_fallback(self):
+        """KPS 9566 is a DBCS; ASCII subset may need custom mapping."""
+        result = KPS9566.to_unicode(b"A")
+        assert len(result) == 1
+
+    def test_from_unicode_fallback(self):
+        result = KPS9566.from_unicode("A")
+        assert isinstance(result, bytes)
+
+
+# ═════════════════════  Lao  ═════════════════════
+
+
+class TestLaoMuleLao1:
+    def test_class_exists(self):
+        assert LaoMuleLao1.ENCODING == Encoding.LAO_MULELAO1
+
+    def test_encoding_value(self):
+        assert Encoding.LAO_MULELAO1.value == "mulelao1"
+
+    def test_to_unicode_fallback(self):
+        result = LaoMuleLao1.to_unicode(b"A")
+        assert len(result) == 1
+
+    def test_from_unicode_fallback(self):
+        result = LaoMuleLao1.from_unicode("A")
+        assert isinstance(result, bytes)
+
+
+# ═════════════════════  Tamil  ═════════════════════
+
+
+class TestTamilTAB:
+    def test_to_unicode_ascii(self):
+        result = TamilTAB.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.TAMIL_TAB.value == "tab"
+
+
+class TestTamilTAM:
+    def test_to_unicode_ascii(self):
+        result = TamilTAM.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.TAMIL_TAM.value == "tam"
+
+
+class TestTamilTSCII:
+    def test_to_unicode_ascii(self):
+        result = TamilTSCII.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.TAMIL_TSCII.value == "tscii"
+
+
+class TestAllTamilEncodings:
+    """Verify all 3 Tamil encoding enum values exist."""
+
+    def test_all_tamil_enums_exist(self):
+        for name in ["TAMIL_TAB", "TAMIL_TAM", "TAMIL_TSCII"]:
+            assert hasattr(Encoding, name), f"Encoding.{name} missing"
+
+    def test_all_tamil_classes_exist(self):
+        for cls in [TamilTAB, TamilTAM, TamilTSCII]:
+            assert hasattr(cls, "ENCODING")
+            assert hasattr(cls, "to_unicode")
+            assert hasattr(cls, "from_unicode")
+
+
+# ═════════════════════  ISO-8859  ═════════════════════
+
+
+class TestISO8859_2:
+    def test_to_unicode_ascii(self):
+        result = ISO8859_2.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_from_unicode_ascii(self):
+        result = ISO8859_2.from_unicode("Hello")
+        assert result == b"Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_2.value == "iso8859_2"
+
+
+class TestISO8859_5:
+    def test_to_unicode_ascii(self):
+        result = ISO8859_5.to_unicode(b"Test")
+        assert result == "Test"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_5.value == "iso8859_5"
+
+
+class TestISO8859_7:
+    def test_to_unicode_ascii(self):
+        result = ISO8859_7.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_7.value == "iso8859_7"
+
+
+class TestISO8859_15:
+    def test_to_unicode_ascii(self):
+        result = ISO8859_15.to_unicode(b"Euro")
+        assert result == "Euro"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_15.value == "iso8859_15"
+
+
+class TestAllISO8859Encodings:
+    """Verify all 14 ISO-8859 enum values exist (no ISO-8859-12)."""
+
+    ISO_ENUMS = [
+        "ISO_8859_2",
+        "ISO_8859_3",
+        "ISO_8859_4",
+        "ISO_8859_5",
+        "ISO_8859_6",
+        "ISO_8859_7",
+        "ISO_8859_8",
+        "ISO_8859_9",
+        "ISO_8859_10",
+        "ISO_8859_11",
+        "ISO_8859_13",
+        "ISO_8859_14",
+        "ISO_8859_15",
+        "ISO_8859_16",
+    ]
+
+    def test_all_iso_enums_exist(self):
+        for name in self.ISO_ENUMS:
+            assert hasattr(Encoding, name), f"Encoding.{name} missing"
+
+    def test_all_iso_classes_exist(self):
+        classes = [
+            ISO8859_2,
+            ISO8859_3,
+            ISO8859_4,
+            ISO8859_5,
+            ISO8859_6,
+            ISO8859_7,
+            ISO8859_8,
+            ISO8859_9,
+            ISO8859_10,
+            ISO8859_11,
+            ISO8859_13,
+            ISO8859_14,
+            ISO8859_15,
+            ISO8859_16,
+        ]
+        for cls in classes:
+            assert hasattr(cls, "ENCODING")
+            assert hasattr(cls, "to_unicode")
+            assert hasattr(cls, "from_unicode")
+
+
+# ═════════════════════  ARMSCII-8  ═════════════════════
+
+
+class TestARMSCII8:
+    def test_to_unicode_ascii(self):
+        result = ARMSCII8.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = ARMSCII8.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ARMSCII_8.value == "armscii_8"
+
+
+# ═════════════════════  ASCII  ═════════════════════
+
+
+class TestASCII:
+    def test_to_unicode(self):
+        result = ASCII.to_unicode(b"Hello!")
+        assert result == "Hello!"
+
+    def test_from_unicode(self):
+        result = ASCII.from_unicode("Hello!")
+        assert result == b"Hello!"
+
+    def test_encoding_value(self):
+        assert Encoding.ASCII.value == "ascii"
+
+
+# ═════════════════════  CP950  ═════════════════════
+
+
+class TestCP950:
+    def test_to_unicode_ascii(self):
+        result = CP950.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = CP950.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.CP950.value == "cp950"
+
+
+# ═════════════════════  EBCDIC  ═════════════════════
+
+
+class TestEBCDIC:
+    def test_to_unicode_ascii(self):
+        result = EBCDIC.to_unicode(b"HELLO")
+        assert len(result) == 5
+
+    def test_from_unicode_ascii(self):
+        result = EBCDIC.from_unicode("HELLO")
+        assert isinstance(result, bytes)
+
+    def test_encoding_value(self):
+        assert Encoding.EBCDIC.value == "ebcdic_cp_us"
+
+
+# ═════════════════════  EUC-JP  ═════════════════════
+
+
+class TestEUCJP:
+    def test_to_unicode_ascii(self):
+        result = EUCJP.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = EUCJP.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.EUC_JP.value == "euc_jp"
+
+
+# ═════════════════════  EUC-KR  ═════════════════════
+
+
+class TestEUCKR:
+    def test_to_unicode_ascii(self):
+        result = EUCKR.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = EUCKR.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.EUC_KR.value == "euc_kr"
+
+
+# ═════════════════════  GB2312  ═════════════════════
+
+
+class TestGB2312:
+    def test_to_unicode_ascii(self):
+        result = GB2312.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_from_unicode_ascii(self):
+        result = GB2312.from_unicode("Hello")
+        assert result == b"Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.GB2312.value == "gb2312"
+
+
+# ═════════════════════  GBK  ═════════════════════
+
+
+class TestGBK:
+    def test_to_unicode_ascii(self):
+        result = GBK.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_from_unicode_ascii(self):
+        result = GBK.from_unicode("Hello")
+        assert result == b"Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.GBK.value == "gbk"
+
+
+# ═════════════════════  HKSCS  ═════════════════════
+
+
+class TestHKSCS:
+    def test_to_unicode_ascii(self):
+        result = HKSCS.to_unicode(b"ABC")
+        assert len(result) == 3
+
+    def test_from_unicode_ascii(self):
+        result = HKSCS.from_unicode("ABC")
+        assert isinstance(result, bytes)
+
+    def test_encoding_value(self):
+        assert Encoding.BIG5_HKSCS.value == "big5hkscs"
+
+
+# ═════════════════════  JIS  ═════════════════════
+
+
+class TestJIS:
+    def test_to_unicode_ascii(self):
+        result = JIS.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = JIS.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.JIS.value == "iso2022_jp"
+
+
+# ═════════════════════  JIS0212  ═════════════════════
+
+
+class TestJIS0212:
+    def test_to_unicode_ascii(self):
+        result = JIS0212.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = JIS0212.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.JIS_EXT.value == "iso2022_jp_ext"
+
+
+# ═════════════════════  KOI8-R / KOI8-U  ═════════════════════
+
+
+class TestKOI8R:
+    def test_to_unicode_ascii(self):
+        result = KOI8R.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = KOI8R.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.KOI8_R.value == "koi8_r"
+
+
+class TestKOI8U:
+    def test_to_unicode_ascii(self):
+        result = KOI8U.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = KOI8U.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.KOI8_U.value == "koi8_u"
+
+
+# ═════════════════════  Shift-JIS  ═════════════════════
+
+
+class TestShiftJIS:
+    def test_to_unicode_ascii(self):
+        result = ShiftJIS.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = ShiftJIS.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.SHIFT_JIS.value == "shift_jis"
+
+
+# ═════════════════════  TIS-620  ═════════════════════
+
+
+class TestTIS620:
+    def test_to_unicode_ascii(self):
+        result = TIS620.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = TIS620.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.TIS_620.value == "tis_620"
+
+
+# ═════════════════════  VISCII  ═════════════════════
+
+
+class TestVISCII:
+    def test_to_unicode_ascii(self):
+        result = VISCII.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = VISCII.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.VISCII.value == "viscii"
+
+
+# ═════════════════════  Windows-874  ═════════════════════
+
+
+class TestWindows874:
+    def test_to_unicode_ascii(self):
+        result = Windows874.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = Windows874.from_unicode("ABC")
+        assert result == b"ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_874.value == "windows_874"
+
+
+# ═════════════════════  Windows-125x  ═════════════════════
+
+
+class TestWindows1250:
+    def test_to_unicode_ascii(self):
+        result = Windows1250.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1250.value == "windows_1250"
+
+
+class TestWindows1251:
+    def test_to_unicode_ascii(self):
+        result = Windows1251.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1251.value == "windows_1251"
+
+
+class TestWindows1252:
+    def test_to_unicode_ascii(self):
+        result = Windows1252.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1252.value == "windows_1252"
+
+
+class TestWindows1253:
+    def test_to_unicode_ascii(self):
+        result = Windows1253.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1253.value == "windows_1253"
+
+
+class TestWindows1254:
+    def test_to_unicode_ascii(self):
+        result = Windows1254.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1254.value == "windows_1254"
+
+
+class TestWindows1255:
+    def test_to_unicode_ascii(self):
+        result = Windows1255.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1255.value == "windows_1255"
+
+
+class TestWindows1256:
+    def test_to_unicode_ascii(self):
+        result = Windows1256.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1256.value == "windows_1256"
+
+
+class TestWindows1257:
+    def test_to_unicode_ascii(self):
+        result = Windows1257.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1257.value == "windows_1257"
+
+
+class TestWindows1258:
+    def test_to_unicode_ascii(self):
+        result = Windows1258.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_encoding_value(self):
+        assert Encoding.WINDOWS_1258.value == "windows_1258"
+
+
+class TestAllWindowsCPEncodings:
+    """Verify Windows-874 + Windows-1250 through 1258 all exist."""
+
+    def test_all_windows_enums_exist(self):
+        expected = ["WINDOWS_874"] + [f"WINDOWS_{n}" for n in range(1250, 1259)]
+        for name in expected:
+            assert hasattr(Encoding, name), f"Encoding.{name} missing"
+
+    def test_all_windows_classes_exist(self):
+        classes = [Windows874] + [
+            Windows1250,
+            Windows1251,
+            Windows1252,
+            Windows1253,
+            Windows1254,
+            Windows1255,
+            Windows1256,
+            Windows1257,
+            Windows1258,
+        ]
+        for cls in classes:
+            assert hasattr(cls, "ENCODING")
+            assert hasattr(cls, "to_unicode")
+            assert hasattr(cls, "from_unicode")
+
+
+# ═════════════════════  Remaining DOS sub-classes  ═════════════════════
+
+
+class TestDOSCP775:
+    def test_to_unicode_ascii(self):
+        assert DOSCP775.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP775.value == "cp775"
+
+
+class TestDOSCP855:
+    def test_to_unicode_ascii(self):
+        assert DOSCP855.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP855.value == "cp855"
+
+
+class TestDOSCP857:
+    def test_to_unicode_ascii(self):
+        assert DOSCP857.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP857.value == "cp857"
+
+
+class TestDOSCP860:
+    def test_to_unicode_ascii(self):
+        assert DOSCP860.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP860.value == "cp860"
+
+
+class TestDOSCP861:
+    def test_to_unicode_ascii(self):
+        assert DOSCP861.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP861.value == "cp861"
+
+
+class TestDOSCP862:
+    def test_to_unicode_ascii(self):
+        assert DOSCP862.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP862.value == "cp862"
+
+
+class TestDOSCP863:
+    def test_to_unicode_ascii(self):
+        assert DOSCP863.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP863.value == "cp863"
+
+
+class TestDOSCP864:
+    def test_to_unicode_ascii(self):
+        assert DOSCP864.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP864.value == "cp864"
+
+
+class TestDOSCP865:
+    def test_to_unicode_ascii(self):
+        assert DOSCP865.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP865.value == "cp865"
+
+
+class TestDOSCP869:
+    def test_to_unicode_ascii(self):
+        assert DOSCP869.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.DOS_CP869.value == "cp869"
+
+
+# ═════════════════════  Remaining ISO-8859 sub-classes  ═════════════════
+
+
+class TestISO8859_3:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_3.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_3.value == "iso8859_3"
+
+
+class TestISO8859_4:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_4.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_4.value == "iso8859_4"
+
+
+class TestISO8859_6:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_6.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_6.value == "iso8859_6"
+
+
+class TestISO8859_8:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_8.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_8.value == "iso8859_8"
+
+
+class TestISO8859_9:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_9.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_9.value == "iso8859_9"
+
+
+class TestISO8859_10:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_10.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_10.value == "iso8859_10"
+
+
+class TestISO8859_11:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_11.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_11.value == "iso8859_11"
+
+
+class TestISO8859_13:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_13.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_13.value == "iso8859_13"
+
+
+class TestISO8859_14:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_14.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_14.value == "iso8859_14"
+
+
+class TestISO8859_16:
+    def test_to_unicode_ascii(self):
+        assert ISO8859_16.to_unicode(b"ABC") == "ABC"
+
+    def test_encoding_value(self):
+        assert Encoding.ISO_8859_16.value == "iso8859_16"
+
+
+# ═════════════════════  Full Encoding Coverage  ═════════════════════
+
+
+class TestEncodingCoverage:
+    """Ensure every data file has a corresponding Encoding enum."""
+
+    FILE_TO_ENUM = {
+        "armscii.tsv": "ARMSCII_8",
+        "brda_rten.tsv": "BRDA_RTEN",
+        "cp932.tsv": "CP932",
+        "cp936.tsv": "CP936",
+        "cp949.tsv": "CP949",
+        "cp950.tsv": "CP950",
+        "dos.tsv": "DOS_CP437",  # representative
+        "ebcdic.tsv": "EBCDIC",
+        "gb18030.tsv": "GB18030",
+        "hkscs.tsv": "BIG5_HKSCS",
+        "iso_8859.tsv": "ISO_8859_2",  # representative
+        "jis_x_0201.tsv": "JIS",
+        "jis_x_0212.tsv": "JIS_EXT",
+        "koi8.tsv": "KOI8_R",
+        "kps_9566.tsv": "KPS_9566",
+        "tai_lao.tsv": "LAO_MULELAO1",  # representative
+        "tamil.tsv": "TAMIL_TSCII",  # representative
+        "viscii.tsv": "VISCII",
+        "windows_cp.tsv": "WINDOWS_1252",  # representative
+    }
+
+    def test_all_data_files_have_enum(self):
+        for filename, enum_name in self.FILE_TO_ENUM.items():
+            assert hasattr(Encoding, enum_name), f"Encoding.{enum_name} missing for {filename}"
+
+
+class TestNoUnusedImports:
+    """Meta-test: ensure every imported class is exercised at least once."""
+
+    def test_all_imports_used(self):
+        # Collect all names imported from src.mappings
+        import ast
+
+        src = Path(__file__).read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and getattr(node, "module", "") == "src.mappings":
+                for alias in node.names:
+                    imported.add(alias.name)
+
+        # Collect all names referenced anywhere in the file
+        used = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name):
+                used.add(node.id)
+            elif isinstance(node, ast.Attribute):
+                used.add(node.attr)
+            elif isinstance(node, ast.Call):
+                pass  # Call itself doesn't have a name
+
+        unused = imported - used
+        assert not unused, f"Unused imports from src.mappings: {sorted(unused)}"

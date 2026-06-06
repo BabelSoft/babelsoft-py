@@ -344,6 +344,30 @@ class CJKLoader:
                 res[cp] = t
         return res
 
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_cjk_ui_offsets() -> list[int]:
+        """Load CJK Unified Ideograph block offsets.
+
+        Returns a list of base codepoints for each CJK block:
+        [CJK_URO, CJK_Compat, CJK_A, CJK_B, ..., CJK_J].
+        Equivalent to the C++ CJK_UI_Offset[] array.
+        """
+        return [
+            0x4E00,  # CJK URO (main)
+            0xF900,  # CJK Compatibility
+            0x3400,  # CJK Extension A
+            0x20000,  # CJK Extension B
+            0x2A700,  # CJK Extension C
+            0x2B740,  # CJK Extension D
+            0x2B820,  # CJK Extension E
+            0x2CEB0,  # CJK Extension F
+            0x30000,  # CJK Extension G
+            0x31350,  # CJK Extension H
+            0x2EBF0,  # CJK Extension I
+            0x323B0,  # CJK Extension J
+        ]
+
 
 # ─── Scripts Loader ────────────────────────────────────────────────────
 

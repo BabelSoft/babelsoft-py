@@ -304,3 +304,201 @@ class Unicode(Language):
             count = len(text)
 
         return result, count
+
+    # ─── Additional static conversion methods ─────────────────────────
+
+    @staticmethod
+    def convert_to_perl_sequences(text: str, skip_ascii: bool = False) -> str:
+        """Convert Unicode to Perl escape sequences (\\x{XXXX}).
+        Equivalent to C++ LanguageUnicode::ConvertToPerlSequences.
+        """
+        result = []
+        for ch in text:
+            cp = ord(ch)
+            if cp > 0x7F or not skip_ascii:
+                result.append(f"\\x{{{cp:X}}}")
+            else:
+                result.append(ch)
+        return "".join(result)
+
+    @staticmethod
+    def convert_from_perl_sequences(text: str) -> str:
+        """Convert Perl escape sequences to Unicode.
+        Equivalent to C++ LanguageUnicode::ConvertFromPerlSequences.
+        """
+        import re
+
+        def replace_perl(match):
+            return chr(int(match.group(1), 16))
+
+        return re.sub(r"\\x\{([0-9a-fA-F]+)\}", replace_perl, text)
+
+    @staticmethod
+    def convert_to_utf8_hex(text: str) -> str:
+        """Convert text to UTF-8 hex byte representation.
+        Equivalent to C++ ConvertToUtf8ByteCodes.
+        """
+        return " ".join(f"{b:02X}" for b in text.encode("utf-8"))
+
+    @staticmethod
+    def convert_to_utf16_hex(text: str) -> str:
+        """Convert text to UTF-16BE hex representation."""
+        return " ".join(f"{b:02X}" for b in text.encode("utf-16-be"))
+
+    @staticmethod
+    def convert_to_utf32_hex(text: str) -> str:
+        """Convert text to UTF-32BE hex representation."""
+        return " ".join(f"{b:02X}" for b in text.encode("utf-32-be"))
+
+    @staticmethod
+    def convert_control_codes(text: str) -> str:
+        """Convert C0/C1 control codes to their visible representations.
+        Equivalent to C++ LanguageUnicode::ConvertControlCodes.
+        """
+        C0_NAMES = {
+            0x0000: "NUL",
+            0x0001: "SOH",
+            0x0002: "STX",
+            0x0003: "ETX",
+            0x0004: "EOT",
+            0x0005: "ENQ",
+            0x0006: "ACK",
+            0x0007: "BEL",
+            0x0008: "BS",
+            0x0009: "HT",
+            0x000A: "LF",
+            0x000B: "VT",
+            0x000C: "FF",
+            0x000D: "CR",
+            0x000E: "SO",
+            0x000F: "SI",
+            0x0010: "DLE",
+            0x0011: "DC1",
+            0x0012: "DC2",
+            0x0013: "DC3",
+            0x0014: "DC4",
+            0x0015: "NAK",
+            0x0016: "SYN",
+            0x0017: "ETB",
+            0x0018: "CAN",
+            0x0019: "EM",
+            0x001A: "SUB",
+            0x001B: "ESC",
+            0x001C: "FS",
+            0x001D: "GS",
+            0x001E: "RS",
+            0x001F: "US",
+            0x007F: "DEL",
+        }
+        result = []
+        for ch in text:
+            cp = ord(ch)
+            if cp in C0_NAMES:
+                result.append(f"[{C0_NAMES[cp]}]")
+            elif 0x0080 <= cp <= 0x009F:
+                result.append(f"[C1-{cp:02X}]")
+            else:
+                result.append(ch)
+        return "".join(result)
+
+    @staticmethod
+    def convert_html_to_tag_characters(text: str) -> str:
+        """Convert HTML tag-like text to Unicode tag characters.
+        Equivalent to C++ LanguageUnicode::ConvertHtmlToTagCharacters.
+        """
+        import re
+
+        def replace_tag(match):
+            tag_text = match.group(1)
+            result = [chr(0xE0001)]  # LANGUAGE TAG
+            for ch in tag_text:
+                if "a" <= ch <= "z":
+                    result.append(chr(0xE0020 + ord(ch) - ord("a")))
+                elif "A" <= ch <= "Z":
+                    result.append(chr(0xE0020 + ord(ch) - ord("A")))
+                elif "0" <= ch <= "9":
+                    result.append(chr(0xE0030 + ord(ch) - ord("0")))
+                elif ch == " ":
+                    result.append(chr(0xE0020))
+            result.append(chr(0xE007F))  # CANCEL TAG
+            return "".join(result)
+
+        return re.sub(r"<([a-zA-Z0-9 ]+)>", replace_tag, text)
+
+    @staticmethod
+    def convert_from_tag_characters(text: str) -> str:
+        """Convert Unicode tag characters to readable text.
+        Equivalent to C++ LanguageUnicode::ConvertFromTagCharacters.
+        """
+        result = []
+        in_tag = False
+        tag_chars = []
+
+        for ch in text:
+            cp = ord(ch)
+            if cp == 0xE0001:
+                in_tag = True
+                tag_chars = ["<"]
+                continue
+            if cp == 0xE007F and in_tag:
+                tag_chars.append(">")
+                result.extend(tag_chars)
+                in_tag = False
+                continue
+            if in_tag:
+                if 0xE0020 <= cp <= 0xE007E:
+                    offset = cp - 0xE0020
+                    if offset < 26:
+                        tag_chars.append(chr(ord("a") + offset))
+                    elif offset < 52:
+                        tag_chars.append(chr(ord("A") + offset - 26))
+                    else:
+                        tag_chars.append(chr(ord("0") + offset - 52))
+            else:
+                result.append(ch)
+
+        return "".join(result)
+
+    @staticmethod
+    def replace_iteration_marks(text: str) -> str:
+        """Replace Unicode iteration marks with preceding characters.
+        Equivalent to C++ LanguageUnicode::ReplaceIterationMarks.
+        """
+        ITERATION_MARKS = {
+            0x3005,  # IDEOGRAPHIC ITERATION MARK
+            0x303B,  # VERTICAL IDEOGRAPHIC ITERATION MARK
+            0x309D,  # HIRAGANA ITERATION MARK
+            0x309E,  # HIRAGANA VOICED ITERATION MARK
+            0x30FD,  # KATAKANA ITERATION MARK
+            0x30FE,  # KATAKANA VOICED ITERATION MARK
+            0xA015,  # YI SYLLABLE ITERATION MARK
+            0x16FE1,  # NUSHU ITERATION MARK
+        }
+        result = []
+        for i, ch in enumerate(text):
+            cp = ord(ch)
+            if cp in ITERATION_MARKS and i > 0:
+                result.append(text[i - 1])
+            else:
+                result.append(ch)
+        return "".join(result)
+
+    @staticmethod
+    def convert_name_to_character(text: str) -> str:
+        """Convert Unicode character names to characters.
+        Equivalent to C++ LanguageUnicode::ConvertNameToCharacter.
+        """
+        import re
+        from src.unicode.core import Unicode
+
+        def replace_name(match):
+            name = match.group(1).strip().upper()
+            # Try to find the character by name
+            name_map = Unicode._name_map()
+            reverse = {v.upper(): k for k, v in name_map.items()}
+            cp = reverse.get(name)
+            if cp:
+                return chr(cp)
+            return match.group(0)
+
+        return re.sub(r"\\N\{([^}]+)\}", replace_name, text)

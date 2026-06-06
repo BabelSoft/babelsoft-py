@@ -511,6 +511,19 @@ class CJK(CodePoint):
                 ct, cs = t, t.to_simplified()
         return ct, cs, cj
 
+    @staticmethod
+    def get_codepoint(block: int, ch16: int) -> int:
+        """Get the Unicode codepoint for a given CJK block index and 16-bit offset.
+
+        Equivalent to C++ CJK::GetCodepoint(block, ch16).
+        The block index selects a CJK Unified Ideograph block (0=main, 1=compat,
+        2=Ext-A, ..., 12=Ext-J) and ch16 is the offset within that block.
+        """
+        offsets = CJKLoader.load_cjk_ui_offsets()
+        if 0 <= block < len(offsets):
+            return offsets[block] + ch16
+        return 0
+
     def get_xml_data(self, indent: bool = False) -> str:
         _RTYPES = {0: "Traditional", 1: "Simplified", 2: "Japanese", 3: "Vietnamese"}
         char = ET.Element("Character", cp=f"{int(self):04X}", unicode=chr(self))

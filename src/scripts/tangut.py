@@ -54,6 +54,11 @@ class LiFanwen:
     """Li Fanwen 2008 Tangut dictionary."""
 
     @staticmethod
+    def get_source_name() -> str:
+        """Get the human-readable source name. Equivalent to C++ GetSourceName."""
+        return "Li Fanwen (2008)"
+
+    @staticmethod
     def has_entry(ch: int) -> bool:
         off = _offset(ch)
         data = ScriptsLoader.load_tangut_li_fanwen()
@@ -129,6 +134,11 @@ class Kychanov:
     """Kychanov 2006 Tangut dictionary."""
 
     @staticmethod
+    def get_source_name() -> str:
+        """Get the human-readable source name. Equivalent to C++ GetSourceName."""
+        return "Kychanov (2006)"
+
+    @staticmethod
     def has_entry(ch: int) -> bool:
         off = _offset(ch)
         data = ScriptsLoader.load_tangut_kychanov()
@@ -188,6 +198,11 @@ class Kychanov:
 
 class Sofronov:
     """Sofronov 1968 Tangut dictionary."""
+
+    @staticmethod
+    def get_source_name() -> str:
+        """Get the human-readable source name. Equivalent to C++ GetSourceName."""
+        return "Sofronov (1968)"
 
     @staticmethod
     def has_entry(ch: int) -> bool:
@@ -251,6 +266,11 @@ class Nishida:
     """Nishida 1966 Tangut dictionary."""
 
     @staticmethod
+    def get_source_name() -> str:
+        """Get the human-readable source name. Equivalent to C++ GetSourceName."""
+        return "Nishida (1966)"
+
+    @staticmethod
     def has_entry(ch: int) -> bool:
         off = _offset(ch)
         data = ScriptsLoader.load_tangut_nishida()
@@ -298,6 +318,11 @@ class Miyake:
 
     def __init__(self, use_2012: bool = False) -> None:
         self._use_2012 = use_2012
+
+    @staticmethod
+    def get_source_name() -> str:
+        """Get the human-readable source name. Equivalent to C++ GetSourceName."""
+        return "Miyake (2015)"
 
     @property
     def _version(self) -> str:
@@ -568,6 +593,119 @@ class Tangut:
         if rn and 1 <= rn <= len(ScriptsLoader.load_tangut_component_data()):
             return TANGUT_COMPS_START + rn - 1
         return 0
+
+    # ─── Source Name accessors ──────────────────────────────────────
+
+    @staticmethod
+    def get_source_name(source_class) -> str:
+        """Get the human-readable name for a Tangut source class.
+        Equivalent to C++ GetSourceName() virtual methods.
+        """
+        if source_class is LiFanwen:
+            return "Li Fanwen (2008)"
+        if source_class is Kychanov:
+            return "Kychanov (2006)"
+        if source_class is Sofronov:
+            return "Sofronov (1968)"
+        if source_class is Nishida:
+            return "Nishida (1966)"
+        if source_class is Miyake:
+            return "Miyake (2015)"
+        return "Unknown Source"
+
+    # ─── XML Data ───────────────────────────────────────────────────
+
+    @staticmethod
+    def get_xml_data(ch: int, indent: bool = False) -> str:
+        """Generate XML data for a Tangut character.
+        Equivalent to C++ Tangut::GetXmlData(CHAR32 ch, bool bIndent).
+        """
+        import xml.etree.ElementTree as ET
+
+        if not Tangut.is_tangut_ideograph(ch):
+            return ""
+
+        char_elem = ET.Element("TangutCharacter", cp=f"{ch:04X}", unicode=chr(ch))
+
+        # Radical/Stroke
+        rs = Tangut.get_radical_stroke(ch)
+        if rs:
+            rn = Tangut.get_radical_number(ch)
+            total = Tangut.get_total_stroke_count(ch)
+            additional = Tangut.get_additional_stroke_count(ch)
+            rs_elem = ET.SubElement(char_elem, "RadicalStrokes")
+            rs_elem.set("radical", str(rn))
+            rs_elem.set("total", str(total))
+            rs_elem.set("additional", str(additional))
+            rs_elem.text = rs
+
+        # IDS
+        ids = Tangut.get_ids(ch)
+        if ids:
+            ET.SubElement(char_elem, "IDS").text = ids
+
+        # Readings from all sources
+        readings_elem = ET.SubElement(char_elem, "Readings")
+        sources: list[tuple[str, str]] = [
+            ("LiFanwen2008", Tangut.get_li_fanwen_reading(ch)),
+            ("Kychanov2006", Tangut.get_kychanov_reading(ch)),
+            ("Sofronov1968", Tangut.get_sofronov_reading(ch)),
+            ("Nishida1966", Tangut.get_nishida_reading(ch)),
+            ("Miyake2015", Tangut.get_miyake_reading(ch)),
+        ]
+        for tag, reading in sources:
+            if reading:
+                ET.SubElement(readings_elem, tag).text = reading
+
+        # Variants
+        if Tangut.has_variants(ch):
+            variants = Tangut.get_variants(ch)
+            ET.SubElement(char_elem, "Variants").text = variants
+
+        # Indent and format
+        ET.indent(char_elem, space="\t")
+        raw = ET.tostring(char_elem, encoding="unicode")
+        lines = raw.rstrip().split("\n")
+        if indent:
+            lines = ["\t\t" + line for line in lines]
+        return "\r\n".join(lines)
+
+    # ─── Reference finder wrappers ──────────────────────────────────
+
+    @staticmethod
+    def find_li_fanwen_2008_ref(ref: str) -> int:
+        """Find a Tangut character by Li Fanwen 2008 reference number.
+        Equivalent to C++ Tangut::FindLiFanwen2008Ref.
+        """
+        return LiFanwen.find_reference(ref, False)
+
+    @staticmethod
+    def find_li_fanwen_1997_ref(ref: str) -> int:
+        """Find a Tangut character by Li Fanwen 1997 reference number.
+        Equivalent to C++ Tangut::FindLiFanwen1997Ref.
+        """
+        return LiFanwen.find_reference(ref, True)
+
+    @staticmethod
+    def find_kychanov_2006_ref(ref: str) -> int:
+        """Find a Tangut character by Kychanov 2006 reference number.
+        Equivalent to C++ Tangut::FindKychanov2006Ref.
+        """
+        return Kychanov.find_reference(ref)
+
+    @staticmethod
+    def find_sofronov_1968_ref(ref: str) -> int:
+        """Find a Tangut character by Sofronov 1968 reference number.
+        Equivalent to C++ Tangut::FindSofronov1968Ref.
+        """
+        return Sofronov.find_reference(ref)
+
+    @staticmethod
+    def find_nishida_1966_ref(ref: str) -> int:
+        """Find a Tangut character by Nishida 1966 reference number.
+        Equivalent to C++ Tangut::FindNishida1966Ref.
+        """
+        return Nishida.find_reference(ref)
 
     # ─── Helpers ────────────────────────────────────────────────────
 

@@ -1498,6 +1498,70 @@ class Unicode:
         return (0, 0)
 
     # ==================================================================
+    #  Word boundary detection (ported from Unicode.h)
+    # ==================================================================
+
+    @staticmethod
+    def is_word_starter(cp: int) -> bool:
+        """Check if a codepoint can start a word. Equivalent to C++ IsWordStarter."""
+        cat = Unicode.get_general_category(cp)
+        return cat in (
+            GeneralCategory.Lu,
+            GeneralCategory.Ll,
+            GeneralCategory.Lt,
+            GeneralCategory.Lm,
+            GeneralCategory.Lo,
+            GeneralCategory.Nd,
+            GeneralCategory.Nl,
+            GeneralCategory.No,
+        )
+
+    @staticmethod
+    def is_word_boundary(before: int, current: int, after: int) -> bool:
+        """Check if there is a word boundary at current.
+
+        Equivalent to C++ IsWordBoundary.
+        """
+        before_cat = Unicode.get_general_category(before) if before else GeneralCategory.Cn
+        after_cat = Unicode.get_general_category(after) if after else GeneralCategory.Cn
+
+        # Word boundary between a letter/digit and non-letter/digit
+        c1 = before_cat in (
+            GeneralCategory.Lu,
+            GeneralCategory.Ll,
+            GeneralCategory.Lt,
+            GeneralCategory.Lm,
+            GeneralCategory.Lo,
+            GeneralCategory.Nd,
+            GeneralCategory.Nl,
+            GeneralCategory.No,
+        )
+        c2 = after_cat in (
+            GeneralCategory.Lu,
+            GeneralCategory.Ll,
+            GeneralCategory.Lt,
+            GeneralCategory.Lm,
+            GeneralCategory.Lo,
+            GeneralCategory.Nd,
+            GeneralCategory.Nl,
+            GeneralCategory.No,
+        )
+        return c1 != c2
+
+    @staticmethod
+    def is_cjk_ideograph_static(cp: int) -> bool:
+        """Check if a codepoint is a CJK Unified or Compatibility Ideograph.
+
+        Equivalent to C++ Unicode::IsCJKIdeograph (static version).
+        """
+        try:
+            from src.cjkv.cjk import CJK
+
+            return CJK(cp).is_cjk_ideograph()
+        except (ValueError, TypeError):
+            return False
+
+    # ==================================================================
     #  Line/word break helpers
     # ==================================================================
 
@@ -1892,15 +1956,6 @@ class Unicode:
         if 0 <= index < len(Unicode._ITERATION_MARKS):
             return Unicode._ITERATION_MARKS[index]
         return (0, "")
-
-    # ==================================================================
-    #  Unicode1 compatibility
-    # ==================================================================
-
-    @staticmethod
-    def get_unicode1_name(cp: int) -> str:
-        m = {e["cp"]: e["uni1"] for e in Unicode._unicodedata() if e["uni1"].strip()}
-        return m.get(cp, "")
 
     # ==================================================================
     #  Block-based letter count
