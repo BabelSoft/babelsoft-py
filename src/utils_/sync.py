@@ -3,7 +3,7 @@ from pathlib import Path
 from shutil import rmtree
 
 import requests
-from dirs import Dirs
+from .dirs import Dirs
 from rich.console import Console
 from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
 

@@ -14,7 +14,7 @@ from src.cjkv.korean import HangulSyllableType, Korean  # noqa: E402
 from src.cjkv.pinyin import Pinyin  # noqa: E402
 from src.cjkv.vietnamese import Vietnamese  # noqa: E402
 from src.cjkv.zhuang import Zhuang  # noqa: E402
-from src.unicode.class_ import CodePoint  # noqa: E402
+from src.unicode import CodePoint  # noqa: E402
 
 # ═══════════════════════  CJK Character  ═══════════════════════
 

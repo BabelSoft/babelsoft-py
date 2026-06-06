@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import ClassVar
 
-from src.unicode.class_ import CodePoint
+from src.unicode import CodePoint
 from src.utils_.loader import CJKLoader
 from src.utils_.parser import TxtParser, line_has_content
 

@@ -4,7 +4,7 @@ import functools
 import re
 from pathlib import Path
 
-from src.unicode.class_ import Block, CodePoint
+from src.unicode.core import Block, CodePoint
 from src.utils_.dirs import Dirs
 from src.utils_.parser import TsvParser, TxtParser, line_has_content
 
