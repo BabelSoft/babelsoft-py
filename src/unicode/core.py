@@ -1201,3 +1201,723 @@ class Unicode:
     def get_nfkc(text: str) -> str:
         cps = [c for ch in text for c in Unicode._decompose(ord(ch), True)]
         return "".join(chr(c) for c in Unicode._compose(cps))
+
+    # ==================================================================
+    #  Normalization QC
+    # ==================================================================
+
+    @staticmethod
+    def is_nfc_qc(cp: int) -> str:
+        """Quick check for NFC. Returns 'Y' (yes), 'N' (no), 'M' (maybe)."""
+        dt = Unicode.get_decomposition_type(cp)
+        if dt == DecompositionType.None_:
+            return "Y"
+        dm = Unicode.get_decomposition_mapping(cp)
+        if dm != cp:
+            return "N"
+        return "Y"
+
+    @staticmethod
+    def is_nfd_qc(cp: int) -> str:
+        """Quick check for NFD."""
+        dt = Unicode.get_decomposition_type(cp)
+        if dt == DecompositionType.Canon:
+            return "N"
+        return "Y"
+
+    @staticmethod
+    def is_nfkc_qc(cp: int) -> str:
+        dt = Unicode.get_decomposition_type(cp)
+        if dt == DecompositionType.None_:
+            return "Y"
+        if dt != DecompositionType.Canon:
+            return "N"
+        return "Y"
+
+    @staticmethod
+    def is_nfkd_qc(cp: int) -> str:
+        dt = Unicode.get_decomposition_type(cp)
+        if dt == DecompositionType.None_:
+            return "Y"
+        return "N"
+
+    # ==================================================================
+    #  Script functions
+    # ==================================================================
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _script_names_map() -> dict[int, str]:
+        """Map script index to script name."""
+        names: dict[int, str] = {}
+        table, names_list = Unicode._script_data()
+        for s, e, idx in table:
+            if idx not in names:
+                names[idx] = names_list[idx]
+        return names
+
+    @staticmethod
+    def get_script_name(script_idx: int) -> str:
+        _, names = Unicode._script_data()
+        return names[script_idx] if 0 < script_idx < len(names) else "Unknown"
+
+    @staticmethod
+    def get_script_code(script_idx: int) -> str:
+        name = Unicode.get_script_name(script_idx)
+        if len(name) == 4:
+            return name
+        return name[:4] if name else "Zzzz"
+
+    @staticmethod
+    def get_script_for_character(cp: int) -> str:
+        return Unicode.get_script(cp)
+
+    # ==================================================================
+    #  Plane functions
+    # ==================================================================
+
+    _PLANE_NAMES = [
+        "Basic Multilingual Plane (BMP)",
+        "Supplementary Multilingual Plane (SMP)",
+        "Supplementary Ideographic Plane (SIP)",
+        "Tertiary Ideographic Plane (TIP)",
+        "Plane 4 (Unassigned)",
+        "Plane 5 (Unassigned)",
+        "Plane 6 (Unassigned)",
+        "Plane 7 (Unassigned)",
+        "Plane 8 (Unassigned)",
+        "Plane 9 (Unassigned)",
+        "Plane 10 (Unassigned)",
+        "Plane 11 (Unassigned)",
+        "Plane 12 (Unassigned)",
+        "Plane 13 (Unassigned)",
+        "Supplementary Special-purpose Plane (SSP)",
+        "Supplementary Private Use Area-A (PUA-A)",
+        "Supplementary Private Use Area-B (PUA-B)",
+    ]
+
+    _PLANE_ABBREV = [
+        "BMP",
+        "SMP",
+        "SIP",
+        "TIP",
+        "P4",
+        "P5",
+        "P6",
+        "P7",
+        "P8",
+        "P9",
+        "P10",
+        "P11",
+        "P12",
+        "P13",
+        "SSP",
+        "SPUA-A",
+        "SPUA-B",
+    ]
+
+    @staticmethod
+    def get_plane_name(plane: int, with_abbrev: bool = False) -> str:
+        if 0 <= plane < 17:
+            name = Unicode._PLANE_NAMES[plane]
+            if with_abbrev:
+                return f"{Unicode._PLANE_ABBREV[plane]}: {name}"
+            return name
+        return f"Plane {plane}"
+
+    @staticmethod
+    def get_plane_abbreviation(plane: int) -> str:
+        return Unicode._PLANE_ABBREV[plane] if 0 <= plane < 17 else ""
+
+    @staticmethod
+    def get_plane_start(plane: int) -> int:
+        return plane * 65536
+
+    @staticmethod
+    def get_plane_end(plane: int) -> int:
+        return plane * 65536 + 65535
+
+    @staticmethod
+    def get_plane_from_block(block_name: str) -> int:
+        for line in filter(line_has_content, TxtParser.get_txt(UCD / "Blocks.txt")):
+            parts = line.split(";")
+            if len(parts) < 2:
+                continue
+            if parts[1].strip() == block_name:
+                s = int(parts[0].strip().split("..")[0], 16)
+                return s // 65536
+        return 0
+
+    @staticmethod
+    def is_plane_reserved(plane: int) -> bool:
+        return plane in (4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+
+    @staticmethod
+    def is_valid_code_point(cp: int) -> bool:
+        return 0 <= cp <= 0x10FFFF and not (0xD800 <= cp <= 0xDFFF)
+
+    # ==================================================================
+    #  Block functions
+    # ==================================================================
+
+    @staticmethod
+    def get_block_start(block_name: str) -> int:
+        for line in filter(line_has_content, TxtParser.get_txt(UCD / "Blocks.txt")):
+            parts = line.split(";")
+            if len(parts) < 2:
+                continue
+            if parts[1].strip() == block_name:
+                return int(parts[0].strip().split("..")[0], 16)
+        return 0
+
+    @staticmethod
+    def get_block_end(block_name: str) -> int:
+        for line in filter(line_has_content, TxtParser.get_txt(UCD / "Blocks.txt")):
+            parts = line.split(";")
+            if len(parts) < 2:
+                continue
+            if parts[1].strip() == block_name:
+                return int(parts[0].strip().split("..")[1], 16)
+        return 0
+
+    @staticmethod
+    def get_block_from_name(name: str) -> str:
+        # Returns the canonical block name if found
+        for line in filter(line_has_content, TxtParser.get_txt(UCD / "Blocks.txt")):
+            parts = line.split(";")
+            if len(parts) < 2:
+                continue
+            if parts[1].strip().lower() == name.lower():
+                return parts[1].strip()
+        return ""
+
+    @staticmethod
+    def get_block_range_for_character(cp: int) -> tuple[int, int]:
+        return Unicode.get_block_range(cp)
+
+    @staticmethod
+    def get_characters_per_block(block_name: str) -> int:
+        s = Unicode.get_block_start(block_name)
+        e = Unicode.get_block_end(block_name)
+        if s and e:
+            return e - s + 1
+        return 0
+
+    # ==================================================================
+    #  Character lookup
+    # ==================================================================
+
+    @staticmethod
+    def get_character_from_name(name: str) -> int:
+        """Find a Unicode codepoint by its name."""
+        nm = Unicode._name_map()
+        # Direct lookup
+        for cp, n in nm.items():
+            if n.upper() == name.upper():
+                return cp
+        # Approximate match
+        name_upper = name.upper().replace(" ", "_").replace("-", "_")
+        for cp, n in nm.items():
+            if n.upper().replace(" ", "_").replace("-", "_") == name_upper:
+                return cp
+        return 0
+
+    @staticmethod
+    def find_character_name(
+        search: str,
+        start_cp: int = 0,
+        forwards: bool = True,
+        whole_words: bool = False,
+    ) -> int:
+        """Find a character by name substring."""
+        nm = Unicode._name_map()
+        cps = sorted(nm.keys())
+        if not forwards:
+            cps.reverse()
+
+        search_upper = search.upper()
+        for cp in cps:
+            if cp < start_cp:
+                continue
+            name = nm[cp].upper()
+            if whole_words:
+                import re
+
+                if re.search(r"\b" + re.escape(search_upper) + r"\b", name):
+                    return cp
+            elif search_upper in name:
+                return cp
+        return 0
+
+    @staticmethod
+    def parse_code_point(text: str) -> int:
+        """Parse a codepoint from various string formats."""
+        text = text.strip()
+        if text.upper().startswith("U+"):
+            text = text[2:]
+        elif text.upper().startswith("0X"):
+            text = text[2:]
+        if len(text) <= 6 and all(c in "0123456789ABCDEFabcdef" for c in text):
+            return int(text, 16)
+        if len(text) == 1:
+            return ord(text)
+        return 0
+
+    # ==================================================================
+    #  UTF-8 / Surrogates
+    # ==================================================================
+
+    @staticmethod
+    def get_utf8(cp: int, escaped: bool = False, octal: bool = False) -> str:
+        """Get UTF-8 bytes (as string or escaped)."""
+        if cp > 0x10FFFF:
+            return ""
+        try:
+            b = chr(cp).encode("utf-8")
+        except (UnicodeEncodeError, ValueError):
+            return ""
+        if escaped:
+            if octal:
+                return "".join(f"\\{byte:03o}" for byte in b)
+            return "".join(f"\\x{byte:02X}" for byte in b)
+        return b.decode("latin-1")  # Return raw bytes as string
+
+    @staticmethod
+    def get_unicode32_from_surrogates(hi: int, lo: int) -> int:
+        """Combine surrogate pair into a single codepoint."""
+        if 0xD800 <= hi <= 0xDBFF and 0xDC00 <= lo <= 0xDFFF:
+            return 0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00)
+        return 0
+
+    @staticmethod
+    def get_surrogates_from_unicode32(cp: int) -> tuple[int, int]:
+        """Split a supplementary codepoint into surrogates."""
+        if cp > 0xFFFF:
+            cp -= 0x10000
+            return (0xD800 | (cp >> 10), 0xDC00 | (cp & 0x3FF))
+        return (0, 0)
+
+    # ==================================================================
+    #  Line/word break helpers
+    # ==================================================================
+
+    @staticmethod
+    def is_new_line(cp: int) -> bool:
+        return cp in (0x000A, 0x000D, 0x0085, 0x2028, 0x2029)
+
+    @staticmethod
+    def is_hard_line_break(cp: int) -> bool:
+        return cp in (0x000A, 0x000D, 0x0085, 0x2028, 0x2029)
+
+    @staticmethod
+    def is_control_character(cp: int) -> bool:
+        gc = Unicode.get_general_category(cp)
+        return gc == GeneralCategory.Cc
+
+    @staticmethod
+    def is_whitespace_simple(cp: int) -> bool:
+        return cp in (
+            0x0009,
+            0x000A,
+            0x000B,
+            0x000C,
+            0x000D,
+            0x0020,
+            0x0085,
+            0x00A0,
+            0x2000,
+            0x2001,
+            0x2002,
+            0x2003,
+            0x2004,
+            0x2005,
+            0x2006,
+            0x2007,
+            0x2008,
+            0x2009,
+            0x200A,
+            0x2028,
+            0x2029,
+            0x202F,
+            0x205F,
+            0x3000,
+        )
+
+    @staticmethod
+    def is_hex_digit_char(cp: int) -> bool:
+        return (
+            (0x0030 <= cp <= 0x0039)
+            or (0x0041 <= cp <= 0x0046)
+            or (0x0061 <= cp <= 0x0066)
+            or Unicode.has_binary_property(cp, "Hex_Digit")
+        )
+
+    @staticmethod
+    def is_dec_digit(cp: int) -> bool:
+        return 0x0030 <= cp <= 0x0039
+
+    # ==================================================================
+    #  Script-specific helpers
+    # ==================================================================
+
+    @staticmethod
+    def is_latin_letter(cp: int) -> bool:
+        return (
+            (0x0041 <= cp <= 0x005A)
+            or (0x0061 <= cp <= 0x007A)
+            or (0x00C0 <= cp <= 0x024F)
+            or cp == 0x00D7
+            or cp == 0x00F7
+        )
+
+    @staticmethod
+    def is_greek_letter(cp: int) -> bool:
+        return (0x0370 <= cp <= 0x03FF) or (0x1F00 <= cp <= 0x1FFF)
+
+    @staticmethod
+    def is_cyrillic_letter(cp: int) -> bool:
+        return 0x0400 <= cp <= 0x052F
+
+    @staticmethod
+    def is_hebrew_letter(cp: int) -> bool:
+        return 0x0590 <= cp <= 0x05FF
+
+    @staticmethod
+    def is_armenian_letter(cp: int) -> bool:
+        return 0x0530 <= cp <= 0x058F
+
+    @staticmethod
+    def is_georgian_letter(cp: int) -> bool:
+        return (0x10A0 <= cp <= 0x10FF) or (0x1C90 <= cp <= 0x1CBF)
+
+    @staticmethod
+    def is_arabic_digit(cp: int) -> bool:
+        return 0x0660 <= cp <= 0x0669
+
+    @staticmethod
+    def is_fullwidth_letter(cp: int) -> bool:
+        return 0xFF21 <= cp <= 0xFF5A
+
+    @staticmethod
+    def is_fullwidth_digit(cp: int) -> bool:
+        return 0xFF10 <= cp <= 0xFF19
+
+    # ==================================================================
+    #  CJK / Ideographic helpers
+    # ==================================================================
+
+    @staticmethod
+    def is_cjk_ideograph(cp: int) -> bool:
+        return (
+            (0x4E00 <= cp <= 0x9FFF)
+            or (0x3400 <= cp <= 0x4DBF)
+            or (0x20000 <= cp <= 0x2A6DF)
+            or (0x2A700 <= cp <= 0x2B73F)
+            or (0x2B740 <= cp <= 0x2B81D)
+            or (0x2B820 <= cp <= 0x2CEAD)
+            or (0x2CEB0 <= cp <= 0x2EBE0)
+            or (0x30000 <= cp <= 0x3134A)
+            or (0x31350 <= cp <= 0x323AF)
+            or (0x2EBF0 <= cp <= 0x2EE5D)
+            or (0xF900 <= cp <= 0xFAD9)
+            or (0x2F800 <= cp <= 0x2FA1D)
+        )
+
+    @staticmethod
+    def is_han_ideograph(cp: int, include_iteration_mark: bool = True) -> bool:
+        """Check if codepoint is a Han (CJK) ideograph."""
+        return Unicode.is_cjk_ideograph(cp)
+
+    @staticmethod
+    def is_tangut_ideograph(cp: int, include_iteration_mark: bool = True) -> bool:
+        return (0x17000 <= cp <= 0x187FF) or (0x18D00 <= cp <= 0x18D7F) or (include_iteration_mark and cp == 0x16FE0)
+
+    @staticmethod
+    def is_yi_syllable(cp: int, include_iteration_mark: bool = True) -> bool:
+        return 0xA000 <= cp <= 0xA48C or (include_iteration_mark and cp == 0xA015)
+
+    @staticmethod
+    def is_nushu_character(cp: int, include_iteration_mark: bool = True) -> bool:
+        return 0x1B170 <= cp <= 0x1B2FB or (include_iteration_mark and cp == 0x16FE1)
+
+    @staticmethod
+    def is_khitan_small_script(cp: int, include_iteration_mark: bool = True) -> bool:
+        return 0x18B00 <= cp <= 0x18CD5 or (include_iteration_mark and cp == 0x18B00)
+
+    @staticmethod
+    def is_hiragana(cp: int, include_iteration_mark: bool = True) -> bool:
+        return 0x3040 <= cp <= 0x309F
+
+    @staticmethod
+    def is_katakana(cp: int, include_iteration_mark: bool = True) -> bool:
+        return (0x30A0 <= cp <= 0x30FF) or (0xFF66 <= cp <= 0xFF9F)
+
+    @staticmethod
+    def is_idc_operand(cp: int) -> bool:
+        """Check if codepoint is a valid IDC (Ideographic Description Character) operand."""
+        gc = Unicode.get_general_category(cp)
+        return gc in (
+            GeneralCategory.Lo,
+            GeneralCategory.Lu,
+            GeneralCategory.Ll,
+            GeneralCategory.Lt,
+            GeneralCategory.Lm,
+            GeneralCategory.Mc,
+            GeneralCategory.Mn,
+            GeneralCategory.Nd,
+            GeneralCategory.Nl,
+        )
+
+    # ==================================================================
+    #  Conversion: NCR, UCN, Unicode Plus
+    # ==================================================================
+
+    @staticmethod
+    def convert_to_char_ref(cp: int, char_ref: int = 0, convert_basic_latin: bool = False) -> str:
+        """Convert codepoint to NCR/character reference format."""
+        if cp <= 0x7F and not convert_basic_latin:
+            return chr(cp)
+        if char_ref == 0:
+            return f"&#x{cp:X};"
+        elif char_ref == 1:
+            return f"&#{cp};"
+        else:
+            return f"U+{cp:04X}"
+
+    @staticmethod
+    def convert_to_unicode_plus(cp: int) -> str:
+        """Convert codepoint to U+XXXX format."""
+        if cp > 0xFFFF:
+            return f"U+{cp:05X}"
+        return f"U+{cp:04X}"
+
+    @staticmethod
+    def convert_to_unicode_name(cp: int) -> str:
+        """Get 'U+XXXX NAME' string."""
+        name = Unicode.get_character_name(cp)
+        uplus = Unicode.convert_to_unicode_plus(cp)
+        return f"{uplus} {name}" if name else uplus
+
+    @staticmethod
+    def get_hex_value(ch: str) -> int:
+        """Get hex value of a single hex digit character."""
+        cp = ord(ch) if ch else 0
+        if 0x30 <= cp <= 0x39:
+            return cp - 0x30
+        if 0x41 <= cp <= 0x46:
+            return cp - 0x41 + 10
+        if 0x61 <= cp <= 0x66:
+            return cp - 0x61 + 10
+        return -1
+
+    @staticmethod
+    def convert_from_ncr(text: str) -> tuple[int, int]:
+        """Convert NCR at start of text to codepoint. Returns (cp, chars_consumed)."""
+        import re
+
+        m = re.match(r"&#x([0-9A-Fa-f]+);", text)
+        if m:
+            return int(m.group(1), 16), len(m.group(0))
+        m = re.match(r"&#(\d+);", text)
+        if m:
+            return int(m.group(1)), len(m.group(0))
+        return 0, 0
+
+    @staticmethod
+    def convert_from_ucn(text: str) -> tuple[int, int]:
+        """Convert UCN at start of text. Returns (cp, chars_consumed)."""
+        import re
+
+        m = re.match(r"\\[Uu]\+?([0-9A-Fa-f]{4,8})", text)
+        if m:
+            return int(m.group(1), 16), len(m.group(0))
+        return 0, 0
+
+    # ==================================================================
+    #  Numeric helpers
+    # ==================================================================
+
+    @staticmethod
+    def get_hexadecimal_value(s: str) -> int:
+        """Parse hex string to integer."""
+        s = s.strip()
+        if s.upper().startswith("0X"):
+            s = s[2:]
+        try:
+            return int(s, 16)
+        except ValueError:
+            return 0
+
+    @staticmethod
+    def get_numeric_value_str(s: str) -> float:
+        """Parse numeric string (may include fractions like '1/2')."""
+        s = s.strip()
+        if "/" in s:
+            parts = s.split("/")
+            if len(parts) == 2:
+                try:
+                    return float(parts[0]) / float(parts[1])
+                except (ValueError, ZeroDivisionError):
+                    pass
+        try:
+            return float(s)
+        except ValueError:
+            return 0.0
+
+    @staticmethod
+    def is_decimal_number(s: str) -> bool:
+        """Check if string represents a decimal number."""
+        return s.strip().isdigit()
+
+    # ==================================================================
+    #  Grapheme link
+    # ==================================================================
+
+    @staticmethod
+    def is_grapheme_link(cp: int) -> bool:
+        """Check if character extends a grapheme cluster."""
+        ccc = Unicode.get_canonical_combining_class(cp)
+        if ccc > 0:
+            return True
+        gc = Unicode.get_general_category(cp)
+        return gc in (GeneralCategory.Mc, GeneralCategory.Me)
+
+    # ==================================================================
+    #  Variation selectors / standardized variants
+    # ==================================================================
+
+    @staticmethod
+    def is_variation_sequence_base(cp: int) -> bool:
+        """Check if cp can be the base of a variation sequence."""
+        if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
+            return False
+        gc = Unicode.get_general_category(cp)
+        # Not controls or default ignorables
+        return gc not in (GeneralCategory.Cc, GeneralCategory.Cs, GeneralCategory.Cn, GeneralCategory.Cf)
+
+    @staticmethod
+    def is_variation_sequence(base: int, vs: int) -> bool:
+        """Check if (base, vs) forms a valid variation sequence."""
+        return 0xFE00 <= vs <= 0xFE0F or 0xE0100 <= vs <= 0xE01EF
+
+    # ==================================================================
+    #  Tag / Regional indicator
+    # ==================================================================
+
+    @staticmethod
+    def is_tag(cp: int) -> bool:
+        return 0xE0000 <= cp <= 0xE007F
+
+    @staticmethod
+    def is_regional_indicator_cp(cp: int) -> bool:
+        return 0x1F1E6 <= cp <= 0x1F1FF
+
+    # ==================================================================
+    #  CCC as string
+    # ==================================================================
+
+    @staticmethod
+    def get_ccc_as_string(ccc: int) -> str:
+        if ccc == 0:
+            return "0 (Not Reordered)"
+        if ccc == 1:
+            return "1 (Overlay)"
+        if 7 <= ccc <= 9:
+            return f"{ccc} (Nukta)"
+        if 10 <= ccc <= 199:
+            return f"{ccc} (Attached Below)"
+        if ccc == 200:
+            return "200 (Attached Below Left)"
+        if 202 <= ccc <= 214:
+            return f"{ccc} (Attached Below)"
+        if 216 <= ccc <= 220:
+            return f"{ccc} (Attached Above)"
+        if ccc == 222:
+            return "222 (Attached Above Right)"
+        if 224 <= ccc <= 232:
+            return f"{ccc} (Attached Above)"
+        if ccc == 233:
+            return "233 (Double Below)"
+        if ccc == 234:
+            return "234 (Double Above)"
+        if ccc == 240:
+            return "240 (Iota Subscript)"
+        return str(ccc)
+
+    # ==================================================================
+    #  Letter / word helpers
+    # ==================================================================
+
+    @staticmethod
+    def is_letter(cp: int) -> bool:
+        gc = Unicode.get_general_category(cp)
+        return gc in (
+            GeneralCategory.Lu,
+            GeneralCategory.Ll,
+            GeneralCategory.Lt,
+            GeneralCategory.Lm,
+            GeneralCategory.Lo,
+        )
+
+    @staticmethod
+    def is_common_script_but_letter(cp: int) -> bool:
+        sc = Unicode.get_script(cp)
+        if sc in ("Common", "Inherited", "Unknown"):
+            return Unicode.is_letter(cp)
+        return False
+
+    # ==================================================================
+    #  Iteration marks
+    # ==================================================================
+
+    _ITERATION_MARKS = [
+        (0x3005, "Han"),  # 々
+        (0x303B, "Han"),  # 〻
+        (0x309D, "Hiragana"),  # ゝ
+        (0x309E, "Hiragana"),  # ゞ
+        (0x30FD, "Katakana"),  # ヽ
+        (0x30FE, "Katakana"),  # ヾ
+        (0xA015, "Yi"),  # ꀕ
+        (0x16FE0, "Tangut"),  # 𖿠
+        (0x16FE1, "Nushu"),  # 𖿡
+        (0x18B00, "Khitan"),  # 𘬀
+    ]
+
+    @staticmethod
+    def get_iteration_mark_count() -> int:
+        return len(Unicode._ITERATION_MARKS)
+
+    @staticmethod
+    def get_iteration_mark(index: int) -> tuple[int, str]:
+        if 0 <= index < len(Unicode._ITERATION_MARKS):
+            return Unicode._ITERATION_MARKS[index]
+        return (0, "")
+
+    # ==================================================================
+    #  Unicode1 compatibility
+    # ==================================================================
+
+    @staticmethod
+    def get_unicode1_name(cp: int) -> str:
+        m = {e["cp"]: e["uni1"] for e in Unicode._unicodedata() if e["uni1"].strip()}
+        return m.get(cp, "")
+
+    # ==================================================================
+    #  Block-based letter count
+    # ==================================================================
+
+    @staticmethod
+    def letters_in_block(block_name: str) -> tuple[int, int, int]:
+        """Return (count, first_letter, last_letter) for a block."""
+        s = Unicode.get_block_start(block_name)
+        e = Unicode.get_block_end(block_name)
+        count = 0
+        first = 0
+        last = 0
+        for cp in range(s, min(e + 1, s + 65536)):
+            if Unicode.is_letter(cp):
+                if count == 0:
+                    first = cp
+                last = cp
+                count += 1
+        return count, first, last

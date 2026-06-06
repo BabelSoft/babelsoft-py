@@ -230,3 +230,219 @@ class TestConstants:
     def test_hangul(self):
         assert Unicode.HANGUL_FIRST == 0xAC00
         assert Unicode.HANGUL_LAST == 0xD7A3
+
+
+# ═════════════════════  UCA  ═════════════════════
+
+
+class TestUCA:
+    """Tests for UCA (Unicode Collation Algorithm)."""
+
+    def test_compare_less(self):
+        from src.unicode.uca import collation_compare
+
+        assert collation_compare("a", "b") < 0
+
+    def test_compare_greater(self):
+        from src.unicode.uca import collation_compare
+
+        assert collation_compare("b", "a") > 0
+
+    def test_compare_equal(self):
+        from src.unicode.uca import collation_compare
+
+        assert collation_compare("a", "a") == 0
+
+    def test_get_sort_key(self):
+        from src.unicode.uca import UCA
+
+        uca = UCA()
+        uca.set_string("a")
+        key = uca.get_sort_key()
+        assert key.startswith("[")
+        assert key.endswith("]")
+
+    def test_get_sort_key_bytes(self):
+        from src.unicode.uca import UCA
+
+        uca = UCA()
+        uca.set_string("a")
+        key = uca.get_sort_key_bytes()
+        assert isinstance(key, bytes)
+        assert len(key) > 0
+
+    def test_compare_method(self):
+        from src.unicode.uca import UCA
+
+        u1 = UCA()
+        u2 = UCA()
+        u1.set_string("a")
+        u2.set_string("b")
+        assert u1.compare(u2) < 0
+        assert u2.compare(u1) > 0
+
+    def test_compare_equal_method(self):
+        from src.unicode.uca import UCA
+
+        u1 = UCA()
+        u2 = UCA()
+        u1.set_string("a")
+        u2.set_string("a")
+        assert u1.compare(u2) == 0
+
+    def test_sort_options_default(self):
+        from src.unicode.uca import SortOptions, SortType, Locale, VariableWeighting
+
+        so = SortOptions()
+        assert so.sort_type == SortType.UCA
+        assert so.locale == Locale.NEUTRAL
+
+    def test_empty_string(self):
+        from src.unicode.uca import UCA, collation_compare
+
+        assert collation_compare("", "") == 0
+        assert collation_compare("", "a") < 0
+        assert collation_compare("a", "") > 0
+
+    def test_constants(self):
+        from src.unicode.uca import COLLATE_EQUAL, COLLATE_GREATER_THAN, COLLATE_LESS_THAN
+
+        assert COLLATE_LESS_THAN < 0
+        assert COLLATE_EQUAL == 0
+        assert COLLATE_GREATER_THAN > 0
+
+
+# ═════════════════════  New Unicode methods  ═════════════════════
+
+
+class TestNewUnicodeMethods:
+    """Tests for newly added Unicode core methods (P0)."""
+
+    # ── plane ──
+
+    def test_get_plane_name(self):
+        name = Unicode.get_plane_name(0, True)
+        assert "BMP" in name
+
+    def test_get_plane_start(self):
+        assert Unicode.get_plane_start(0) == 0x0000
+        assert Unicode.get_plane_start(1) == 0x10000
+
+    def test_is_plane_reserved(self):
+        assert Unicode.is_plane_reserved(4) is True
+        assert Unicode.is_plane_reserved(0) is False
+
+    def test_is_valid_code_point(self):
+        assert Unicode.is_valid_code_point(0x10FFFF) is True
+        assert Unicode.is_valid_code_point(0x110000) is False
+        assert Unicode.is_valid_code_point(0xD800) is False
+
+    # ── block ──
+
+    def test_get_block_start(self):
+        assert Unicode.get_block_start("Basic Latin") == 0x0000
+
+    def test_get_block_start_invalid(self):
+        assert Unicode.get_block_start("NonexistentBlock") == 0
+
+    def test_get_block_end(self):
+        assert Unicode.get_block_end("Basic Latin") == 0x007F
+
+    # ── cjk ──
+
+    def test_is_cjk_ideograph(self):
+        assert Unicode.is_cjk_ideograph(0x4E00) is True
+        assert Unicode.is_cjk_ideograph(0x0041) is False
+        assert Unicode.is_cjk_ideograph(0x3400) is True  # Ext-A
+        assert Unicode.is_cjk_ideograph(0x20000) is True  # Ext-B
+
+    def test_is_tangut_ideograph(self):
+        assert Unicode.is_tangut_ideograph(0x17000) is True
+        assert Unicode.is_tangut_ideograph(0x41) is False
+
+    def test_is_hiragana(self):
+        assert Unicode.is_hiragana(0x3042) is True
+        assert Unicode.is_hiragana(0x41) is False
+
+    def test_is_katakana(self):
+        assert Unicode.is_katakana(0x30A2) is True
+        assert Unicode.is_katakana(0x41) is False
+
+    # ── script helpers ──
+
+    def test_is_latin_letter(self):
+        assert Unicode.is_latin_letter(0x0041) is True
+        assert Unicode.is_latin_letter(0x0061) is True
+
+    def test_is_greek_letter(self):
+        assert Unicode.is_greek_letter(0x0391) is True
+
+    def test_is_cyrillic_letter(self):
+        assert Unicode.is_cyrillic_letter(0x0410) is True
+
+    # ── conversion ──
+
+    def test_convert_to_unicode_plus(self):
+        assert Unicode.convert_to_unicode_plus(0x4E00) == "U+4E00"
+        assert Unicode.convert_to_unicode_plus(0x10000) == "U+10000"
+
+    def test_convert_to_char_ref(self):
+        assert Unicode.convert_to_char_ref(0x4E00) == "&#x4E00;"
+
+    def test_convert_to_unicode_name(self):
+        result = Unicode.convert_to_unicode_name(0x41)
+        assert "U+0041" in result
+        assert "LATIN" in result.upper()
+
+    # ── newline ──
+
+    def test_is_new_line(self):
+        assert Unicode.is_new_line(0x000A) is True
+        assert Unicode.is_new_line(0x0041) is False
+
+    # ── iteration marks ──
+
+    def test_iteration_mark_count(self):
+        assert Unicode.get_iteration_mark_count() > 0
+
+    def test_get_iteration_mark(self):
+        cp, script = Unicode.get_iteration_mark(0)
+        assert cp > 0
+        assert len(script) > 0
+
+    # ── nfc qc ──
+
+    def test_is_nfc_qc(self):
+        assert Unicode.is_nfc_qc(0x41) == "Y"  # 'A', already NFC
+
+    def test_is_nfd_qc(self):
+        assert Unicode.is_nfd_qc(0x00C0) == "N"  # À = A + grave
+
+    # ── ccc string ──
+
+    def test_get_ccc_as_string(self):
+        assert "Not Reordered" in Unicode.get_ccc_as_string(0)
+
+    # ── surrogates ──
+
+    def test_unicode32_from_surrogates(self):
+        cp = Unicode.get_unicode32_from_surrogates(0xD800, 0xDC00)
+        assert cp == 0x10000
+
+    def test_surrogates_from_unicode32(self):
+        hi, lo = Unicode.get_surrogates_from_unicode32(0x10000)
+        assert hi == 0xD800
+        assert lo == 0xDC00
+
+    # ── is_letter ──
+
+    def test_is_letter(self):
+        assert Unicode.is_letter(0x41) is True
+        assert Unicode.is_letter(0x30) is False
+
+    # ── letters_in_block ──
+
+    def test_letters_in_block(self):
+        count, first, last = Unicode.letters_in_block("Basic Latin")
+        assert count > 0
+        assert first > 0

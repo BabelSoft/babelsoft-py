@@ -202,9 +202,9 @@ class TestHieroglyphs:
         assert Hieroglyphs.is_egyptian_hieroglyph(0x12FFF) is False
 
     def test_above_range(self):
-        # EGYPTIAN_EXT_A_LAST = 0x1346F
-        assert Hieroglyphs.is_egyptian_hieroglyph(0x13470) is False
-        assert Hieroglyphs.is_egyptian_hieroglyph(0x14000) is False
+        # EGYPTIAN_EXT_A_LAST = 0x143FA (matches c/Scripts/Hieroglyphs.h)
+        assert Hieroglyphs.is_egyptian_hieroglyph(0x143FB) is False
+        assert Hieroglyphs.is_egyptian_hieroglyph(0x15000) is False
 
     def test_far_outside(self):
         assert Hieroglyphs.is_egyptian_hieroglyph(0x41) is False
@@ -241,6 +241,92 @@ class TestHieroglyphs:
         for cp in descs:
             # All should be in Egyptian Hieroglyph or Ext-A range (per Unicode)
             assert 0x13000 <= cp <= 0x143FF, f"U+{cp:05X} not in hieroglyph range"
+
+    # ── new methods (P3) ──
+
+    def test_get_catalog_valid(self):
+        catalog = Hieroglyphs.get_catalog(0x13000)
+        assert isinstance(catalog, str)
+
+    def test_get_catalog_outside(self):
+        assert Hieroglyphs.get_catalog(0x41) == ""
+
+    def test_get_core_valid(self):
+        core = Hieroglyphs.get_core(0x13000)
+        assert isinstance(core, str)
+
+    def test_get_core_outside(self):
+        assert Hieroglyphs.get_core(0x41) == ""
+
+    def test_get_function_valid(self):
+        func = Hieroglyphs.get_function(0x13000)
+        assert isinstance(func, str)
+
+    def test_get_function_outside(self):
+        assert Hieroglyphs.get_function(0x41) == ""
+
+    def test_get_function_value_valid(self):
+        fval = Hieroglyphs.get_function_value(0x13000)
+        assert isinstance(fval, str)
+
+    def test_get_function_value_outside(self):
+        assert Hieroglyphs.get_function_value(0x41) == ""
+
+    def test_get_unikemet_valid(self):
+        uk = Hieroglyphs.get_unikemet(0x13000)
+        assert isinstance(uk, str)
+
+    def test_get_unikemet_outside(self):
+        assert Hieroglyphs.get_unikemet(0x41) == ""
+
+    def test_get_jsesh_valid(self):
+        js = Hieroglyphs.get_jsesh(0x13000)
+        assert isinstance(js, str)
+
+    def test_get_jsesh_outside(self):
+        assert Hieroglyphs.get_jsesh(0x41) == ""
+
+    def test_get_hieroglyphica_valid(self):
+        hg = Hieroglyphs.get_hieroglyphica(0x13000)
+        assert isinstance(hg, str)
+
+    def test_get_hieroglyphica_outside(self):
+        assert Hieroglyphs.get_hieroglyphica(0x41) == ""
+
+    def test_get_ifao_valid(self):
+        ifao = Hieroglyphs.get_ifao(0x13000)
+        assert isinstance(ifao, str)
+
+    def test_get_ifao_outside(self):
+        assert Hieroglyphs.get_ifao(0x41) == ""
+
+    def test_is_no_mirror_valid(self):
+        result = Hieroglyphs.is_no_mirror(0x13000)
+        assert isinstance(result, bool)
+
+    def test_is_no_mirror_outside(self):
+        assert Hieroglyphs.is_no_mirror(0x41) is False
+
+    def test_is_no_rotate_valid(self):
+        result = Hieroglyphs.is_no_rotate(0x13000)
+        assert isinstance(result, bool)
+
+    def test_is_no_rotate_outside(self):
+        assert Hieroglyphs.is_no_rotate(0x41) is False
+
+    def test_get_alternate_sequence_valid(self):
+        alt = Hieroglyphs.get_alternate_sequence(0x13000)
+        assert isinstance(alt, str)
+
+    def test_get_alternate_sequence_outside(self):
+        assert Hieroglyphs.get_alternate_sequence(0x41) == ""
+
+    def test_get_xml_data_valid(self):
+        xml = Hieroglyphs.get_xml_data(0x13000)
+        assert isinstance(xml, str)
+
+    def test_get_xml_data_outside(self):
+        assert Hieroglyphs.get_xml_data(0x41) == ""
 
 
 # ═══════════════════  Tangut: Li Fanwen  ═══════════════════

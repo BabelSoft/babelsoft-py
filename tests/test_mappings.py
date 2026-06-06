@@ -1,11 +1,26 @@
 """
 Tests for data/mappings/*.tsv — validating encoding mapping exports.
+Also tests for src/mappings/ — Mapper and encoding classes.
 """
 
 import re
+import sys
 from pathlib import Path
 
 import pytest
+
+LIB_DIR = Path(__file__).parent.parent
+sys.path.append(str(LIB_DIR))
+
+from src.mappings import (  # noqa: E402
+    Big5,
+    CP932,
+    CP936,
+    CP949,
+    Encoding,
+    GB18030,
+    Mapper,
+)
 
 MAPPINGS_DIR = Path(__file__).parent.parent / "data" / "mappings"
 
@@ -276,6 +291,127 @@ class TestSpecificMappings:
         """Single-variant: no source_encoding column."""
         _, data = read_tsv(MAPPINGS_DIR / "viscii.tsv")
         assert len(data[0]) == 2, f"expected 2 cols, got {len(data[0])}"
+
+
+# ═════════════════════  Mapper  ═════════════════════
+
+
+class TestMapper:
+    def test_to_unicode_ascii(self):
+        result = Mapper.to_unicode(b"Hello", Encoding.ASCII)
+        assert result == "Hello"
+
+    def test_from_unicode_ascii(self):
+        result = Mapper.from_unicode("Hello", Encoding.ASCII)
+        assert result == b"Hello"
+
+    def test_to_unicode_string_encoding(self):
+        result = Mapper.to_unicode(b"Hello", "ascii")
+        assert result == "Hello"
+
+    def test_invalid_encoding_fallback(self):
+        result = Mapper.to_unicode(b"Hello", "nonexistent_encoding")
+        assert result == "Hello"
+
+    def test_replacement_char(self):
+        result = Mapper.to_unicode(b"\xff", Encoding.ASCII)
+        assert "\ufffd" in result
+
+    def test_list_encodings(self):
+        encodings = Mapper.list_encodings()
+        assert "ascii" in encodings
+        assert "utf_8" in encodings or "utf-8" in encodings
+
+    def test_custom_mapping_register(self):
+        Mapper.register_mapping("test_custom", {0x41: 0x42})
+        result = Mapper.to_unicode(b"\x41", "test_custom")
+        assert result == "B"
+
+    def test_custom_mapping_from(self):
+        Mapper.register_mapping("test_rev", {0x41: 0x42})
+        result = Mapper.from_unicode("B", "test_rev")
+        assert result == b"A"
+
+    def test_custom_double_byte(self):
+        Mapper.register_mapping("test_db", {0x4142: 0x4E00})
+        result = Mapper.to_unicode(b"\x41\x42", "test_db")
+        assert result == "\u4e00"
+
+
+# ═════════════════════  Encoding  ═════════════════════
+
+
+class TestEncoding:
+    def test_encoding_values(self):
+        assert Encoding.ASCII.value == "ascii"
+        assert Encoding.BIG5.value == "big5"
+        assert Encoding.GB18030.value == "gb18030"
+        assert Encoding.CP932.value == "cp932"
+
+
+# ═════════════════════  Big5  ═════════════════════
+
+
+class TestBig5:
+    def test_to_unicode_ascii_subset(self):
+        result = Big5.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = Big5.from_unicode("ABC")
+        assert result == b"ABC"
+
+
+# ═════════════════════  GB18030  ═════════════════════
+
+
+class TestGB18030:
+    def test_to_unicode_ascii(self):
+        result = GB18030.to_unicode(b"Hello")
+        assert result == "Hello"
+
+    def test_from_unicode_ascii(self):
+        result = GB18030.from_unicode("Hello")
+        assert result == b"Hello"
+
+
+# ═════════════════════  CP932  ═════════════════════
+
+
+class TestCP932:
+    def test_to_unicode_ascii(self):
+        result = CP932.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = CP932.from_unicode("ABC")
+        assert result == b"ABC"
+
+
+# ═════════════════════  CP936  ═════════════════════
+
+
+class TestCP936:
+    def test_to_unicode_ascii(self):
+        result = CP936.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = CP936.from_unicode("ABC")
+        assert result == b"ABC"
+
+
+# ═════════════════════  CP949  ═════════════════════
+
+
+class TestCP949:
+    def test_to_unicode_ascii(self):
+        result = CP949.to_unicode(b"ABC")
+        assert result == "ABC"
+
+    def test_from_unicode_ascii(self):
+        result = CP949.from_unicode("ABC")
+        assert result == b"ABC"
 
 
 class TestNoDuplicates:
