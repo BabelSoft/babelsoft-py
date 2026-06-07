@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicbarker/clay/refs/heads/main/tauri.conf.json",
+  "productName": "BabelMap",
+  "version": "1.0.0",
+  "identifier": "com.babelstone.babelmap",
+  "build": {
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "cd frontend && npm run dev",
+    "beforeBuildCommand": "cd frontend && npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "BabelMap",
+        "label": "main",
+        "width": 1280,
+        "height": 960,
+        "minWidth": 900,
+        "minHeight": 700,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:17890; img-src 'self' data: blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico"],
+    "externalBin": [],
+    "resources": []
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}

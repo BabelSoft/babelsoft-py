@@ -6,6 +6,12 @@ data/charts/
 data/ivd/
 tools/
 
+# Svelte build output
+package-lock.json
+node_modules/
+Cargo.lock
+gen/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -22,7 +28,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/

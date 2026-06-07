@@ -1,0 +1,109 @@
+:root {
+  --bg-primary: #1e1e2e;
+  --bg-secondary: #282840;
+  --bg-tertiary: #323250;
+  --bg-cell: #1a1a2e;
+  --bg-cell-hover: #3a3a5c;
+  --bg-cell-selected: #4a4a8c;
+  --text-primary: #e0e0f0;
+  --text-secondary: #a0a0c0;
+  --text-muted: #6868a0;
+  --border-color: #404068;
+  --accent: #7b6cff;
+  --accent-hover: #9b8cff;
+  --danger: #ff6b6b;
+  --success: #6bff8c;
+  --font-mono: "Cascadia Code", "Fira Code", "JetBrains Mono", "Consolas", monospace;
+  --font-ui: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+button:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+button:active {
+  transform: scale(0.97);
+}
+button.active {
+  background: var(--accent);
+  border-color: var(--accent-hover);
+}
+
+select,
+input {
+  font-family: var(--font-ui);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+select:focus,
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.tooltip {
+  position: fixed;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
