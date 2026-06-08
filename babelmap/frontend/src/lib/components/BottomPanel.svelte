@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { get } from "svelte/store";
   import * as store from "../stores";
   import { searchByName, jumpToBlock, convertEditBuffer, jumpToCodepoint } from "../api";
   import type { BlockInfo } from "../types";
@@ -19,9 +20,7 @@
     if (!searchQuery.trim()) return;
     try {
       const results = await searchByName(searchQuery.trim());
-      searchResults = results.map(
-        (c) => `U+${c.codepoint.toString(16).toUpperCase().padStart(4, "0")} - ${c.name}`,
-      );
+      searchResults = results.map((c) => `U+${c.codepoint.toString(16).toUpperCase().padStart(4, "0")} - ${c.name}`);
     } catch (e: any) {
       store.statusMessage.set(`Search error: ${e.message}`);
     }
@@ -30,7 +29,7 @@
   async function handleBlockSelect() {
     if (!selectedBlock) return;
     try {
-      const page = await jumpToBlock($store.currentPlane, selectedBlock);
+      const page = await jumpToBlock(get(store.currentPlane), selectedBlock);
       store.gridPage.set(page);
       store.scrollPosition.set(page.scroll_position);
       onRefresh();
@@ -46,7 +45,7 @@
     if (isNaN(cp)) cp = parseInt(v, 10);
     if (isNaN(cp)) return;
     try {
-      const page = await jumpToCodepoint($store.currentPlane, cp);
+      const page = await jumpToCodepoint(get(store.currentPlane), cp);
       store.gridPage.set(page);
       store.scrollPosition.set(page.scroll_position);
       onRefresh();
@@ -65,9 +64,10 @@
 
   async function handleModeChange(mode: string) {
     store.editBufferMode.set(mode as any);
-    if ($store.editBuffer) {
+    const buf = get(store.editBuffer);
+    if (buf) {
       try {
-        const { result } = await convertEditBuffer($store.editBuffer, mode);
+        const { result } = await convertEditBuffer(buf, mode);
         store.editBuffer.set(result);
       } catch {
         // fallback: just change mode
@@ -77,7 +77,7 @@
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText($store.editBuffer);
+      await navigator.clipboard.writeText(get(store.editBuffer));
       store.statusMessage.set("Copied to clipboard");
     } catch {
       store.statusMessage.set("Copy failed");
@@ -104,7 +104,7 @@
       <label for="select-block">Select Block:</label>
       <select id="select-block" bind:value={selectedBlock} onchange={handleBlockSelect}>
         <option value="">-- Select Block --</option>
-        {#each $store.blocks.filter(b => b.plane === $store.currentPlane) as block}
+        {#each get(store.blocks).filter((b) => b.plane === get(store.currentPlane)) as block}
           <option value={block.name}>
             {block.name} ({block.count} chars)
           </option>
@@ -120,7 +120,9 @@
           id="search-name"
           type="text"
           bind:value={searchQuery}
-          onkeydown={(e) => { if (e.key === "Enter") handleSearch(); }}
+          onkeydown={(e) => {
+            if (e.key === "Enter") handleSearch();
+          }}
         />
         <button onclick={handleSearch}>Search</button>
       </div>
@@ -135,7 +137,9 @@
           type="text"
           bind:value={gotoValue}
           placeholder="hex or dec"
-          onkeydown={(e) => { if (e.key === "Enter") handleGoto(); }}
+          onkeydown={(e) => {
+            if (e.key === "Enter") handleGoto();
+          }}
         />
         <button onclick={handleGoto}>Go</button>
       </div>
@@ -149,74 +153,32 @@
       <div class="edit-controls">
         <!-- Mode radios -->
         <label class="radio-small">
-          <input
-            type="radio"
-            name="bufferMode"
-            value="char"
-            checked={store.editBufferMode.set(== "char"})
-            onchange={() => handleModeChange("char")}
-          />
+          <input type="radio" name="bufferMode" value="char" checked={get(store.editBufferMode) === "char"} onchange={() => handleModeChange("char")} />
           Char
         </label>
         <label class="radio-small">
-          <input
-            type="radio"
-            name="bufferMode"
-            value="ncr_hex"
-            checked={store.editBufferMode.set(== "ncr_hex"})
-            onchange={() => handleModeChange("ncr_hex")}
-          />
+          <input type="radio" name="bufferMode" value="ncr_hex" checked={get(store.editBufferMode) === "ncr_hex"} onchange={() => handleModeChange("ncr_hex")} />
           NCR&nbsp;hex
         </label>
         <label class="radio-small">
-          <input
-            type="radio"
-            name="bufferMode"
-            value="ncr_dec"
-            checked={store.editBufferMode.set(== "ncr_dec"})
-            onchange={() => handleModeChange("ncr_dec")}
-          />
+          <input type="radio" name="bufferMode" value="ncr_dec" checked={get(store.editBufferMode) === "ncr_dec"} onchange={() => handleModeChange("ncr_dec")} />
           NCR&nbsp;dec
         </label>
         <label class="radio-small">
-          <input
-            type="radio"
-            name="bufferMode"
-            value="html"
-            checked={store.editBufferMode.set(== "html"})
-            onchange={() => handleModeChange("html")}
-          />
+          <input type="radio" name="bufferMode" value="html" checked={get(store.editBufferMode) === "html"} onchange={() => handleModeChange("html")} />
           HTML
         </label>
         <label class="radio-small">
-          <input
-            type="radio"
-            name="bufferMode"
-            value="ucn"
-            checked={store.editBufferMode.set(== "ucn"})
-            onchange={() => handleModeChange("ucn")}
-          />
+          <input type="radio" name="bufferMode" value="ucn" checked={get(store.editBufferMode) === "ucn"} onchange={() => handleModeChange("ucn")} />
           UCN
         </label>
         <span class="sep">|</span>
         <label class="radio-small">
-          <input
-            type="radio"
-            name="renderMode"
-            value="glyph"
-            checked={store.renderMode.set(== "glyph"})
-            onchange={() => (store.renderMode.set("glyph")})
-          />
+          <input type="radio" name="renderMode" value="glyph" checked={get(store.renderMode) === "glyph"} onchange={() => store.renderMode.set("glyph")} />
           Glyph
         </label>
         <label class="radio-small">
-          <input
-            type="radio"
-            name="renderMode"
-            value="text"
-            checked={store.renderMode.set(== "text"})
-            onchange={() => (store.renderMode.set("text")})
-          />
+          <input type="radio" name="renderMode" value="text" checked={get(store.renderMode) === "text"} onchange={() => store.renderMode.set("text")} />
           Text
         </label>
         <span class="sep">|</span>
@@ -227,7 +189,8 @@
     </div>
     <textarea
       class="edit-textarea"
-      bind:value={$store.editBuffer}
+      value={get(store.editBuffer)}
+      oninput={(e) => store.editBuffer.set((e.target as HTMLTextAreaElement).value)}
       rows={4}
       onkeydown={handleEditBufferKeydown}
       spellcheck={false}
@@ -239,7 +202,7 @@
     <div class="search-results">
       <div class="results-header">
         Search results ({searchResults.length})
-        <button onclick={() => (searchResults = [])}>âœ?/button>
+        <button onclick={() => (searchResults = [])}>ï¿½?/button> </button>
       </div>
       <div class="results-list">
         {#each searchResults as r}

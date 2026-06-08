@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { get } from "svelte/store";
   import * as store from "../stores";
   import { navigateDirection } from "../api";
 
@@ -10,13 +11,7 @@
 
   async function navigate(dir: string) {
     try {
-      const page = await navigateDirection(
-        $store.currentPlane,
-        $store.scrollPosition,
-        dir,
-        $store.fontFamily,
-        $store.fontSize,
-      );
+      const page = await navigateDirection(get(store.currentPlane), get(store.scrollPosition), dir, get(store.fontFamily), get(store.fontSize));
       store.gridPage.set(page);
       store.scrollPosition.set(page.scroll_position);
       store.selectedCell.set(null);
@@ -31,7 +26,7 @@
     onRefresh();
   }
 
-  const maxScroll = $derived($store.gridPage?.max_scroll ?? 256);
+  const maxScroll = $derived(get(store.gridPage)?.max_scroll ?? 256);
 </script>
 
 <aside class="grid-nav">
@@ -53,18 +48,9 @@
   </div>
 
   <div class="scroll-section">
-    <input
-      type="range"
-      class="vertical-slider"
-      min="0"
-      max={maxScroll}
-      value={$store.scrollPosition}
-      oninput={handleScroll}
-      orient="vertical"
-      title="Scroll position"
-    />
+    <input type="range" class="vertical-slider" min="0" max={maxScroll} value={get(store.scrollPosition)} oninput={handleScroll} style="writing-mode:vertical-lr" title="Scroll position" />
     <span class="scroll-pos">
-      {$store.scrollPosition.toString(16).toUpperCase().padStart(4, "0")}
+      {get(store.scrollPosition).toString(16).toUpperCase().padStart(4, "0")}
     </span>
   </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { get } from "svelte/store";
   import "./app.css";
   import MenuBar from "./lib/components/MenuBar.svelte";
   import PlaneTabs from "./lib/components/PlaneTabs.svelte";
@@ -21,14 +22,11 @@
     store.isLoading.set(true);
     gridError = "";
     try {
-      const data = await getGrid(
-        $store.currentPlane,
-        $store.scrollPosition,
-        $store.fontFamily,
-        $store.fontSize,
-      );
+      const data = await getGrid(get(store.currentPlane), get(store.scrollPosition), get(store.fontFamily), get(store.fontSize));
       gridPage = data;
-      store.statusMessage.set(`Block: ${data.block_name} [U+${data.block_start.toString(16).toUpperCase().padStart(4, "0")}–U+${data.block_end.toString(16).toUpperCase().padStart(4, "0")}] (${data.block_count} chars)`);
+      store.statusMessage.set(
+        `Block: ${data.block_name} [U+${data.block_start.toString(16).toUpperCase().padStart(4, "0")}–U+${data.block_end.toString(16).toUpperCase().padStart(4, "0")}] (${data.block_count} chars)`,
+      );
     } catch (e: any) {
       gridError = e.message || "Failed to load grid";
       store.statusMessage.set("Error loading character grid");
@@ -39,10 +37,7 @@
 
   async function initialLoad() {
     try {
-      const [planeList, blockList] = await Promise.all([
-        getPlanes(),
-        getAllBlocks(),
-      ]);
+      const [planeList, blockList] = await Promise.all([getPlanes(), getAllBlocks()]);
       planes = planeList;
       blocks = blockList;
       store.planes.set(planeList); // keep store in sync for sub-components
@@ -64,7 +59,7 @@
 
 <div class="babelmap-container">
   <!-- Menu Bar -->
-  <MenuBar onRefresh={() => refreshGrid()} />
+  <MenuBar onRefocus={() => refreshGrid()} />
 
   <!-- Main Content Area -->
   <div class="main-content">
@@ -79,7 +74,7 @@
       <!-- Grid Area with side navigation -->
       <div class="grid-area">
         <div class="grid-container">
-          {#if $store.isLoading}
+          {#if get(store.isLoading)}
             <div class="loading-overlay">Loading...</div>
           {/if}
           {#if gridError}
@@ -88,7 +83,7 @@
               <button onclick={() => refreshGrid()}>Retry</button>
             </div>
           {/if}
-          <CharacterGrid gridPage={gridPage} onRefresh={() => refreshGrid()} />
+          <CharacterGrid {gridPage} onRefresh={() => refreshGrid()} />
         </div>
         <GridNav onRefresh={() => refreshGrid()} />
       </div>

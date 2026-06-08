@@ -8,8 +8,10 @@ export const blocks = writable<BlockInfo[]>([]);
 export const gridPage = writable<GridPage | null>(null);
 export const selectedCell = writable<{ row: number; col: number } | null>(null);
 
-let _g: GridPage | null = null; gridPage.subscribe(v => _g = v);
-let _s: { row: number; col: number } | null = null; selectedCell.subscribe(v => _s = v);
+let _g: GridPage | null = null;
+gridPage.subscribe((v) => (_g = v));
+let _s: { row: number; col: number } | null = null;
+selectedCell.subscribe((v) => (_s = v));
 export function getSelectedCodepoint(): number | null {
   if (!_s || !_g) return null;
   return _g.cells[_s.row]?.[_s.col]?.codepoint ?? null;

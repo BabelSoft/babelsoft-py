@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { get } from "svelte/store";
   import * as store from "../stores";
 
   interface Props {
@@ -31,7 +32,7 @@
   {#each planeTabs as tab}
     <button
       class="plane-tab"
-      class:active={store.currentPlane.set(== tab.plane})
+      class:active={get(store.currentPlane) === tab.plane}
       onclick={() => switchPlane(tab.plane)}
       onmouseenter={(e) => {
         const rect = (e.target as HTMLElement).getBoundingClientRect();

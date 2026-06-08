@@ -1,20 +1,14 @@
 <script lang="ts">
+  import { get } from "svelte/store";
   import * as store from "../stores";
-  import {
-    jumpToBlock,
-    jumpToCodepoint,
-    navigateDirection,
-    getGrid,
-  } from "../api";
+  import { jumpToBlock, jumpToCodepoint, navigateDirection, getGrid } from "../api";
   import type { BlockInfo } from "../types";
 
   interface Props {
     onRefocus?: () => void;
   }
 
-  let {
-    onRefocus = () => {},
-  }: Props = $props();
+  let { onRefocus = () => {} }: Props = $props();
 
   let showGoto = $state(false);
   let gotoValue = $state("");
@@ -27,16 +21,7 @@
     },
     {
       label: "Edit",
-      items: [
-        "Copy Glyph",
-        "Copy Glyph Outline",
-        "Copy as Plain Text",
-        "Copy as RTF",
-        "Cut Plain",
-        "Cut RTF",
-        "Paste",
-        "Clear Edit Buffer",
-      ],
+      items: ["Copy Glyph", "Copy Glyph Outline", "Copy as Plain Text", "Copy as RTF", "Cut Plain", "Cut RTF", "Paste", "Clear Edit Buffer"],
     },
     {
       label: "Find",
@@ -67,10 +52,7 @@
     },
     {
       label: "Fonts",
-      items: [
-        "Add Fonts...",
-        "Remove Fonts...",
-      ],
+      items: ["Add Fonts...", "Remove Fonts..."],
     },
     {
       label: "Options",
@@ -96,31 +78,15 @@
     },
     {
       label: "Bookmarks",
-      items: [
-        "Add Bookmark",
-        "Manage Bookmarks...",
-        "Delete Bookmark",
-        "Delete All Bookmarks",
-      ],
+      items: ["Add Bookmark", "Manage Bookmarks...", "Delete Bookmark", "Delete All Bookmarks"],
     },
     {
       label: "View",
-      items: [
-        "Edit Buffer",
-        "Size: Large",
-        "Size: Medium",
-        "Size: Small",
-        "Stay on Top",
-        "Show Reserved Planes",
-        "Show Reserved Ranges",
-      ],
+      items: ["Edit Buffer", "Size: Large", "Size: Medium", "Size: Small", "Stay on Top", "Show Reserved Planes", "Show Reserved Ranges"],
     },
     {
       label: "Help",
-      items: [
-        "BabelMap Help",
-        "About BabelMap...",
-      ],
+      items: ["BabelMap Help", "About BabelMap..."],
     },
   ];
 
@@ -128,12 +94,12 @@
   let activeSubItem = $state<number | null>(null);
 
   function handleMenuClick(idx: number) {
-    openMenu.value = openMenu.value === idx ? null : idx;
+    openMenu = openMenu === idx ? null : idx;
     activeSubItem = null;
   }
 
   function handleSubItemClick(menuLabel: string, itemLabel: string) {
-    openMenu.value = null;
+    openMenu = null;
 
     // Handle specific menu actions
     switch (itemLabel) {
@@ -179,7 +145,7 @@
     }
     if (isNaN(cp)) return;
     try {
-      const page = await jumpToCodepoint($store.currentPlane, cp);
+      const page = await jumpToCodepoint(get(store.currentPlane), cp);
       store.gridPage.set(page);
       store.scrollPosition.set(page.scroll_position);
     } catch (e: any) {
@@ -190,7 +156,7 @@
   async function handleBlockSelect() {
     if (!selectedBlock) return;
     try {
-      const page = await jumpToBlock($store.currentPlane, selectedBlock);
+      const page = await jumpToBlock(get(store.currentPlane), selectedBlock);
       store.gridPage.set(page);
       store.scrollPosition.set(page.scroll_position);
       onRefocus?.();
@@ -203,11 +169,7 @@
 <nav class="menubar">
   {#each menuItems as menu, idx}
     <div class="menu-item-wrapper">
-      <button
-        class="menu-trigger"
-        class:active={openMenu === idx}
-        onclick={() => handleMenuClick(idx)}
-      >
+      <button class="menu-trigger" class:active={openMenu === idx} onclick={() => handleMenuClick(idx)}>
         {menu.label}
       </button>
       {#if openMenu === idx}
@@ -215,17 +177,12 @@
         <div
           class="menu-dropdown"
           onkeydown={(e) => {
-            if (e.key === "Escape") openMenu.value = null;
+            if (e.key === "Escape") openMenu = null;
           }}
         >
           {#each menu.items as item, jdx}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <div
-              class="menu-item"
-              class:active={activeSubItem === jdx}
-              onclick={() => handleSubItemClick(menu.label, item)}
-              onmouseenter={() => (activeSubItem = jdx)}
-            >
+            <div class="menu-item" class:active={activeSubItem === jdx} onclick={() => handleSubItemClick(menu.label, item)} onmouseenter={() => (activeSubItem = jdx)}>
               {item}
             </div>
           {/each}
@@ -241,21 +198,14 @@
   <div
     class="goto-overlay"
     onclick={() => (showGoto = false)}
-    onkeydown={(e) => { if (e.key === "Escape") showGoto = false; }}
+    onkeydown={(e) => {
+      if (e.key === "Escape") showGoto = false;
+    }}
   >
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <form
-      class="goto-form"
-      onkeydown={(e) => e.stopPropagation()}
-      onsubmit={handleGotoSubmit}
-    >
+    <form class="goto-form" onkeydown={(e) => e.stopPropagation()} onsubmit={handleGotoSubmit}>
       <label for="goto-input">Go to Codepoint:</label>
-      <input
-        id="goto-input"
-        type="text"
-        placeholder="e.g. U+4E2D or 0x4E2D"
-        bind:value={gotoValue}
-      />
+      <input id="goto-input" type="text" placeholder="e.g. U+4E2D or 0x4E2D" bind:value={gotoValue} />
       <div class="goto-actions">
         <button type="submit">Go</button>
         <button type="button" onclick={() => (showGoto = false)}>Cancel</button>

@@ -1,16 +1,20 @@
 ﻿"""BabelMap Python Backend — FastAPI server. Start: python backend/server.py"""
 
 from __future__ import annotations
-import base64, io, json, os, sys
+import base64
+import io
+import json
+import os
+import sys
 from pathlib import Path
 from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from fastapi import FastAPI, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Query  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 
 app = FastAPI(title="BabelMap Backend", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -118,7 +122,7 @@ def _find_font_file(family: str) -> str | None:
                 if p.exists():
                     return str(p)
         return None
-    except:
+    except Exception:
         return None
 
 
@@ -137,7 +141,7 @@ def _render_glyph(cp: int, family: str, size: int = 16) -> Optional[str]:
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode("ascii")
-    except:
+    except Exception:
         return None
 
 
@@ -180,74 +184,103 @@ def list_blocks_for_plane(plane: int):
     return _blocks_by_plane.get(plane, [])
 
 
-@app.get("/api/grid/{plane}")
-def get_grid(plane: int, scroll: int = Query(0, ge=0)):
-    if plane not in VALID_PLANES:
-        return JSONResponse({"error": f"Invalid plane {plane}"}, 400)
+def _build_row(row_start: int, pe: int, Unicode) -> list[dict]:
+    """Build one grid row starting at row_start."""
+    rd: list[dict] = []
+    for c in range(GRID_COLS):
+        cp = row_start + c
+        if cp > pe or cp > 0x10FFFF or (0xD800 <= cp <= 0xDFFF):
+            rd.append({"codepoint": -1, "char_name": None})
+        elif not _is_assigned(cp):
+            rd.append({"codepoint": cp, "char_name": None, "reserved": True})
+        else:
+            rd.append({"codepoint": cp, "char_name": _safe_name(Unicode, cp)})
+    return rd
+
+
+# Pre-computed stitched rows per plane: all blocks concatenated, no gaps, +7 pad rows
+_plane_rows: dict[int, list[dict]] = {}
+_plane_max_scroll: dict[int, int] = {}
+_plane_cp_to_scroll: dict[int, dict[int, int]] = {}  # plane -> {codepoint: stitched_scroll}
+
+
+def _build_plane_rows(plane: int):
+    """Build the full stitched row list for a plane (cached)."""
+    if plane in _plane_rows:
+        return
     from src.unicode.core import Unicode
 
     ps = plane * 0x10000
     pe = min(ps + 0xFFFF, 0x10FFFF)
-    base = ps + scroll * GRID_COLS
-    if base > pe:
-        base = max(ps, pe - GRID_ROWS * GRID_COLS + 1)
-    blk = _find_block_fast(base)
-    bn, bs, be = blk["name"], blk["start"], blk["end"]
-    ba = blk.get("assigned", be - bs + 1)
-    cells: list[list[dict]] = []
-    row_bases: list[int] = []
-    block_boundaries: list[int] = []
-    prev_bn = bn
-    row_offset = 0  # how many rows we've collected
-    probe = base
-    max_probe = pe - GRID_COLS + 1
+    rows: list[dict] = []
+    cp_map: dict[int, int] = {}
+    blk_prev = ""
+    for b in _ALL_BLOCKS:
+        if b["plane"] != plane:
+            continue
+        row_start = (b["start"] // GRID_COLS) * GRID_COLS
+        end_aligned = (b["end"] // GRID_COLS) * GRID_COLS
+        while row_start <= end_aligned:
+            rd = _build_row(row_start, pe, Unicode)
+            is_boundary = b["name"] != blk_prev
+            rows.append(
+                {
+                    "cells": rd,
+                    "row_start": row_start,
+                    "block_name": b["name"],
+                    "block_start": b["start"],
+                    "block_end": b["end"],
+                    "block_assigned": b.get("assigned", b["end"] - b["start"] + 1),
+                    "block_boundary": is_boundary,
+                }
+            )
+            # Map all codepoints in this row to this stitched scroll index
+            scroll_idx = len(rows) - 1
+            for c in range(GRID_COLS):
+                cp = row_start + c
+                if cp <= pe and cp <= 0x10FFFF and not (0xD800 <= cp <= 0xDFFF):
+                    cp_map[cp] = scroll_idx
+            blk_prev = b["name"]
+            row_start += GRID_COLS
+    # Pad 7 empty rows at end
+    for _ in range(7):
+        rows.append(
+            {
+                "cells": [{"codepoint": -1, "char_name": None} for _ in range(GRID_COLS)],
+                "row_start": -1,
+                "block_name": "\u2014",
+                "block_start": 0,
+                "block_end": 0,
+                "block_assigned": 0,
+                "block_boundary": False,
+            }
+        )
+    _plane_rows[plane] = rows
+    _plane_max_scroll[plane] = max(0, len(rows) - GRID_ROWS)
+    _plane_cp_to_scroll[plane] = cp_map
 
-    while row_offset < GRID_ROWS and probe <= max_probe:
-        row_start = probe
-        rb = _find_block_fast(row_start)
-        if rb["name"] != prev_bn:
-            block_boundaries.append(row_offset)
-            prev_bn = rb["name"]
-        rd: list[dict] = []
-        has_assigned = False
-        for c in range(GRID_COLS):
-            cp = row_start + c
-            if cp > pe or cp > 0x10FFFF or (0xD800 <= cp <= 0xDFFF):
-                rd.append({"codepoint": -1, "char_name": None})
-            elif not _is_assigned(cp):
-                rd.append({"codepoint": cp, "char_name": None, "reserved": True})
-            else:
-                rd.append({"codepoint": cp, "char_name": _safe_name(Unicode, cp)})
-                has_assigned = True
-        if has_assigned:
-            if row_offset == 0:
-                # First actual row: update block info
-                blk = rb
-                bn, bs, be = blk["name"], blk["start"], blk["end"]
-                ba = blk.get("assigned", be - bs + 1)
-                prev_bn = bn
-            cells.append(rd)
-            row_bases.append(row_start - ps)
-            row_offset += 1
-        probe += GRID_COLS
 
-    # If we couldn't fill 8 rows, pad with empty
-    while row_offset < GRID_ROWS:
-        probe = max(ps, pe - (GRID_ROWS - row_offset) * GRID_COLS)
-        rd = [{"codepoint": -1, "char_name": None} for _ in range(GRID_COLS)]
-        cells.append(rd)
-        row_bases.append(probe - ps)
-        row_offset += 1
-
+@app.get("/api/grid/{plane}")
+def get_grid(plane: int, scroll: int = Query(0, ge=0)):
+    if plane not in VALID_PLANES:
+        return JSONResponse({"error": f"Invalid plane {plane}"}, 400)
+    _build_plane_rows(plane)
+    rows = _plane_rows[plane]
+    scroll = max(0, min(scroll, _plane_max_scroll[plane]))
+    page = rows[scroll : scroll + GRID_ROWS]
+    cells = [r["cells"] for r in page]
+    row_bases = [(r["row_start"] - plane * 0x10000) if r["row_start"] >= 0 else -1 for r in page]
+    block_boundaries = [i for i, r in enumerate(page) if r["block_boundary"]]
+    first = page[0]
     return {
         "plane": plane,
-        "block_name": bn,
-        "block_start": bs,
-        "block_end": be,
-        "block_count": be - bs + 1,
-        "block_assigned": ba,
+        "block_name": first["block_name"],
+        "block_start": first["block_start"],
+        "block_end": first["block_end"],
+        "block_count": first["block_end"] - first["block_start"] + 1 if first["block_start"] else 0,
+        "block_assigned": first["block_assigned"],
         "scroll_position": scroll,
-        "max_scroll": _max_scroll_by_plane.get(plane, (pe - ps) // GRID_COLS),
+        "max_scroll": _plane_max_scroll[plane],
         "cells": cells,
         "row_bases": row_bases,
         "block_boundaries": block_boundaries,
@@ -283,7 +316,12 @@ def _safe_name(Unicode, cp: int) -> str | None:
 
 @app.get("/api/grid/{plane}/goto/{cp}")
 def grid_goto(plane: int, cp: int):
-    return get_grid(plane, max(0, (cp - plane * 0x10000) // GRID_COLS))
+    _build_plane_rows(plane)
+    found = cp in _plane_cp_to_scroll[plane]
+    scroll = _plane_cp_to_scroll[plane].get(cp, max(0, (cp - plane * 0x10000) // GRID_COLS))
+    result = get_grid(plane, scroll)
+    result["not_found"] = not found
+    return result
 
 
 @app.get("/api/grid/{plane}/block/{name:path}")
@@ -335,15 +373,15 @@ def codepoint_info(cp: int):
         return JSONResponse({"error": "Invalid"}, 400)
     try:
         n = Unicode.get_character_name(cp)
-    except:
+    except Exception:
         n = f"U+{cp:04X}"
     try:
         gc = str(Unicode.get_general_category(cp))
-    except:
+    except Exception:
         gc = "Cn"
     try:
         sc = str(Unicode.get_script(cp))
-    except:
+    except Exception:
         sc = "Unknown"
     blk = _find_block(cp)
     bn = blk["name"] if blk else "Unknown"
@@ -355,13 +393,13 @@ def codepoint_info(cp: int):
         if cjk.is_cjk_ideograph():
             try:
                 info["pinyin"] = cjk.get_pinyin_for_char(cp) or []
-            except:
+            except Exception:
                 pass
             try:
                 info["radical_stroke"] = str(cjk.primary_radical_stroke())
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
     return info
 
@@ -389,7 +427,7 @@ def _build_search_cache():
             n = Unicode.get_character_name(cp)
             if n and not n.startswith("<"):
                 _search_cache.append((cp, n))
-        except:
+        except Exception:
             pass
 
 

@@ -10,14 +10,7 @@
     onDoubleClick: () => void;
   }
 
-  let {
-    cell,
-    row,
-    col,
-    isSelected,
-    onSelect,
-    onDoubleClick,
-  }: Props = $props();
+  let { cell, row, col, isSelected, onSelect, onDoubleClick }: Props = $props();
 
   let tooltip = $state<{ text: string; x: number; y: number } | null>(null);
 
@@ -47,16 +40,14 @@
   tabindex="0"
   onclick={handleClick}
   ondblclick={handleDblClick}
-  onkeydown={(e) => { if (e.key === 'Enter') handleClick(); }}
+  onkeydown={(e) => {
+    if (e.key === "Enter") handleClick();
+  }}
   onmouseenter={handleMouseEnter}
   onmouseleave={() => (tooltip = null)}
 >
   {#if cell.glyph_b64}
-    <img
-      src="data:image/png;base64,{cell.glyph_b64}"
-      alt={cell.char_name || `U+${cell.codepoint.toString(16)}`}
-      class="glyph-img"
-    />
+    <img src="data:image/png;base64,{cell.glyph_b64}" alt={cell.char_name || `U+${cell.codepoint.toString(16)}`} class="glyph-img" />
   {:else if cell.codepoint > 0}
     <span class="glyph-char">
       {String.fromCodePoint(cell.codepoint)}
@@ -65,9 +56,7 @@
     <span class="empty-cell"></span>
   {/if}
   <span class="cell-code">
-    {cell.codepoint > 0
-      ? cell.codepoint.toString(16).toUpperCase().padStart(4, "0")
-      : ""}
+    {cell.codepoint > 0 ? cell.codepoint.toString(16).toUpperCase().padStart(4, "0") : ""}
   </span>
 </div>
 

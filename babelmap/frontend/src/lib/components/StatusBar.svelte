@@ -2,11 +2,7 @@
   import { statusMessage, planes, currentPlane, fontFamily, fontSize, getSelectedCodepoint } from "../stores";
 
   let selectedCp = $derived(getSelectedCodepoint());
-  let cpDisplay = $derived(
-    selectedCp
-      ? `U+${selectedCp.toString(16).toUpperCase().padStart(4, "0")}`
-      : "",
-  );
+  let cpDisplay = $derived(selectedCp ? `U+${selectedCp.toString(16).toUpperCase().padStart(4, "0")}` : "");
 </script>
 
 <footer class="status-bar">

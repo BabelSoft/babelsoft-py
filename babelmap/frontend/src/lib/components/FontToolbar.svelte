@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { get } from "svelte/store";
   import * as store from "../stores";
   import { getFonts } from "../api";
   import { onMount } from "svelte";
@@ -35,7 +36,7 @@
         type="radio"
         name="fontMode"
         value="composite"
-        checked={store.fontMode.set(== "composite"})
+        checked={get(store.fontMode) === "composite"}
         onchange={() => {
           store.fontMode.set("composite");
           onRefresh();
@@ -48,7 +49,7 @@
         type="radio"
         name="fontMode"
         value="single"
-        checked={store.fontMode.set(== "single"})
+        checked={get(store.fontMode) === "single"}
         onchange={() => {
           store.fontMode.set("single");
           onRefresh();
@@ -58,41 +59,26 @@
     </label>
 
     <select
-      value={$store.fontFamily}
+      value={get(store.fontFamily)}
       onchange={(e) => {
         store.fontFamily.set((e.target as HTMLSelectElement).value);
         handleFontChange();
       }}
     >
-      {#if !$store.availableFonts || $store.availableFonts.length === 0}
+      {#if !get(store.availableFonts) || get(store.availableFonts).length === 0}
         <option value="Arial">Arial</option>
       {/if}
-      {#each $store.availableFonts as font}
+      {#each get(store.availableFonts) as font}
         <option value={font}>{font}</option>
       {/each}
     </select>
 
-    {#if store.fontMode.set(== "composite"})
-      <button
-        class="configure-btn"
-        title="Configure Composite Font"
-        onclick={() =>
-          (store.statusMessage.set("Composite font config - not yet implemented"))
-        }
-      >
-        Configure...
-      </button>
+    {#if get(store.fontMode) === "composite"}
+      <button class="configure-btn" title="Configure Composite Font" onclick={() => store.statusMessage.set("Composite font config - not yet implemented")}> Configure... </button>
     {/if}
 
     <span class="size-label">Size:</span>
-    <input
-      type="number"
-      class="size-input"
-      value={$store.fontSize}
-      min="8"
-      max="72"
-      onchange={handleFontSizeChange}
-    />
+    <input type="number" class="size-input" value={get(store.fontSize)} min="8" max="72" onchange={handleFontSizeChange} />
   </div>
 </div>
 

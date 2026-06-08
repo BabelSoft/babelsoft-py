@@ -44,6 +44,7 @@ export interface GridCell {
   codepoint: number;
   char_name: string | null;
   reserved?: boolean;
+  glyph_b64?: string;
 }
 
 /** A page of character grid data */
@@ -59,6 +60,7 @@ export interface GridPage {
   cells: GridCell[][]; // 8 rows × 16 cols
   row_bases: number[]; // actual codepoint offset (cp - plane*0x10000) for each row
   block_boundaries: number[]; // row indices (0-7) that start a new block
+  not_found?: boolean; // true if goto codepoint is not in any block
 }
 
 /** Edit buffer mode */
