@@ -1,7 +1,8 @@
 ﻿<script lang="ts">
   import type { GridPage, BlockInfo } from "./lib/types";
+  import { t, lang, langList, localizedMenus, type LangDef } from "./lib/i18n.svelte";
 
-  let dark = $state(true);
+  let dark = $state(false);
   let grid = $state<GridPage | null>(null);
   let err = $state("");
   let loading = $state(false);
@@ -18,6 +19,8 @@
   let sr = $state(-1);
   let sc = $state(-1);
   let om = $state(-1);
+  let showLang = $state(false);
+  let editVisible = $state(true);
   let _navBusy = false;
 
   const PLANES = [
@@ -102,7 +105,7 @@
     const np = Math.floor(cp / 0x10000);
     const g = await get<GridPage>(`/grid/${np}/goto/${cp}`);
     if (g.not_found) {
-      alert(`U+${cp.toString(16).toUpperCase()} not assigned`);
+      alert(`U+${cp.toString(16).toUpperCase()} ${t("general.not_assigned")}`);
       return;
     }
     grid = g;
@@ -121,7 +124,7 @@
         const np = Math.floor(cp / 0x10000);
         const g = await get<GridPage>(`/grid/${np}/goto/${cp}`);
         if (g.not_found) {
-          alert(`U+${cp.toString(16).toUpperCase()} not assigned`);
+          alert(`U+${cp.toString(16).toUpperCase()} ${t("general.not_assigned")}`);
           return;
         }
         grid = g;
@@ -129,7 +132,7 @@
         scroll = g.scroll_position;
         sr = 0;
         sc = (cp - np * 0x10000) % 16;
-      } else err = "Not found";
+      } else err = t("general.not_found");
     } catch (e: any) {
       err = e.message;
     }
@@ -178,7 +181,9 @@
   let selInfo = $derived.by(() => {
     const cp = selCp();
     if (cp != null && cp >= 0) {
-      const nm = selName();
+      const cell = grid!.cells[sr]?.[sc];
+      const reserved = cell?.reserved;
+      const nm = reserved ? "<reserved>" : selName() || `U+${cp.toString(16).toUpperCase()}`;
       return {
         hex: cp
           .toString(16)
@@ -186,7 +191,7 @@
           .padStart(cp > 0xffff ? 5 : 4, "0"),
         char: String.fromCodePoint(cp),
         dec: String(cp),
-        name: nm || `U+${cp.toString(16).toUpperCase()}`,
+        name: nm,
       };
     }
     return null;
@@ -248,6 +253,7 @@
   function onGlobalClick(e: MouseEvent) {
     const t = e.target as HTMLElement;
     if (!t.closest(".mw")) om = -1;
+    if (!t.closest(".lang-wrap")) showLang = false;
   }
 
   interface MI {
@@ -255,119 +261,22 @@
     k?: string;
     sub?: MI[];
   }
-  const menus: { label: string; items: MI[] }[] = [
-    { label: "File", items: [{ l: "Close to System Tray" }, { l: "Exit", k: "Alt+F4" }] },
-    {
-      label: "Edit",
-      items: [
-        { l: "Character Mode", sub: [{ l: "Character" }, { l: "NCR Hex" }, { l: "NCR Decimal" }, { l: "HTML" }, { l: "UCN" }] },
-        { l: "Copy Glyph", k: "F6" },
-        { l: "Copy Glyph Outline", k: "Shift+F6" },
-        { l: "Glyph Mode", k: "Ctrl+0" },
-        { l: "Text Mode", k: "Ctrl+9" },
-        { l: "Colour Glyphs", k: "Ctrl+7" },
-        { l: "Cut (Plain)", k: "Shift+F4" },
-        { l: "Cut (RTF)", k: "Ctrl+Shift+F4" },
-        { l: "Copy (Plain)", k: "F4" },
-        { l: "Copy (RTF)", k: "Ctrl+F4" },
-        { l: "Paste" },
-        { l: "Save...", k: "Shift+F5" },
-        { l: "Clear" },
-      ],
-    },
-    {
-      label: "Find",
-      items: [
-        { l: "Search Prev", k: "Shift+F3" },
-        { l: "Search Next", k: "F3" },
-        { l: "Go to Han Ideograph", k: "Shift+F2" },
-        { l: "Go to Code Point", k: "Ctrl+G" },
-        { l: "Locate Character", k: "F2" },
-      ],
-    },
-    {
-      label: "Tools",
-      items: [
-        { l: "Advanced Search", k: "F8" },
-        { l: "Han Ideograph Search" },
-        { l: "Unicode Versions" },
-        { l: "Unicode Scripts" },
-        { l: "Unicode Planes" },
-        { l: "Unicode Blocks" },
-        { l: "Mandarin Lookup", k: "F12" },
-        { l: "Cantonese Lookup", k: "Shift+F12" },
-        { l: "Han Radical Lookup", k: "F11" },
-        { l: "Yi Radical Lookup", k: "Shift+F11" },
-        { l: "Tangut References" },
-        { l: "Emoji Lookup", k: "Shift+F8" },
-        { l: "Properties", k: "F9" },
-        { l: "Extended Properties", k: "Shift+F9" },
-        { l: "Ideographic Properties", k: "Ctrl+F9" },
-        { l: "Character History" },
-        { l: "UVS" },
-        { l: "Generate UCD" },
-        { l: "Generate UCD XML" },
-        { l: "OpenType Test" },
-      ],
-    },
-    {
-      label: "Fonts",
-      items: [
-        { l: "Single Font", k: "Ctrl+1" },
-        { l: "Composite Font", k: "Ctrl+2" },
-        { l: "List All Font Styles" },
-        { l: "Legacy Font Enum" },
-        { l: "Show Symbol Mappings" },
-        { l: "Grid Font Size", sub: [{ l: "Very Small" }, { l: "Small" }, { l: "Medium" }, { l: "Large" }, { l: "Very Large" }] },
-        { l: "Quality", sub: [{ l: "Default" }, { l: "Draft" }, { l: "Proof" }, { l: "Non-antialiased" }, { l: "Antialiased" }, { l: "ClearType" }, { l: "ClearType Natural" }] },
-        { l: "Add Fonts" },
-        { l: "Remove Fonts" },
-        { l: "Fonts Overview" },
-        { l: "Font Analysis", k: "F7" },
-        { l: "Font Coverage" },
-        { l: "Font Information", k: "Ctrl+F7" },
-        { l: "Export Glyphs" },
-        { l: "Composite Mapping", k: "Shift+F7" },
-      ],
-    },
-    {
-      label: "Options",
-      items: [
-        { l: "Unicode Blocks" },
-        { l: "Name Search" },
-        { l: "Go To Code Points" },
-        { l: "Alt Representation" },
-        { l: "CJKV Readings" },
-        { l: "Tangut Readings" },
-        { l: "Character Grid" },
-        { l: "Popup Magnification" },
-        { l: "Colour Coding" },
-        { l: "Cut/Copy Defaults" },
-        { l: "Status Bar" },
-        { l: "Other" },
-        { l: "Font Config" },
-        { l: "Customize Colours" },
-        { l: "Reset" },
-      ],
-    },
-    { label: "Bookmarks", items: [{ l: "Add Bookmark" }, { l: "Manage" }] },
-    { label: "View", items: [{ l: "Zoom In", k: "Ctrl++" }, { l: "Zoom Out", k: "Ctrl+-" }, { l: "Toggle Theme" }] },
-    { label: "Help", items: [{ l: "BabelMap Help", k: "F1" }, { l: "About" }] },
-  ];
+  // Derive localized menus reactively — updates when lang.v changes
+  let _menus = $derived(localizedMenus());
   function mc(i: number) {
     om = om === i ? -1 : i;
   }
   function ma(item: MI) {
     om = -1;
-    if (item.l === "Toggle Theme") dark = !dark;
-    else if (item.l === "Clear") buf = "";
-    else if (item.l === "Glyph Mode") glyph = true;
-    else if (item.l === "Text Mode") glyph = false;
-    else if (item.l === "Character") mode = "char";
-    else if (item.l === "NCR Hex") mode = "ncr_hex";
-    else if (item.l === "NCR Decimal") mode = "ncr_dec";
-    else if (item.l === "HTML") mode = "html";
-    else if (item.l === "UCN") mode = "ucn";
+    if (item.l === t("view.toggle_theme")) dark = !dark;
+    else if (item.l === t("edit.clear")) buf = "";
+    else if (item.l === t("edit.glyph_mode")) glyph = true;
+    else if (item.l === t("edit.text_mode")) glyph = false;
+    else if (item.l === t("edit.char")) mode = "char";
+    else if (item.l === t("edit.ncr_hex")) mode = "ncr_hex";
+    else if (item.l === t("edit.ncr_dec")) mode = "ncr_dec";
+    else if (item.l === t("edit.html")) mode = "html";
+    else if (item.l === t("edit.ucn")) mode = "ucn";
   }
 
   // Start Python backend via Tauri (no-op in browser dev mode)
@@ -387,7 +296,7 @@
 
 <div class="app" class:dark>
   <nav class="mb">
-    {#each menus as m, i}
+    {#each _menus as m, i}
       <div class="mw">
         <button class="mbtn" class:on={om === i} onclick={() => mc(i)}>{m.label}</button>
         {#if om === i}<div class="mdrop" role="menu">
@@ -396,7 +305,7 @@
                   <div class="mi mst">{it.l}<span class="ar">▶</span></div>
                   <div class="msub">
                     {#each it.sub as s}<div class="mi" role="menuitem" onclick={() => ma(s)} onkeydown={(e) => e.key === "Enter" && ma(s)} tabindex="0">
-                        {s.l}<span class="sk">{s.k || ""}</span>
+                        {s.l}
                       </div>{/each}
                   </div>
                 </div>
@@ -404,7 +313,34 @@
           </div>{/if}
       </div>
     {/each}
-    <span class="msp"></span><button class="tbtn" onclick={() => (dark = !dark)}>{dark ? "☀" : "☾"}</button>
+    <span class="msp"></span>
+    <!-- Language Switcher -->
+    <div class="lang-wrap">
+      <button class="lang-btn" onclick={() => (showLang = !showLang)} title={t("lang.title")}>
+        {langList.find((l: LangDef) => l.code === lang.v)?.nativeName || "English"}
+      </button>
+      {#if showLang}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="lang-drop" onkeydown={(e) => e.key === "Escape" && (showLang = false)}>
+          {#each langList as l}
+            <div
+              class="lang-item"
+              class:active={lang.v === l.code}
+              onclick={() => {
+                lang.v = l.code;
+                showLang = false;
+              }}
+              onkeydown={(e) => e.key === "Enter" && ((lang.v = l.code), (showLang = false))}
+              role="menuitem"
+              tabindex="0"
+            >
+              {l.nativeName}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+    <button class="tbtn" onclick={() => (dark = !dark)}>{dark ? "☀" : "☾"}</button>
   </nav>
 
   <div class="tabs">
@@ -415,7 +351,7 @@
     <div class="gw">
       <div class="gh">
         <span class="gt"
-          >{#if loading}Loading...{:else if err}{err}{:else if grid}{grid.block_name}{:else}Ready{/if}</span
+          >{#if loading}{t("general.loading")}{:else if err}{err}{:else if grid}{grid.block_name}{:else}{t("general.ready")}{/if}</span
         >{#if grid}<span class="gr">U+{grid.block_start.toString(16).toUpperCase().padStart(4, "0")}–U+{grid.block_end.toString(16).toUpperCase().padStart(4, "0")}</span><span class="gc"
             >({grid.block_assigned}/{grid.block_count})</span
           >{/if}
@@ -483,32 +419,32 @@
         />
       </div>
       <div class="nb">
-        <button onclick={() => goPlane(0)} title="Plane Start">⏮️</button>
-        <button onclick={() => goPlane(16)} title="Plane End">⏭️</button>
-        <button onclick={() => nblock(-1)} title="Previous Block">⏪</button>
-        <button onclick={() => nblock(1)} title="Next Block">⏩</button>
-        <button onclick={() => nav(-8)} title="Page Up">⬆️</button>
-        <button onclick={() => nav(8)} title="Page Down">⬇️</button>
+        <button onclick={() => goPlane(0)} title={t("nav.plane_start")}>⏮️</button>
+        <button onclick={() => goPlane(16)} title={t("nav.plane_end")}>⏭️</button>
+        <button onclick={() => nblock(-1)} title={t("nav.prev_block")}>⏪</button>
+        <button onclick={() => nblock(1)} title={t("nav.next_block")}>⏩</button>
+        <button onclick={() => nav(-8)} title={t("nav.page_up")}>⬆️</button>
+        <button onclick={() => nav(8)} title={t("nav.page_down")}>⬇️</button>
         <button
           onclick={() => {
             sr = 0;
           }}
-          title="Row Start">⤒</button
+          title={t("nav.row_start")}>⤒</button
         >
         <button
           onclick={() => {
             sr = 7;
           }}
-          title="Row End">⤓</button
+          title={t("nav.row_end")}>⤓</button
         >
-        <button onclick={() => {}} title="IVS" disabled>〰️</button>
+        <button onclick={() => {}} title={t("nav.ivs")} disabled>〰️</button>
         <button
           onclick={() => {
             const cp = Math.floor(Math.random() * 0x110000);
             gv = cp.toString(16).toUpperCase();
             doGo();
           }}
-          title="Random">🎲</button
+          title={t("nav.random")}>🎲</button
         >
       </div>
     </aside>
@@ -519,7 +455,7 @@
       class="ir1"
       readonly
       value={selInfo ? `U+${selInfo.hex} ${selInfo.char} ${selInfo.name}` : ""}
-      placeholder="Select a character..."
+      placeholder={t("general.select_char")}
       onclick={(e) => {
         const t = e.target as HTMLInputElement;
         if (t.value) {
@@ -533,17 +469,17 @@
   <div class="bot">
     <div class="br1">
       <fieldset>
-        <legend>Block</legend><select
+        <legend>{t("bottom.select_block")}</legend><select
           value={sblock}
           onchange={(e: any) => {
             sblock = e.target.value;
             doBlock();
           }}
-          ><option value="">-- Select --</option>{#each blocks as b}<option value={b.name}>{b.name}</option>{/each}</select
+          ><option value="">-- {t("bottom.select_block")} --</option>{#each blocks as b}<option value={b.name}>{b.name}</option>{/each}</select
         >
       </fieldset>
       <fieldset class="fs">
-        <legend>Search by Name</legend><input
+        <legend>{t("bottom.search_name")}</legend><input
           type="text"
           bind:value={sv}
           onkeydown={(e) => {
@@ -552,19 +488,19 @@
         /><button onclick={doSearch}>🔍</button>
       </fieldset>
       <fieldset class="fg">
-        <legend>Goto</legend><input
+        <legend>{t("bottom.goto_cp")}</legend><input
           type="text"
           bind:value={gv}
-          placeholder="hex"
+          placeholder={t("general.hex")}
           onkeydown={(e) => {
             if (e.key === "Enter") doGo();
           }}
-        /><button onclick={doGo}>Go</button>
+        /><button onclick={doGo}>{t("bottom.go")}</button>
       </fieldset>
     </div>
     <div class="br2">
-      <label class="rd"><input type="radio" name="fm" checked /> Composite</label><button class="sb">Configure</button>
-      <label class="rd"><input type="radio" name="fm" /> Single</label><select class="fsel"><option>Arial</option></select>
+      <label class="rd"><input type="radio" name="fm" checked /> {t("font.composite_font")}</label><button class="sb">{t("font.configure")}</button>
+      <label class="rd"><input type="radio" name="fm" /> {t("font.single_font")}</label><select class="fsel"><option>Arial</option></select>
       <input
         type="number"
         class="fsz"
@@ -575,27 +511,43 @@
           fsize = parseInt(e.target.value) || 16;
           load();
         }}
-      /><button class="sb" style="margin-left:auto">Show</button>
+      /><button class="sb" style="margin-left:auto">{t("font.show")}</button>
     </div>
     <fieldset class="eb">
-      <legend>Edit Buffer</legend>
+      <legend>{t("bottom.edit_buffer")}</legend>
       <textarea bind:value={buf} rows={3} spellcheck={false} placeholder="Click cells to add. Arrow keys navigate. Enter to add selected."></textarea>
       <div class="ebc">
         <div class="ebr">
-          <label class="rd"><input type="radio" name="rdr" checked={glyph} onchange={() => (glyph = true)} /> Glyph</label>
-          <label class="rd"><input type="radio" name="rdr" checked={!glyph} onchange={() => (glyph = false)} /> Text</label>
-          <label class="ck"><input type="checkbox" /> Colour</label>
+          <label class="rd"><input type="radio" name="rdr" checked={glyph} onchange={() => (glyph = true)} /> {t("bottom.glyph")}</label>
+          <label class="rd"><input type="radio" name="rdr" checked={!glyph} onchange={() => (glyph = false)} /> {t("bottom.text")}</label>
+          <label class="ck"><input type="checkbox" /> {t("bottom.colour")}</label>
         </div>
         <div class="ebr">
-          {#each [{ l: "Char", v: "char" }, { l: "NCR hex", v: "ncr_hex" }, { l: "NCR dec", v: "ncr_dec" }, { l: "HTML", v: "html" }, { l: "UCN", v: "ucn" }] as m}
+          {#each [{ l: t("edit.char"), v: "char" }, { l: t("edit.ncr_hex"), v: "ncr_hex" }, { l: t("edit.ncr_dec"), v: "ncr_dec" }, { l: t("edit.html"), v: "html" }, { l: t("edit.ucn"), v: "ucn" }] as m}
             <label class="rd"><input type="radio" name="em" value={m.v} checked={mode === m.v} onchange={() => (mode = m.v as any)} /> {m.l}</label>{/each}
-          <span class="sep"></span><button
+        </div>
+        <div class="ebr ebtns">
+          <button class="sb" onclick={() => (editVisible = !editVisible)}>{t("bottom.hide")}</button>
+          <button
+            class="sb"
+            onclick={() => {
+              /* save */
+            }}>{t("bottom.save")}</button
+          >
+          <button class="sb" onclick={() => (buf = "")}>{t("bottom.clear")}</button>
+          <button
+            class="sb"
+            onclick={() => {
+              navigator.clipboard.writeText(conv());
+            }}>{t("bottom.copy")}</button
+          >
+          <button
             class="sb"
             onclick={() => {
               navigator.clipboard.writeText(conv());
               buf = "";
-            }}>Copy</button
-          ><button class="sb" onclick={() => (buf = "")}>Clear</button>
+            }}>{t("bottom.cut")}</button
+          >
         </div>
       </div>
     </fieldset>
@@ -603,9 +555,9 @@
 
   <footer class="st">
     <span
-      >{#if sr >= 0 && grid}U+{selCp()!.toString(16).toUpperCase().padStart(4, "0")} – {selName()}{:else if grid}{grid.block_name}{:else}Ready{/if}</span
+      >{#if sr >= 0 && grid}U+{selCp()!.toString(16).toUpperCase().padStart(4, "0")} – {selName()}{:else if grid}{grid.block_name}{:else}{t("general.ready")}{/if}</span
     >
-    <span>{PLANES.find((p) => p.id === plane)?.l} · Arial {fsize}px · {scroll.toString(16).toUpperCase()}</span>
+    <span>{PLANES.find((p) => p.id === plane)?.l} · Arial {fsize}px · {grid ? `U+${(plane * 0x10000 + (grid.row_bases[0] ?? 0)).toString(16).toUpperCase().padStart(4, "0")}` : ""}</span>
   </footer>
 </div>
 
@@ -799,6 +751,52 @@
   }
   .tbtn:hover {
     background: var(--bg3);
+  }
+
+  /* ── Language Switcher ── */
+  .lang-wrap {
+    position: relative;
+    margin-right: 2px;
+  }
+  .lang-btn {
+    background: transparent;
+    color: var(--fg2);
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .lang-btn:hover {
+    background: var(--bg3);
+    color: var(--fg);
+  }
+  .lang-drop {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 140px;
+    background: var(--bg2);
+    border: 1px solid var(--bd);
+    border-radius: 12px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+    padding: 6px;
+    z-index: 200;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .lang-item {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--fg);
+    cursor: pointer;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .lang-item:hover,
+  .lang-item.active {
+    background: var(--ac);
+    color: #fff;
   }
   .tabs {
     display: flex;
@@ -1063,7 +1061,8 @@
     width: 0;
   }
   .fg {
-    flex: 0 0 130px;
+    flex: 0 0 auto;
+    min-width: 130px;
   }
   .fg input {
     width: 70px;
@@ -1144,6 +1143,10 @@
     align-items: center;
     gap: 8px;
     flex-wrap: wrap;
+  }
+  .ebtns {
+    padding-top: 4px;
+    border-top: 1px solid var(--bd);
   }
   .sep {
     flex: 1;

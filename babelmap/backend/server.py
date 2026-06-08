@@ -218,6 +218,9 @@ def _build_plane_rows(plane: int):
     for b in _ALL_BLOCKS:
         if b["plane"] != plane:
             continue
+        # Skip surrogate blocks (U+D800-U+DFFF) — not real characters
+        if 0xD800 <= b["start"] <= 0xDFFF:
+            continue
         row_start = (b["start"] // GRID_COLS) * GRID_COLS
         end_aligned = (b["end"] // GRID_COLS) * GRID_COLS
         while row_start <= end_aligned:

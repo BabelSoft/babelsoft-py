@@ -17,7 +17,7 @@
   const menuItems = [
     {
       label: "File",
-      items: ["Save Edit Buffer", "Exit"],
+      items: ["Save Edit Buffer"],
     },
     {
       label: "Edit",
@@ -69,7 +69,6 @@
         "Show Tangut References",
         "Convert Basic Latin",
         "Rotate Vertical Scripts",
-        "Close to System Tray",
         "Colour Coding",
         "Customize Colours...",
         "Font Configuration...",
