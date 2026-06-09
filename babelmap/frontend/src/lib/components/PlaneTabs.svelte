@@ -1,84 +1,50 @@
 <script lang="ts">
-  import { get } from "svelte/store";
-  import * as store from "../stores";
-
   interface Props {
-    onPlaneChange: () => void;
+    plane: number;
+    planes: { id: number; l: string }[];
+    onChange: (id: number) => void;
   }
 
-  let { onPlaneChange }: Props = $props();
-
-  const planeTabs = [
-    { plane: 0, label: "BMP", name: "Basic Multilingual Plane" },
-    { plane: 1, label: "SMP", name: "Supplementary Multilingual Plane" },
-    { plane: 2, label: "SIP", name: "Supplementary Ideographic Plane" },
-    { plane: 3, label: "TIP", name: "Tertiary Ideographic Plane" },
-    { plane: 14, label: "SSP", name: "Supplementary Special-purpose Plane" },
-    { plane: 15, label: "PUA-A", name: "Private Use Area A" },
-    { plane: 16, label: "PUA-B", name: "Private Use Area B" },
-  ];
-
-  function switchPlane(plane: number) {
-    store.currentPlane.set(plane);
-    store.scrollPosition.set(0);
-    store.selectedCell.set(null);
-    onPlaneChange();
-  }
-
-  let tooltip = $state<{ text: string; x: number; y: number } | null>(null);
+  let { plane, planes, onChange }: Props = $props();
 </script>
 
-<div class="plane-tabs">
-  {#each planeTabs as tab}
-    <button
-      class="plane-tab"
-      class:active={get(store.currentPlane) === tab.plane}
-      onclick={() => switchPlane(tab.plane)}
-      onmouseenter={(e) => {
-        const rect = (e.target as HTMLElement).getBoundingClientRect();
-        tooltip = { text: tab.name, x: rect.left + rect.width / 2, y: rect.bottom + 4 };
-      }}
-      onmouseleave={() => (tooltip = null)}
-      title={tab.name}
-    >
-      {tab.label}
+<div class="tabs">
+  {#each planes as p}
+    <button class:on={plane === p.id} onclick={() => onChange(p.id)}>
+      {p.l}
     </button>
   {/each}
 </div>
 
-{#if tooltip}
-  <div class="tooltip" style="left:{tooltip.x}px;top:{tooltip.y}px;transform:translateX(-50%)">
-    {tooltip.text}
-  </div>
-{/if}
-
 <style>
-  .plane-tabs {
+  .tabs {
     display: flex;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
-    padding: 0 4px;
-    gap: 1px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--bd);
+    padding: 0 8px;
+    gap: 2px;
     flex-shrink: 0;
   }
-  .plane-tab {
+  .tabs button {
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
     border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    padding: 4px 14px;
-    font-size: 12px;
-    font-weight: 600;
     border-radius: 0;
     border-bottom: 2px solid transparent;
-    cursor: pointer;
+    transition: all 0.15s;
+    background: transparent;
+    color: var(--fg3);
+    padding: 6px 16px;
+    letter-spacing: 0.3px;
   }
-  .plane-tab:hover {
-    color: var(--text-primary);
-    background: var(--bg-tertiary);
+  .tabs button:hover {
+    color: var(--fg);
+    background: var(--bg3);
   }
-  .plane-tab.active {
-    color: var(--text-primary);
-    border-bottom-color: var(--accent);
-    background: var(--bg-tertiary);
+  .tabs button.on {
+    color: var(--ac);
+    border-bottom-color: var(--ac);
   }
 </style>
