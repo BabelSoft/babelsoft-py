@@ -32,6 +32,8 @@
   let showLang = $state(false);
   let _navBusy = false;
   let statusMsg = $state("");
+  let _sresults = $state<number[]>([]);
+  let _sidx = $state(-1);
 
   // ── Dialog / context menu state ────────────────────────────────────
   let showSaveDlg = $state(false);
@@ -125,6 +127,38 @@
     let cp = parseInt(gv.replace(/^(0x|U\+|\$|#)/i, ""), gv.startsWith("#") ? 10 : 16);
     if (isNaN(cp) || cp < 0 || cp > 0x10ffff) return;
     gv = "";
+    await gotoCP(cp);
+  }
+  async function doSearch() {
+    if (!sv.trim()) return;
+    try {
+      const r = await get<any[]>(`/search/name?q=${encodeURIComponent(sv.trim())}&limit=200`);
+      _sresults = r.map((x: any) => x.codepoint);
+      _sidx = 0;
+      if (_sresults.length > 0) {
+        await gotoCP(_sresults[0]);
+      } else err = t("general.not_found");
+    } catch (e: any) {
+      err = e.message;
+    }
+  }
+  async function doSearchPrev() {
+    if (_sresults.length === 0) {
+      doSearch();
+      return;
+    }
+    _sidx = _sidx <= 0 ? _sresults.length - 1 : _sidx - 1;
+    await gotoCP(_sresults[_sidx]);
+  }
+  async function doSearchNext() {
+    if (_sresults.length === 0) {
+      doSearch();
+      return;
+    }
+    _sidx = (_sidx + 1) % _sresults.length;
+    await gotoCP(_sresults[_sidx]);
+  }
+  async function gotoCP(cp: number) {
     const np = Math.floor(cp / 0x10000);
     const g = await get<GridPage>(`/grid/${np}/goto/${cp}`);
     if (g.not_found) {
@@ -137,28 +171,31 @@
     sr = 0;
     sc = (cp - np * 0x10000) % 16;
   }
-  async function doSearch() {
-    if (!sv.trim()) return;
+
+  // ── Go to Han Ideograph ──────────────────────────────────────────
+  async function doGotoHan() {
+    const ref = prompt(t("find.goto_han") + " — " + (lang === "zh" ? "输入源引用" : "Enter Source Reference"));
+    if (!ref?.trim()) return;
     try {
-      const r = await get<any[]>(`/search/name?q=${encodeURIComponent(sv.trim())}`);
+      const r = await get<any[]>(`/search/han_source?q=${encodeURIComponent(ref.trim())}&limit=50`);
       if (r.length > 0) {
-        const cp = r[0].codepoint;
         sv = "";
-        const np = Math.floor(cp / 0x10000);
-        const g = await get<GridPage>(`/grid/${np}/goto/${cp}`);
-        if (g.not_found) {
-          alert(`U+${cp.toString(16).toUpperCase()} ${t("general.not_assigned")}`);
-          return;
-        }
-        grid = g;
-        plane = np;
-        scroll = g.scroll_position;
-        sr = 0;
-        sc = (cp - np * 0x10000) % 16;
-      } else err = t("general.not_found");
+        _sresults = r.map((x: any) => x.codepoint);
+        _sidx = 0;
+        await gotoCP(_sresults[0]);
+      } else alert(t("general.not_found"));
     } catch (e: any) {
       err = e.message;
     }
+  }
+
+  // ── Locate Character ─────────────────────────────────────────────
+  async function doLocateChar() {
+    if (!buf) return;
+    const cp = [...buf][0]?.codePointAt(0);
+    if (cp == null || cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return;
+    sv = "";
+    await gotoCP(cp);
   }
   async function doBlock() {
     if (!sblock) return;
@@ -445,6 +482,12 @@
     else if (label === t("edit.ncr_dec")) changeMode("ncr_dec");
     else if (label === t("edit.html")) changeMode("html");
     else if (label === t("edit.ucn")) changeMode("ucn");
+    // Find menu
+    else if (label === t("find.search_prev")) doSearchPrev();
+    else if (label === t("find.search_next")) doSearchNext();
+    else if (label === t("find.goto_han")) doGotoHan();
+    else if (label === t("find.goto_cp")) doGo();
+    else if (label === t("find.locate_char")) doLocateChar();
   }
 
   // Start Python backend via Tauri (no-op in browser dev mode)
@@ -519,6 +562,8 @@
     onSvChange={(v: string) => (sv = v)}
     onBlockSelect={doBlock}
     onSearch={doSearch}
+    onSearchPrev={doSearchPrev}
+    onSearchNext={doSearchNext}
     onGoto={doGo}
     onFontSizeChange={(v: number) => {
       fsize = v;

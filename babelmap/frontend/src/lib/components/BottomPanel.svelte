@@ -19,6 +19,8 @@
     onSvChange: (v: string) => void;
     onBlockSelect: (name: string) => void;
     onSearch: () => void;
+    onSearchPrev: () => void;
+    onSearchNext: () => void;
     onGoto: () => void;
     onFontSizeChange: (size: number) => void;
     onModeChange: (m: string) => void;
@@ -49,6 +51,8 @@
     onSvChange,
     onBlockSelect,
     onSearch,
+    onSearchPrev,
+    onSearchNext,
     onGoto,
     onFontSizeChange,
     onModeChange,
@@ -61,25 +65,53 @@
     onHideToggle,
     onContextMenu,
   }: Props = $props();
+
+  let open = $state(false);
+  let ddEl = $state<HTMLElement>();
+
+  function toggleOpen() {
+    open = !open;
+  }
+  function pick(name: string) {
+    onSblockChange(name);
+    onBlockSelect(name);
+    open = false;
+  }
+  function onBlur() {
+    // timeout lets the option click register before close
+    setTimeout(() => {
+      open = false;
+    }, 150);
+  }
 </script>
 
 <div class="bot">
   <div class="br1">
-    <fieldset>
+    <fieldset class="block-sel-fs">
       <legend>{t("bottom.select_block")}</legend>
-      <select
-        value={sblock}
-        onchange={(e) => {
-          const v = (e.target as HTMLSelectElement).value;
-          onSblockChange(v);
-          onBlockSelect(v);
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="block-sel-wrap"
+        onkeydown={(e) => {
+          if (e.key === "Escape") open = false;
         }}
       >
-        <option value="">-- {t("bottom.select_block")} --</option>
-        {#each blocks as b}
-          <option value={b.name}>{b.name}</option>
-        {/each}
-      </select>
+        <!-- trigger -->
+        <button class="block-sel-trig" onclick={toggleOpen} onblur={onBlur}>
+          <span class="block-sel-label">{sblock || t("bottom.select_block")}</span>
+          <span class="block-sel-arrow" class:open>▾</span>
+        </button>
+        <!-- dropdown -->
+        {#if open}
+          <div class="block-sel-dd" bind:this={ddEl}>
+            {#each blocks as b}
+              <button class="block-sel-opt" class:active={b.name === sblock} onclick={() => pick(b.name)} title={b.name}>
+                {b.name}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
     </fieldset>
     <fieldset class="fs">
       <legend>{t("bottom.search_name")}</legend>
@@ -91,7 +123,8 @@
           if (e.key === "Enter") onSearch();
         }}
       />
-      <button onclick={onSearch}>🔍</button>
+      <button onclick={onSearchPrev} title={t("find.search_prev")}>◀</button>
+      <button onclick={onSearchNext} title={t("find.search_next")}>▶</button>
     </fieldset>
     <fieldset class="fg">
       <legend>{t("bottom.goto_cp")}</legend>
@@ -175,10 +208,110 @@
     gap: 8px;
   }
   .br1 fieldset:first-child {
-    max-width: 190px;
+    max-width: 200px;
+    min-width: 155px;
   }
-  .br1 fieldset:first-child select {
+
+  /* ── Custom dropdown ── */
+  .block-sel-wrap {
+    position: relative;
     width: 100%;
+  }
+  .block-sel-trig {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 7px 10px 7px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    background: var(--bg2);
+    color: var(--fg);
+    border: 1px solid var(--bd);
+    border-radius: 8px;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      background 0.15s,
+      box-shadow 0.15s;
+    line-height: 1.4;
+    text-align: left;
+  }
+  .block-sel-trig:hover {
+    border-color: var(--ac);
+    background: var(--bg);
+  }
+  .block-sel-trig:focus {
+    outline: none;
+    border-color: var(--ac);
+    box-shadow: 0 0 0 3px rgba(92, 124, 250, 0.18);
+  }
+  .block-sel-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .block-sel-arrow {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--fg3);
+    transition:
+      transform 0.2s,
+      color 0.15s;
+    line-height: 1;
+  }
+  .block-sel-arrow.open {
+    transform: rotate(180deg);
+    color: var(--ac);
+  }
+
+  /* dropdown menu */
+  .block-sel-dd {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    min-width: 100%;
+    width: max-content;
+    max-width: 320px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--bg2);
+    border: 1px solid var(--bd);
+    border-radius: 10px;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    padding: 4px;
+  }
+  .block-sel-dd .block-sel-opt {
+    display: block;
+    width: 100%;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 400;
+    font-family: inherit;
+    text-align: left;
+    background: transparent;
+    color: var(--fg);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    height: auto;
+    white-space: nowrap;
+  }
+  .block-sel-dd .block-sel-opt:hover {
+    background: var(--ac);
+    color: #fff;
+  }
+  .block-sel-dd .block-sel-opt.active {
+    background: var(--bg3);
+    font-weight: 600;
+    color: var(--ac);
+  }
+  .block-sel-dd .block-sel-opt.active:hover {
+    background: var(--ac);
+    color: #fff;
   }
   .fs {
     flex: 2;

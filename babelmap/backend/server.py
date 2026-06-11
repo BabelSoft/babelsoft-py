@@ -176,7 +176,7 @@ def list_planes():
 
 @app.get("/api/blocks")
 def list_all_blocks():
-    return [b for b in _ALL_BLOCKS if b["plane"] in VALID_PLANES]
+    return [b for b in _ALL_BLOCKS if b["plane"] in VALID_PLANES and not (0xD800 <= b["start"] <= 0xDFFF)]
 
 
 @app.get("/api/blocks/{plane}")
@@ -423,7 +423,9 @@ def _build_search_cache():
     from src.unicode.core import Unicode
 
     _search_cache = []
-    for cp in range(0x0000, 0x10000):
+    for cp in range(0x0000, 0x110000):
+        if cp > 0x10FFFF:
+            break
         if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
             continue
         try:
@@ -435,15 +437,35 @@ def _build_search_cache():
 
 
 @app.get("/api/search/name")
-def search_by_name(q: str = Query(..., min_length=1)):
+def search_by_name(q: str = Query(..., min_length=1), limit: int = Query(100, ge=1, le=500)):
     _build_search_cache()
     results = []
     qu = q.upper()
     for cp, n in _search_cache:
         if qu in n.upper():
             results.append({"codepoint": cp, "name": n})
-            if len(results) >= 100:
+            if len(results) >= limit:
                 break
+    return results
+
+
+@app.get("/api/search/han_source")
+def search_by_han_source(q: str = Query(..., min_length=1), limit: int = Query(50, ge=1, le=500)):
+    """Search CJK ideographs by IRG source reference (substring match)."""
+    results = []
+    qu = q.upper().strip()
+    try:
+        from src.cjkv.cjk import CJKLoader
+
+        reverse = CJKLoader.load_cjk_irg_reverse()
+        for ref, cp in reverse.items():
+            if qu in ref.upper():
+                name = f"U+{cp:04X}" if cp <= 0xFFFF else f"U+{cp:05X}"
+                results.append({"codepoint": cp, "name": name, "source": ref})
+                if len(results) >= limit:
+                    break
+    except Exception:
+        pass
     return results
 
 
