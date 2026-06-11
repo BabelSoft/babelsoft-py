@@ -469,6 +469,20 @@ def search_by_han_source(q: str = Query(..., min_length=1), limit: int = Query(5
     return results
 
 
+@app.get("/api/search/properties")
+def search_properties(q: str = Query("", min_length=0)):
+    from backend.adv_search import matching_properties
+
+    return matching_properties(q)
+
+
+@app.get("/api/search/advanced")
+def advanced_search(q: str = Query(..., min_length=1), limit: int = Query(200, ge=1, le=1000)):
+    from backend.adv_search import search as adv_search
+
+    return adv_search(q, _ALL_BLOCKS, limit)
+
+
 @app.get("/api/fonts")
 def list_fonts():
     return [

@@ -129,17 +129,24 @@
     gv = "";
     await gotoCP(cp);
   }
+  // Extract search term from advanced expressions like "name=*lisu*"
+  function _searchTerm(q: string): string {
+    const nameKeys = /^(?:name|formalalias|unicode1name|aliases)\s*[=:]\s*(.+)$/i;
+    const m = q.match(nameKeys);
+    return m ? m[1].replace(/[*?]/g, "") : q;
+  }
   async function doSearch() {
     if (!sv.trim()) return;
     try {
-      const r = await get<any[]>(`/search/name?q=${encodeURIComponent(sv.trim())}&limit=200`);
+      const term = _searchTerm(sv.trim());
+      const r = await get<any[]>(`/search/name?q=${encodeURIComponent(term)}&limit=200`);
       _sresults = r.map((x: any) => x.codepoint);
       _sidx = 0;
       if (_sresults.length > 0) {
         await gotoCP(_sresults[0]);
-      } else err = t("general.not_found");
+      } else showStatus(t("general.not_found"));
     } catch (e: any) {
-      err = e.message;
+      showStatus(e.message);
     }
   }
   async function doSearchPrev() {

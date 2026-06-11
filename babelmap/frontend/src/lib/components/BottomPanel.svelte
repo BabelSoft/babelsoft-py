@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from "../i18n.svelte";
   import type { BlockInfo } from "../types";
+  import AdvSearch from "./AdvSearch.svelte";
 
   interface Props {
     buf: string;
@@ -113,19 +114,7 @@
         {/if}
       </div>
     </fieldset>
-    <fieldset class="fs">
-      <legend>{t("bottom.search_name")}</legend>
-      <input
-        type="text"
-        value={sv}
-        oninput={(e) => onSvChange((e.target as HTMLInputElement).value)}
-        onkeydown={(e) => {
-          if (e.key === "Enter") onSearch();
-        }}
-      />
-      <button onclick={onSearchPrev} title={t("find.search_prev")}>◀</button>
-      <button onclick={onSearchNext} title={t("find.search_next")}>▶</button>
-    </fieldset>
+    <AdvSearch {sv} {onSvChange} {onSearch} {onSearchPrev} {onSearchNext} />
     <fieldset class="fg">
       <legend>{t("bottom.goto_cp")}</legend>
       <input
@@ -312,13 +301,6 @@
   .block-sel-dd .block-sel-opt.active:hover {
     background: var(--ac);
     color: #fff;
-  }
-  .fs {
-    flex: 2;
-  }
-  .fs input {
-    flex: 1;
-    width: 0;
   }
   .fg {
     flex: 0 0 auto;
