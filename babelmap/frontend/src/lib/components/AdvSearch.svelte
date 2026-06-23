@@ -18,7 +18,7 @@
 
   // Static property list — no backend call needed
   const ALL_PROPS = [
-    { key: "name", label: "Name", type: "text", desc: "Character name (* wildcard)" },
+    { key: "name", label: "Name", type: "text", desc: "|cc starts, cc| ends, |cc| exact, cc contains" },
     { key: "formalalias", label: "FormalAlias", type: "text", desc: "Formal name alias" },
     { key: "unicode1name", label: "Unicode1Name", type: "text", desc: "Unicode 1.0 name" },
     { key: "aliases", label: "Aliases", type: "text", desc: "All names & aliases" },
@@ -113,7 +113,7 @@
         suggestions = [];
       }
     } else if (e.key === "Enter") {
-      onSearchNext();
+      onSearch();
     }
   }
 </script>

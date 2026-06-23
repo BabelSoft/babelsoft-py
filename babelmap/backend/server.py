@@ -14,7 +14,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from fastapi import FastAPI, Query  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import JSONResponse  # noqa: E402
+from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
 
 app = FastAPI(title="BabelMap Backend", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -291,30 +291,9 @@ def get_grid(plane: int, scroll: int = Query(0, ge=0)):
 
 
 def _safe_name(Unicode, cp: int) -> str | None:
-    try:
-        n = Unicode.get_character_name(cp)
-        if n and not n.startswith("<"):
-            return n
-    except Exception:
-        pass
-    # Algorithmic names for CJK / Tangut / Nushu / Hangul
-    blk = _find_block(cp)
-    if blk:
-        bn = blk["name"]
-        h = f"{cp:04X}" if cp <= 0xFFFF else f"{cp:05X}"
-        if "CJK Unified Ideograph" in bn:
-            return f"CJK UNIFIED IDEOGRAPH-{h}"
-        if "CJK Compatibility Ideograph" in bn:
-            return f"CJK COMPATIBILITY IDEOGRAPH-{h}"
-        if "Tangut Ideograph" in bn or ("Tangut" in bn and "Ideograph" in bn):
-            return f"TANGUT IDEOGRAPH-{h}"
-        if "Tangut Component" in bn:
-            return f"TANGUT COMPONENT-{h}"
-        if "Nushu" in bn:
-            return f"NUSHU CHARACTER-{h}"
-        if "Hangul Syllable" in bn:
-            return f"HANGUL SYLLABLE-{h}"
-    return None
+    """Get character name, including algorithmic names (CJK, Tangut, etc.)."""
+    n = Unicode.get_character_name(cp)
+    return n if n else None
 
 
 @app.get("/api/grid/{plane}/goto/{cp}")
@@ -412,41 +391,51 @@ def glyph(cp: int, font: str = "Arial", size: int = 16):
     return {"codepoint": cp, "glyph_b64": _render_glyph(cp, font, size)}
 
 
-# Fast search: only scan codepoints that have names in the UCD
-_search_cache: list[tuple[int, str]] | None = None
-
-
-def _build_search_cache():
-    global _search_cache
-    if _search_cache is not None:
-        return
-    from src.unicode.core import Unicode
-
-    _search_cache = []
-    for cp in range(0x0000, 0x110000):
-        if cp > 0x10FFFF:
-            break
-        if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
-            continue
-        try:
-            n = Unicode.get_character_name(cp)
-            if n and not n.startswith("<"):
-                _search_cache.append((cp, n))
-        except Exception:
-            pass
+# ── Unified Search by Name ──────────────────────────────────────────
+# All name searches go through the AST-based advanced search engine.
+# Simple queries like "lisu" are parsed as name=lisu automatically.
 
 
 @app.get("/api/search/name")
-def search_by_name(q: str = Query(..., min_length=1), limit: int = Query(100, ge=1, le=500)):
-    _build_search_cache()
-    results = []
-    qu = q.upper()
-    for cp, n in _search_cache:
-        if qu in n.upper():
-            results.append({"codepoint": cp, "name": n})
-            if len(results) >= limit:
-                break
-    return results
+def search_by_name(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(200, ge=1, le=1000),
+    start_cp: int = Query(0, ge=0, le=0x10FFFF),
+):
+    """Unified search-by-name endpoint. Always uses AST parser.
+    Pass start_cp to search from the character after the current one."""
+    from babelmap.backend.adv_search import search as adv_search, normalize_query
+
+    normalized = normalize_query(q)
+    results = adv_search(q, _ALL_BLOCKS, limit, start_cp)
+    return {"query": normalized, "results": results}
+
+
+@app.get("/api/search/advanced")
+def advanced_search(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(200, ge=1, le=1000),
+    start_cp: int = Query(0, ge=0, le=0x10FFFF),
+):
+    """Alias for /api/search/name — unified AST-based search."""
+    return search_by_name(q, limit, start_cp)
+
+
+@app.get("/api/search/name/stream")
+def search_by_name_stream(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(200, ge=1, le=2000),
+    start_cp: int = Query(0, ge=0, le=0x10FFFF),
+):
+    """Streaming search: returns results via SSE as they are found.
+    limit=0 means no limit (return all matches)."""
+    from babelmap.backend.adv_search import search_stream_sse
+
+    return StreamingResponse(
+        search_stream_sse(q, _ALL_BLOCKS, limit, start_cp),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/api/search/han_source")
@@ -471,16 +460,9 @@ def search_by_han_source(q: str = Query(..., min_length=1), limit: int = Query(5
 
 @app.get("/api/search/properties")
 def search_properties(q: str = Query("", min_length=0)):
-    from backend.adv_search import matching_properties
+    from babelmap.backend.adv_search import matching_properties
 
     return matching_properties(q)
-
-
-@app.get("/api/search/advanced")
-def advanced_search(q: str = Query(..., min_length=1), limit: int = Query(200, ge=1, le=1000)):
-    from backend.adv_search import search as adv_search
-
-    return adv_search(q, _ALL_BLOCKS, limit)
 
 
 @app.get("/api/fonts")
@@ -528,4 +510,11 @@ def health():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=17890, log_level="warning")
+    uvicorn.run(
+        "babelmap.backend.server:app",
+        host="127.0.0.1",
+        port=17890,
+        log_level="warning",
+        reload=True,
+        reload_dirs=[str(PROJECT_ROOT / "src"), str(PROJECT_ROOT / "babelmap")],
+    )

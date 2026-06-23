@@ -360,12 +360,130 @@ class Unicode:
 
     @staticmethod
     def get_character_name(cp: int) -> str:
-        return Unicode._name_map().get(cp, "")
+        """Return the character name, falling back to algorithmic names
+        for CJK, Tangut, Nushu, Hangul, etc."""
+        n = Unicode._name_map().get(cp, "")
+        if n and not n.startswith("<"):
+            return n
+        return Unicode._get_algorithmic_name(cp)
 
     @staticmethod
     def get_unicode1_name(cp: int) -> str:
         m = {e["cp"]: e["uni1"] for e in Unicode._unicodedata() if e["uni1"].strip()}
         return m.get(cp, "")
+
+    @staticmethod
+    def _get_algorithmic_name(cp: int) -> str:
+        """Generate algorithmic name for codepoints without explicit names
+        (CJK Unified/Compatibility Ideographs, Tangut, Nushu, Hangul, Khitan)."""
+        h = f"{cp:04X}" if cp <= 0xFFFF else f"{cp:05X}"
+
+        # ── CJK Unified Ideographs (BMP: 4-digit, others: 5-digit) ──
+        if (
+            (0x3400 <= cp <= 0x4DBF)  # Ext A
+            or (0x4E00 <= cp <= 0x9FFF)  # Main
+            or (0x20000 <= cp <= 0x2A6DF)  # Ext B
+            or (0x2A700 <= cp <= 0x2B73F)  # Ext C
+            or (0x2B740 <= cp <= 0x2B81D)  # Ext D
+            or (0x2B820 <= cp <= 0x2CEAD)  # Ext E
+            or (0x2CEB0 <= cp <= 0x2EBE0)  # Ext F
+            or (0x2EBF0 <= cp <= 0x2EE5D)  # Ext I
+            or (0x30000 <= cp <= 0x3134A)  # Ext G
+            or (0x31350 <= cp <= 0x323AF)  # Ext H
+            or (0x323B0 <= cp <= 0x33479)  # Ext J
+        ):
+            return f"CJK UNIFIED IDEOGRAPH-{h}"
+
+        # ── CJK Compatibility Ideographs ──
+        if 0xF900 <= cp <= 0xFAD9 and cp not in (0xFA6E, 0xFA6F):
+            return f"CJK COMPATIBILITY IDEOGRAPH-{h}"
+        if 0x2F800 <= cp <= 0x2FA1D:
+            return f"CJK COMPATIBILITY IDEOGRAPH-{h}"
+
+        # ── Tangut Ideographs ──
+        if 0x17000 <= cp <= 0x187FF or 0x18D00 <= cp <= 0x18D1E:
+            return f"TANGUT IDEOGRAPH-{h}"
+
+        # ── Tangut Components (fallback; most have explicit UCD names) ──
+        if 0x18800 <= cp <= 0x18AFF or 0x18D80 <= cp <= 0x18DFF:
+            return f"TANGUT COMPONENT-{h}"
+
+        # ── Nushu ──
+        if 0x1B170 <= cp <= 0x1B2FB:
+            return f"NUSHU CHARACTER-{h}"
+
+        # ── Khitan Small Script ──
+        if 0x18B00 <= cp <= 0x18CD5:
+            return f"KHITAN SMALL SCRIPT CHARACTER-{h}"
+
+        # ── Hangul Syllables (decomposition into jamo short names) ──
+        if 0xAC00 <= cp <= 0xD7A3:
+            return Unicode._hangul_name(cp)
+
+        return ""
+
+    @staticmethod
+    def _hangul_name(cp: int) -> str:
+        """Hangul Syllable name via jamo decomposition (U+AC00..U+D7A3)."""
+        base = cp - 0xAC00
+        ti = base % 28
+        vi = ((base - ti) // 28) % 21
+        li = (base - ti - vi * 28) // (28 * 21)
+        LEADING = ["G", "GG", "N", "D", "DD", "R", "M", "B", "BB", "S", "SS", "", "J", "JJ", "C", "K", "T", "P", "H"]
+        VOWEL = [
+            "A",
+            "AE",
+            "YA",
+            "YAE",
+            "EO",
+            "E",
+            "YEO",
+            "YE",
+            "O",
+            "WA",
+            "WAE",
+            "OE",
+            "YO",
+            "U",
+            "WEO",
+            "WE",
+            "WI",
+            "YU",
+            "EU",
+            "YI",
+            "I",
+        ]
+        TRAILING = [
+            "",
+            "G",
+            "GG",
+            "GS",
+            "N",
+            "NJ",
+            "NH",
+            "D",
+            "L",
+            "LG",
+            "LM",
+            "LB",
+            "LS",
+            "LT",
+            "LP",
+            "LH",
+            "M",
+            "B",
+            "BS",
+            "S",
+            "SS",
+            "NG",
+            "J",
+            "C",
+            "K",
+            "T",
+            "P",
+            "H",
+        ]
+        return "HANGUL SYLLABLE " + LEADING[li] + VOWEL[vi] + TRAILING[ti]
 
     # ==================================================================
     #  Numeric

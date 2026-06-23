@@ -52,9 +52,11 @@ export function getGlyphImage(cp: number, fontFamily: string, fontSize: number):
   return get(`/glyph/${cp}?${params}`);
 }
 
-/** Search characters by name */
-export function searchByName(query: string): Promise<CodepointInfo[]> {
-  return get(`/search/name?q=${encodeURIComponent(query)}`);
+/** Search characters by name (unified AST-based, always uses advanced engine).
+ *  Pass startCp to search from the character after the current one. */
+export function searchByName(query: string, startCp: number = 0, limit: number = 200): Promise<CodepointInfo[]> {
+  const params = new URLSearchParams({ q: query, limit: String(limit), start_cp: String(startCp) });
+  return get(`/search/name?${params}`);
 }
 
 /** Get the available font list */

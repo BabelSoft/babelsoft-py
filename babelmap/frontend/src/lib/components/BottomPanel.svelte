@@ -2,6 +2,7 @@
   import { t } from "../i18n.svelte";
   import type { BlockInfo } from "../types";
   import AdvSearch from "./AdvSearch.svelte";
+  import SearchResultsWindow from "./SearchResultsWindow.svelte";
 
   interface Props {
     buf: string;
@@ -22,6 +23,15 @@
     onSearch: () => void;
     onSearchPrev: () => void;
     onSearchNext: () => void;
+    searchResults: { codepoint: number; name: string }[];
+    searchIdx: number;
+    searchQuery: string;
+    searchProgress: number;
+    showResults: boolean;
+    searchLoading: boolean;
+    onSearchResultClick: (cp: number) => void;
+    onCloseResults: () => void;
+    onLoadMoreResults: () => void;
     onGoto: () => void;
     onFontSizeChange: (size: number) => void;
     onModeChange: (m: string) => void;
@@ -54,6 +64,15 @@
     onSearch,
     onSearchPrev,
     onSearchNext,
+    searchResults,
+    searchIdx,
+    searchQuery,
+    searchProgress,
+    showResults,
+    searchLoading,
+    onSearchResultClick,
+    onCloseResults,
+    onLoadMoreResults,
     onGoto,
     onFontSizeChange,
     onModeChange,
@@ -129,6 +148,17 @@
       <button onclick={onGoto}>{t("bottom.go")}</button>
     </fieldset>
   </div>
+  <SearchResultsWindow
+    results={searchResults}
+    idx={searchIdx}
+    query={searchQuery}
+    progress={searchProgress}
+    show={showResults}
+    loading={searchLoading}
+    onResultClick={onSearchResultClick}
+    onClose={onCloseResults}
+    onLoadMore={onLoadMoreResults}
+  />
   <div class="br2">
     <label class="rd"><input type="radio" name="fm" checked /> {t("font.composite_font")}</label>
     <button class="sb">{t("font.configure")}</button>

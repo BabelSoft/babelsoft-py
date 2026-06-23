@@ -32,9 +32,14 @@
   let showLang = $state(false);
   let _navBusy = false;
   let statusMsg = $state("");
-  let _sresults = $state<number[]>([]);
+  let _sresults = $state<{ codepoint: number; name: string }[]>([]);
   let _sidx = $state(-1);
-
+  let _showResults = $state(false);
+  let _lastQuery = $state("");
+  let _normalizedQuery = $state("");
+  let _searchProgress = $state(0);
+  let _searchLoading = $state(false);
+  let _searchComplete = $state(false);
   // ── Dialog / context menu state ────────────────────────────────────
   let showSaveDlg = $state(false);
   let ctxShow = $state(false);
@@ -129,33 +134,171 @@
     gv = "";
     await gotoCP(cp);
   }
-  // Extract search term from advanced expressions like "name=*lisu*"
-  function _searchTerm(q: string): string {
-    const nameKeys = /^(?:name|formalalias|unicode1name|aliases)\s*[=:]\s*(.+)$/i;
-    const m = q.match(nameKeys);
-    return m ? m[1].replace(/[*?]/g, "") : q;
-  }
   async function doSearch() {
     if (!sv.trim()) return;
+    const q = sv.trim();
+
+    // Same query as last time → just advance to next result
+    if (q === _lastQuery && _sresults.length > 0) {
+      _sidx = (_sidx + 1) % _sresults.length;
+      _showResults = true;
+      await gotoCP(_sresults[_sidx].codepoint);
+      return;
+    }
+
+    // New query → fresh search (streaming)
+    _lastQuery = q;
+    _showResults = false;
+    _sresults = [];
+    _sidx = -1;
+    _normalizedQuery = "";
+    _searchProgress = 0;
+    _searchLoading = true;
+    _searchComplete = false;
+
     try {
-      const term = _searchTerm(sv.trim());
-      const r = await get<any[]>(`/search/name?q=${encodeURIComponent(term)}&limit=200`);
-      _sresults = r.map((x: any) => x.codepoint);
-      _sidx = 0;
-      if (_sresults.length > 0) {
-        await gotoCP(_sresults[0]);
-      } else showStatus(t("general.not_found"));
+      const url = `${API}/search/name/stream?q=${encodeURIComponent(q)}&limit=200&start_cp=0`;
+      const response = await fetch(url);
+      if (!response.ok) throw Error(String(response.status));
+      const reader = response.body?.getReader();
+      if (!reader) throw Error("Stream not supported");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let firstResult = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+
+          if (payload === "[DONE]") {
+            _searchLoading = false;
+            if (_sresults.length === 0) showStatus(t("general.not_found"));
+            return;
+          }
+
+          if (payload.startsWith("QUERY ")) {
+            _normalizedQuery = JSON.parse(payload.slice(6));
+            continue;
+          }
+
+          if (payload.startsWith("PROGRESS ")) {
+            _searchProgress = parseFloat(payload.slice(9));
+            if (_searchProgress >= 100) _searchComplete = true;
+            continue;
+          }
+
+          try {
+            const item = JSON.parse(payload) as { codepoint: number; name: string };
+            _sresults = [..._sresults, item];
+            if (firstResult) {
+              firstResult = false;
+              _sidx = 0;
+              _showResults = true;
+              await gotoCP(item.codepoint);
+            }
+          } catch {
+            /* skip malformed */
+          }
+        }
+      }
+
+      // Flush remaining buffer
+      if (buffer.startsWith("data: ")) {
+        const payload = buffer.slice(6);
+        if (payload !== "[DONE]" && !payload.startsWith("QUERY ")) {
+          try {
+            const item = JSON.parse(payload) as { codepoint: number; name: string };
+            _sresults = [..._sresults, item];
+            if (firstResult) {
+              _sidx = 0;
+              _showResults = true;
+              await gotoCP(item.codepoint);
+            }
+          } catch {
+            /* skip */
+          }
+        }
+      }
+
+      if (_sresults.length === 0) showStatus(t("general.not_found"));
     } catch (e: any) {
+      _searchLoading = false;
       showStatus(e.message);
     }
   }
+
+  async function loadMoreResults() {
+    if (_searchLoading || _searchComplete || _sresults.length === 0) return;
+    const lastCp = _sresults[_sresults.length - 1].codepoint;
+    _searchLoading = true;
+    try {
+      const url = `${API}/search/name/stream?q=${encodeURIComponent(_lastQuery)}&limit=200&start_cp=${lastCp}`;
+      const response = await fetch(url);
+      if (!response.ok) throw Error(String(response.status));
+      const reader = response.body?.getReader();
+      if (!reader) throw Error("Stream not supported");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+
+          if (payload === "[DONE]") {
+            _searchLoading = false;
+            return;
+          }
+
+          if (payload.startsWith("PROGRESS ")) {
+            _searchProgress = parseFloat(payload.slice(9));
+            if (_searchProgress >= 100) _searchComplete = true;
+            continue;
+          }
+
+          // Skip QUERY on subsequent loads
+          if (payload.startsWith("QUERY ")) continue;
+
+          try {
+            const item = JSON.parse(payload) as { codepoint: number; name: string };
+            // Avoid duplicates from wrap-around
+            if (_sresults.length > 0 && item.codepoint <= _sresults[_sresults.length - 1].codepoint) continue;
+            _sresults = [..._sresults, item];
+          } catch {
+            /* skip */
+          }
+        }
+      }
+    } catch (e: any) {
+      _searchLoading = false;
+      showStatus(e.message);
+    }
+  }
+
   async function doSearchPrev() {
     if (_sresults.length === 0) {
       doSearch();
       return;
     }
     _sidx = _sidx <= 0 ? _sresults.length - 1 : _sidx - 1;
-    await gotoCP(_sresults[_sidx]);
+    await gotoCP(_sresults[_sidx].codepoint);
   }
   async function doSearchNext() {
     if (_sresults.length === 0) {
@@ -163,7 +306,16 @@
       return;
     }
     _sidx = (_sidx + 1) % _sresults.length;
-    await gotoCP(_sresults[_sidx]);
+    await gotoCP(_sresults[_sidx].codepoint);
+  }
+  function onSearchResultClick(cp: number) {
+    // Find the index of the clicked result
+    const idx = _sresults.findIndex((r) => r.codepoint === cp);
+    if (idx >= 0) _sidx = idx;
+    gotoCP(cp);
+  }
+  function onDismissResults() {
+    _showResults = false;
   }
   async function gotoCP(cp: number) {
     const np = Math.floor(cp / 0x10000);
@@ -181,15 +333,16 @@
 
   // ── Go to Han Ideograph ──────────────────────────────────────────
   async function doGotoHan() {
-    const ref = prompt(t("find.goto_han") + " — " + (lang === "zh" ? "输入源引用" : "Enter Source Reference"));
+    const ref = prompt(t("find.goto_han") + " — " + (lang.v === "zh" ? "输入源引用" : "Enter Source Reference"));
     if (!ref?.trim()) return;
     try {
       const r = await get<any[]>(`/search/han_source?q=${encodeURIComponent(ref.trim())}&limit=50`);
       if (r.length > 0) {
         sv = "";
-        _sresults = r.map((x: any) => x.codepoint);
+        _sresults = r.map((x: any) => ({ codepoint: x.codepoint, name: x.name }));
         _sidx = 0;
-        await gotoCP(_sresults[0]);
+        _showResults = true;
+        await gotoCP(_sresults[0].codepoint);
       } else alert(t("general.not_found"));
     } catch (e: any) {
       err = e.message;
@@ -571,6 +724,15 @@
     onSearch={doSearch}
     onSearchPrev={doSearchPrev}
     onSearchNext={doSearchNext}
+    searchResults={_sresults}
+    searchIdx={_sidx}
+    searchQuery={_normalizedQuery}
+    searchProgress={_searchProgress}
+    showResults={_showResults}
+    {onSearchResultClick}
+    onCloseResults={onDismissResults}
+    searchLoading={_searchLoading}
+    onLoadMoreResults={loadMoreResults}
     onGoto={doGo}
     onFontSizeChange={(v: number) => {
       fsize = v;
