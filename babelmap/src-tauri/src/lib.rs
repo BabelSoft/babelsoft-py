@@ -45,7 +45,7 @@ fn stop_backend(state: State<PythonBackend>) -> Result<String, String> {
 
 #[tauri::command]
 fn get_backend_url() -> String {
-    "http://127.0.0.1:17890".into()
+    "http://127.0.0.1:18080".into()
 }
 
 pub fn run() {

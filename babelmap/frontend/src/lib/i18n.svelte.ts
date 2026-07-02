@@ -162,6 +162,7 @@ const translations: Record<string, TranslationDict> = {
     "view.zoom_in": "Zoom In",
     "view.zoom_out": "Zoom Out",
     "view.toggle_theme": "Toggle Theme",
+    "view.filter_no_block": "Filter Unassigned Blocks",
 
     /* Help */
     "help.help": "BabelMap Help",
@@ -403,6 +404,7 @@ const translations: Record<string, TranslationDict> = {
     "view.zoom_in": "放大",
     "view.zoom_out": "缩小",
     "view.toggle_theme": "切换主题",
+    "view.filter_no_block": "过滤未分配区块",
 
     "help.help": "BabelMap 帮助",
     "help.about": "关于",
@@ -1395,8 +1397,8 @@ export function t(key: string): string {
  * Convenience: get all UI menu/text data already translated.
  * Returns a reactive-derived object that updates automatically when lang changes.
  */
-export function localizedMenus() {
-  const menuData: { label: string; items: { l: string; k?: string; sub?: { l: string }[]; sep?: boolean }[] }[] = [
+export function localizedMenus(filterNoBlock: boolean = true) {
+  const menuData: { label: string; items: { l: string; k?: string; checked?: boolean; sub?: { l: string }[]; sep?: boolean }[] }[] = [
     {
       label: t("menu.edit"),
       items: [
@@ -1512,7 +1514,17 @@ export function localizedMenus() {
       ],
     },
     { label: t("menu.bookmarks"), items: [{ l: t("bookmarks.add") }, { l: t("bookmarks.manage") }] },
-    { label: t("menu.view"), items: [{ l: t("view.zoom_in"), k: "Ctrl++" }, { l: t("view.zoom_out"), k: "Ctrl+-" }, { l: t("view.toggle_theme") }] },
+    {
+      label: t("menu.view"),
+      items: [
+        { l: t("view.zoom_in"), k: "Ctrl++" },
+        { l: t("view.zoom_out"), k: "Ctrl+-" },
+        { sep: true, l: "" },
+        { l: t("view.filter_no_block"), checked: filterNoBlock },
+        { sep: true, l: "" },
+        { l: t("view.toggle_theme") },
+      ],
+    },
     { label: t("menu.help"), items: [{ l: t("help.help"), k: "F1" }, { l: t("help.about") }] },
   ];
   return menuData;

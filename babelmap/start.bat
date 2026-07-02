@@ -9,22 +9,22 @@ set PROJ=%CD%
 popd
 
 echo [0/2] Killing previous processes...
-:: Kill process on backend port 17890
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":17890" ^| findstr "LISTENING" 2^>nul') do (
+:: Kill process on backend port 18080
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":18080" ^| findstr "LISTENING" 2^>nul') do (
     taskkill /f /pid %%a 2>nul
-    echo        Killed PID %%a on port 17890
+    echo        Killed PID %%a on port 18080
 )
-:: Kill process on frontend port 5173
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173" ^| findstr "LISTENING" 2^>nul') do (
+:: Kill process on frontend port 18081
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":18081" ^| findstr "LISTENING" 2^>nul') do (
     taskkill /f /pid %%a 2>nul
-    echo        Killed PID %%a on port 5173
+    echo        Killed PID %%a on port 18081
 )
 
 echo [1/2] Starting Python backend...
 cd /d "%PROJ%"
 set PYTHONPATH=%PROJ%
 start "" /B python babelmap/backend/server.py 2>&1
-echo        Backend: http://127.0.0.1:17890
+echo        Backend: http://127.0.0.1:18080
 
 echo [2/2] Starting Svelte frontend...
 cd /d "%ROOT%frontend"
@@ -32,7 +32,7 @@ start "" /B npm run dev
 
 echo.
 echo BabelMap is running!
-echo    Frontend: http://localhost:5173
+echo    Frontend: http://localhost:18081
 echo.
 echo Press any key to stop all processes...
 pause >nul

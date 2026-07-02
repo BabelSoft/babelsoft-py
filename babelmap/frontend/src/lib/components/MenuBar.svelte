@@ -7,20 +7,22 @@
     k?: string;
     sub?: MI[];
     sep?: boolean;
+    checked?: boolean;
   }
 
   interface Props {
     dark: boolean;
     showLang: boolean;
+    filterNoBlock: boolean;
     onMenuAction: (label: string) => void;
     onDarkToggle: () => void;
     onToggleLang: () => void;
     onCloseLang: () => void;
   }
 
-  let { dark, showLang, onMenuAction, onDarkToggle, onToggleLang, onCloseLang }: Props = $props();
+  let { dark, showLang, filterNoBlock, onMenuAction, onDarkToggle, onToggleLang, onCloseLang }: Props = $props();
 
-  let _menus = $derived(localizedMenus());
+  let _menus = $derived(localizedMenus(filterNoBlock));
   let om = $state(-1);
 
   function mc(i: number) {
@@ -62,7 +64,7 @@
               </div>
             {:else}
               <div class="mi" role="menuitem" onclick={() => ma(it)} onkeydown={(e) => e.key === "Enter" && ma(it)} tabindex="0">
-                {it.l}<span class="sk">{it.k || ""}</span>
+                {it.l}<span class="sk" class:checked={it.checked}>{it.checked ? "✓" : it.k || ""}</span>
               </div>
             {/if}
           {/each}
@@ -139,8 +141,14 @@
     font-size: 10px;
     margin-left: 20px;
   }
+  .sk.checked {
+    color: var(--fg);
+  }
   .mi:hover .sk {
     color: rgba(255, 255, 255, 0.6);
+  }
+  .mi:hover .sk.checked {
+    color: #fff;
   }
   .msep {
     height: 1px;

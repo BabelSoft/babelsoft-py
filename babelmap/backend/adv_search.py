@@ -731,7 +731,8 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
 def evaluate(ast: ASTNode, cp: int, blocks: list[dict], whole_words: bool = False) -> bool:
     """Evaluate an AST against a single codepoint."""
     if isinstance(ast, Cond):
-        if _resolve_key(ast.key) and _resolve_key(ast.key)["key"] == "wholewords":
+        prop = _resolve_key(ast.key)
+        if prop is not None and prop["key"] == "wholewords":
             return True  # meta-flag, always passes
         return _eval_cond(ast, cp, blocks, whole_words)
     elif isinstance(ast, BinOp):
@@ -767,13 +768,16 @@ def _has_wholewords(ast: ASTNode) -> bool:
     return False
 
 
-def search(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0) -> list[dict]:
+def search(
+    q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0, filter_no_block: bool = False
+) -> list[dict]:
     """Run an advanced search query and return matching codepoints.
 
     If start_cp > 0, search starts from start_cp + 1 and wraps around.
+    If filter_no_block is True, codepoints without an assigned block are skipped.
     """
     results: list[dict] = []
-    for item in _search_iter(q, blocks, limit, start_cp):
+    for item in _search_iter(q, blocks, limit, start_cp, filter_no_block):
         if "_progress" not in item:
             results.append(item)
     return results
@@ -784,7 +788,7 @@ def search(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0) -> l
 _name_index: list[tuple[int, str]] | None = None
 
 
-def _build_name_index(blocks: list[dict] = None):
+def _build_name_index(blocks: list[dict] | None = None):
     """Pre-build an index of (cp, name) for ALL codepoints with names,
     including algorithmic names (CJK, Tangut, Nushu, etc. — handled by Unicode core)."""
     global _name_index
@@ -806,11 +810,12 @@ def _is_simple_name_search(ast: ASTNode) -> bool:
     return False
 
 
-def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0):
+def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0, filter_no_block: bool = False):
     """Generator that yields dicts: matches have {codepoint, name, progress},
     progress-only updates have {_progress: float}.
     Uses name index for simple name searches to speed up iteration.
     limit=0 means no limit (return all matches).
+    If filter_no_block is True, codepoints without an assigned block are skipped.
 
     Progress = distance from start_cp+1 to current cp, divided by total range.
     start_cp+1 → 0%, wrapping back to start_cp → 100%.
@@ -842,6 +847,7 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
 
     # Fast path: simple name search uses pre-built name index
     if _is_simple_name_search(ast):
+        assert isinstance(ast, Cond)
         _build_name_index(blocks)
         assert _name_index is not None
         indexed = sorted(_name_index, key=lambda x: x[0])
@@ -900,6 +906,8 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
         for cp in range(start_cp + 1, MAX_CP + 1):
             if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
                 continue
+            if filter_no_block and _find_block(cp, blocks) is None:
+                continue
             checked += 1
             if checked % 5000 == 0:
                 yield {"_progress": _progress_phase1(cp)}
@@ -912,6 +920,8 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
             for cp in range(0, start_cp + 1):
                 if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
                     continue
+                if filter_no_block and _find_block(cp, blocks) is None:
+                    continue
                 checked += 1
                 if checked % 5000 == 0:
                     yield {"_progress": _progress_phase2(cp)}
@@ -923,6 +933,8 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
     else:
         for cp in range(0, MAX_CP + 1):
             if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
+                continue
+            if filter_no_block and _find_block(cp, blocks) is None:
                 continue
             checked += 1
             if checked % 5000 == 0:
@@ -937,14 +949,14 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
     yield {"_progress": 100.0}
 
 
-def search_stream_sse(q: str, blocks: list[dict], limit: int = 0, start_cp: int = 0):
+def search_stream_sse(q: str, blocks: list[dict], limit: int = 0, start_cp: int = 0, filter_no_block: bool = False):
     """SSE generator: first QUERY, then PROGRESS updates, results, then [DONE]."""
     import json
 
     normalized = normalize_query(q)
     yield f"data: QUERY {json.dumps(normalized)}\n\n"
 
-    for item in _search_iter(q, blocks, limit, start_cp):
+    for item in _search_iter(q, blocks, limit, start_cp, filter_no_block):
         if "_progress" in item:
             yield f"data: PROGRESS {item['_progress']}\n\n"
         else:

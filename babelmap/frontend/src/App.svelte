@@ -40,6 +40,7 @@
   let _searchProgress = $state(0);
   let _searchLoading = $state(false);
   let _searchComplete = $state(false);
+  let _filterNoBlock = $state(true);
   // ── Dialog / context menu state ────────────────────────────────────
   let showSaveDlg = $state(false);
   let ctxShow = $state(false);
@@ -53,18 +54,24 @@
     statusMsg = msg;
   }
 
-  const PLANES = [
-    { id: 0, l: "BMP" },
-    { id: 1, l: "SMP" },
-    { id: 2, l: "SIP" },
-    { id: 3, l: "TIP" },
-    { id: 14, l: "SSP" },
-    { id: 15, l: "PUA-A" },
-    { id: 16, l: "PUA-B" },
-  ];
+  let PLANES = $derived(
+    _filterNoBlock
+      ? [
+          { id: 0, l: "BMP" },
+          { id: 1, l: "SMP" },
+          { id: 2, l: "SIP" },
+          { id: 3, l: "TIP" },
+          { id: 14, l: "SSP" },
+          { id: 15, l: "PUA-A" },
+          { id: 16, l: "PUA-B" },
+        ]
+      : Array.from({ length: 17 }, (_, i) => ({ id: i, l: `Plane ${i}` })),
+  );
   const planAbbr: Record<number, string> = {};
-  PLANES.forEach((p) => (planAbbr[p.id] = p.l));
-  const API = "http://127.0.0.1:17890/api";
+  $effect(() => {
+    PLANES.forEach((p) => (planAbbr[p.id] = p.l));
+  });
+  const API = "http://127.0.0.1:18080/api";
   async function get<T>(p: string): Promise<T> {
     const r = await fetch(API + p);
     if (!r.ok) throw Error(String(r.status));
@@ -79,7 +86,7 @@
       err = "";
     }
     try {
-      grid = await get<GridPage>(`/grid/${plane}?scroll=${scroll}`);
+      grid = await get<GridPage>(`/grid/${plane}?scroll=${scroll}&filter_no_block=${_filterNoBlock}`);
     } catch (e: any) {
       err = e.message;
     } finally {
@@ -157,7 +164,7 @@
     _searchComplete = false;
 
     try {
-      const url = `${API}/search/name/stream?q=${encodeURIComponent(q)}&limit=200&start_cp=0`;
+      const url = `${API}/search/name/stream?q=${encodeURIComponent(q)}&limit=200&start_cp=0&filter_no_block=${_filterNoBlock}`;
       const response = await fetch(url);
       if (!response.ok) throw Error(String(response.status));
       const reader = response.body?.getReader();
@@ -241,7 +248,7 @@
     const lastCp = _sresults[_sresults.length - 1].codepoint;
     _searchLoading = true;
     try {
-      const url = `${API}/search/name/stream?q=${encodeURIComponent(_lastQuery)}&limit=200&start_cp=${lastCp}`;
+      const url = `${API}/search/name/stream?q=${encodeURIComponent(_lastQuery)}&limit=200&start_cp=${lastCp}&filter_no_block=${_filterNoBlock}`;
       const response = await fetch(url);
       if (!response.ok) throw Error(String(response.status));
       const reader = response.body?.getReader();
@@ -319,7 +326,7 @@
   }
   async function gotoCP(cp: number) {
     const np = Math.floor(cp / 0x10000);
-    const g = await get<GridPage>(`/grid/${np}/goto/${cp}`);
+    const g = await get<GridPage>(`/grid/${np}/goto/${cp}?filter_no_block=${_filterNoBlock}`);
     if (g.not_found) {
       alert(`U+${cp.toString(16).toUpperCase()} ${t("general.not_assigned")}`);
       return;
@@ -648,6 +655,12 @@
     else if (label === t("find.goto_han")) doGotoHan();
     else if (label === t("find.goto_cp")) doGo();
     else if (label === t("find.locate_char")) doLocateChar();
+    // View menu
+    else if (label === t("view.filter_no_block")) {
+      _filterNoBlock = !_filterNoBlock;
+      showStatus(_filterNoBlock ? "Filter ON: unassigned blocks hidden" : "Filter OFF: showing full planes");
+      load();
+    }
   }
 
   // Start Python backend via Tauri (no-op in browser dev mode)
@@ -666,7 +679,7 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="app" class:dark>
-  <MenuBar {dark} {showLang} {onMenuAction} onDarkToggle={() => (dark = !dark)} onToggleLang={() => (showLang = !showLang)} onCloseLang={() => (showLang = false)} />
+  <MenuBar {dark} {showLang} filterNoBlock={_filterNoBlock} {onMenuAction} onDarkToggle={() => (dark = !dark)} onToggleLang={() => (showLang = !showLang)} onCloseLang={() => (showLang = false)} />
 
   <PlaneTabs {plane} planes={PLANES} onChange={goPlane} />
 
