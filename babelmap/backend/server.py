@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import base64
+import bisect
 import io
-import json
 import os
 import sys
 from pathlib import Path
@@ -16,6 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from fastapi import FastAPI, Query  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
+from src.unicode.core import Unicode  # noqa: E402
 
 app = FastAPI(title="BabelMap Backend", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -23,39 +24,38 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 GRID_ROWS, GRID_COLS = 8, 16
 VALID_PLANES = list(range(17))  # 0–16, all Unicode planes
 
-# ── Load pre-built blocks data ─────────────────────────────────────
-_BLOCKS_JSON = Path(__file__).parent / "blocks.json"
-_ALL_BLOCKS: list[dict] = json.loads(_BLOCKS_JSON.read_text(encoding="utf-8"))
+# ── Blocks + assigned code points (reused from src/unicode/core.py) ──
+_ASSIGNED_CPS = Unicode._assigned_codepoints()
+_BLOCK_TABLE, _BLOCK_NAMES = Unicode._block_data()
+
+_ALL_BLOCKS: list[dict] = []
+for _s, _e, _idx in _BLOCK_TABLE:
+    _ALL_BLOCKS.append(
+        {
+            "name": _BLOCK_NAMES[_idx],
+            "start": _s,
+            "end": _e,
+            "count": _e - _s + 1,
+            "plane": _s >> 16,
+            "assigned": bisect.bisect_right(_ASSIGNED_CPS, _e) - bisect.bisect_left(_ASSIGNED_CPS, _s),
+        }
+    )
 
 # Index: blocks_by_plane[p] = [blocks for plane p]
 _blocks_by_plane: dict[int, list[dict]] = {}
 for b in _ALL_BLOCKS:
-    p = b["start"] >> 16
-    _blocks_by_plane.setdefault(p, []).append(b)
+    _blocks_by_plane.setdefault(b["plane"], []).append(b)
 
 # Pre-compute max scroll per plane (last block end)
 _max_scroll_by_plane: dict[int, int] = {}
 for p, blks in _blocks_by_plane.items():
     _max_scroll_by_plane[p] = (blks[-1]["end"] - p * 0x10000) // GRID_COLS
 
-# ── Load assigned codepoint ranges ─────────────────────────────────
-_ASSIGNED_JSON = Path(__file__).parent / "assigned_ranges.json"
-_ASSIGNED_RANGES: list[list[int]] = json.loads(_ASSIGNED_JSON.read_text(encoding="utf-8"))
-
 
 def _is_assigned(cp: int) -> bool:
-    """Binary search through assigned ranges. Returns True if cp is an assigned character."""
-    lo, hi = 0, len(_ASSIGNED_RANGES) - 1
-    while lo <= hi:
-        mid = (lo + hi) // 2
-        s, e = _ASSIGNED_RANGES[mid]
-        if cp < s:
-            hi = mid - 1
-        elif cp > e:
-            lo = mid + 1
-        else:
-            return True
-    return False
+    """True if cp is an assigned character (reused src UnicodeData)."""
+    i = bisect.bisect_left(_ASSIGNED_CPS, cp)
+    return i < len(_ASSIGNED_CPS) and _ASSIGNED_CPS[i] == cp
 
 
 def _find_block(cp: int) -> dict | None:
@@ -148,26 +148,14 @@ def _render_glyph(cp: int, family: str, size: int = 16) -> Optional[str]:
 
 # ── API ──────────────────────────────────────────────────────────────
 
-# Plane metadata (hardcoded, no Unicode import needed)
-_PLANE_NAMES = {
-    0: "Basic Multilingual Plane",
-    1: "Supplementary Multilingual Plane",
-    2: "Supplementary Ideographic Plane",
-    3: "Tertiary Ideographic Plane",
-    14: "Supplementary Special-purpose Plane",
-    15: "Private Use Area-A",
-    16: "Private Use Area-B",
-}
-_PLANE_ABBREV = {0: "BMP", 1: "SMP", 2: "SIP", 3: "TIP", 14: "SSP", 15: "PUA-A", 16: "PUA-B"}
-
 
 @app.get("/api/planes")
 def list_planes():
     return [
         {
             "plane": p,
-            "name": _PLANE_NAMES[p],
-            "abbreviation": _PLANE_ABBREV[p],
+            "name": Unicode.get_plane_display_name(p),
+            "abbreviation": Unicode.get_plane_abbreviation(p),
             "rangeStart": p * 0x10000,
             "rangeEnd": p * 0x10000 + 0xFFFF,
         }
@@ -557,6 +545,90 @@ def convert_edit(text: str = "", mode: str = "char"):
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/unicode/versions")
+def unicode_versions():
+    """Unicode version history + per-version block lists."""
+    from babelmap.backend.version import all_versions, blocks_for_version, get_version_history
+
+    versions = all_versions()
+    blocks_by_version = {v["version"]: blocks_for_version(v["version"]) for v in versions}
+    history = get_version_history()
+    return {"versions": versions, "blocks_by_version": blocks_by_version, "history": history}
+
+
+@app.get("/api/unicode/scripts")
+def unicode_scripts():
+    """List of scripts (ISO 15924 code, name, chars, version) in the latest UCD."""
+    from babelmap.backend.scripts import script_summary
+
+    return {"scripts": script_summary()}
+
+
+@app.get("/api/unicode/scripts/blocks")
+def unicode_script_blocks(code: str = Query(..., min_length=1)):
+    """Per-block character breakdown for one script in the latest release."""
+    from babelmap.backend.scripts import script_blocks
+
+    return {"code": code, "blocks": script_blocks(code)}
+
+
+@app.get("/api/unicode/planes")
+def unicode_planes():
+    """Per-plane stats (Plane / Name / Abbrev / Blocks / Characters / Unassigned)."""
+    from babelmap.backend.planes import plane_summary
+
+    return {"planes": plane_summary()}
+
+
+@app.get("/api/unicode/planes/{plane}/blocks")
+def unicode_plane_blocks(plane: int):
+    """Blocks contained in one plane of the latest release."""
+    if not 0 <= plane <= 16:
+        return JSONResponse({"error": f"Invalid plane {plane}"}, 400)
+    from babelmap.backend.planes import plane_blocks
+
+    return {"plane": plane, "blocks": plane_blocks(plane)}
+
+
+@app.get("/api/unicode/blocks")
+def unicode_blocks():
+    """Block table of the latest release (Block Name / Range / Code Points / Characters / Version)."""
+    from babelmap.backend.version import all_versions, blocks_for_version
+
+    latest = all_versions()[-1]["version"]
+    blocks = [
+        dict(b, code_points=b["end"] - b["start"] + 1)
+        for b in blocks_for_version(latest)
+        if not (0xD800 <= b["start"] <= 0xDFFF)
+    ]
+    return {"version": latest, "blocks": blocks}
+
+
+@app.get("/api/unicode/blocks/{name:path}/characters")
+def unicode_block_characters(name: str):
+    """Assigned characters inside one block of the latest release."""
+    from babelmap.backend.version import all_versions, blocks_for_version
+
+    latest = all_versions()[-1]["version"]
+    block = next((b for b in blocks_for_version(latest) if b["name"] == name), None)
+    if block is None:
+        return JSONResponse({"error": "Block not found"}, 404)
+    from src.unicode.core import Unicode
+
+    characters = []
+    for cp in range(block["start"], block["end"] + 1):
+        if not _is_assigned(cp):
+            continue
+        characters.append(
+            {
+                "codepoint": cp,
+                "char": chr(cp),
+                "name": _safe_name(Unicode, cp) or "",
+            }
+        )
+    return {"version": latest, "block": name, "characters": characters}
 
 
 if __name__ == "__main__":

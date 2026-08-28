@@ -884,14 +884,25 @@ Additionally:
 
 ## 9. Data Sources
 
-| Directory          | Source                                 | Sync                                          |
-| ------------------ | -------------------------------------- | --------------------------------------------- |
-| `data/babelsoft/`  | Exported from `CJKV/*.h`, `CJKV/*.cpp` | `python tools/export_*.py`                    |
-| `data/ivd/`        | <https://www.unicode.org/ivd/data/>    | `python -m src.utils_.sync` → `sync_ivd()`    |
-| `data/ucd/`        | Unicode Character Database             | `python -m src.utils_.sync` → `sync_ucd()`    |
-| `data/unihan/`     | Unihan database                        | `python -m src.utils_.sync` → `sync_unihan()` |
-| `data/charts/`     | Unicode charts                         | `python -m src.utils_.sync` → `sync_charts()` |
-| `data/babelstone/` | BabelStone IDS data                    | `python -m src.utils_.sync` → `sync_ids()`    |
+| Directory          | Source                                                               | Sync                                                     |
+| ------------------ | -------------------------------------------------------------------- | -------------------------------------------------------- |
+| `data/babelsoft/`  | Exported from `CJKV/*.h`, `CJKV/*.cpp`                               | `python tools/export_*.py`                               |
+| `data/ivd/`        | <https://www.unicode.org/ivd/data/>                                  | `python -m src.utils_.sync` → `sync_ivd()`               |
+| `data/unicode/`    | unicode.org/Public data (per-folder mirror, incl. UCD/Unihan/charts) | `python -m src.utils_.sync` → `sync_unicode('<folder>')` |
+| `data/babelstone/` | BabelStone IDS data                                                  | `python -m src.utils_.sync` → `sync_ids()`               |
+| `data/scripts/`    | Script/character data (TSV)                                          | Exported from C++ / hand-maintained                      |
+
+`sync_unicode` takes the remote folder path (e.g. `17.0.0/ucd`, `17.0.0/ucd/unihan`,
+`17.0.0/charts`, `1.1-Update`, `reconstructed/1.0.0`), downloads every file under it
+into `data/unicode/<folder>/`, and skips archives/derived docs (zip / jar / gz / pdf).
+
+The current release is selected by `Dirs.CURRENT` (default `17.0.0`, overridable
+with the `UNICODE_VERSION` environment variable, e.g. `UNICODE_VERSION=18.0.0`).
+
+The historical 1.0.0 / 1.0.1 block boundaries (they predate `DerivedAge.txt`
+and carry no block info in the reconstructed `UnicodeData.txt`) live in
+`data/scripts/unicode_1_0_blocks.tsv`; character counts are computed from the
+reconstructed repertoire at load time.
 
 ---
 

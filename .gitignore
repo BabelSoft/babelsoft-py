@@ -1,8 +1,6 @@
 c/
-data/ucd/
-data/unihan/
+data/unicode/
 data/babelstone/
-data/charts/
 data/ivd/
 tools/
 

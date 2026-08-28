@@ -5,13 +5,40 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import ClassVar
 
-from src.unicode import CodePoint
+from src.unicode import CodePoint, Unicode
 from src.utils_.loader import CJKLoader
 from src.utils_.parser import TxtParser, line_has_content
 
 DISCRIMINATED_CJK = frozenset(
     (0xFA0E, 0xFA0F, 0xFA11, 0xFA13, 0xFA14, 0xFA1F, 0xFA21, 0xFA23, 0xFA24, 0xFA27, 0xFA28, 0xFA29)
 )
+
+# CJK Unified block shortcuts → (start, end), derived from the current release's
+# Blocks.txt (via src.unicode.Unicode) so boundaries always match the UCD.
+_CJK_SHORTCUT_BLOCK_NAMES = {
+    "URO": "CJK Unified Ideographs",
+    "A": "CJK Unified Ideographs Extension A",
+    "B": "CJK Unified Ideographs Extension B",
+    "C": "CJK Unified Ideographs Extension C",
+    "D": "CJK Unified Ideographs Extension D",
+    "E": "CJK Unified Ideographs Extension E",
+    "F": "CJK Unified Ideographs Extension F",
+    "G": "CJK Unified Ideographs Extension G",
+    "H": "CJK Unified Ideographs Extension H",
+    "I": "CJK Unified Ideographs Extension I",
+    "COMP": "CJK Compatibility Ideographs",
+    "COMPSUP": "CJK Compatibility Ideographs Supplement",
+}
+
+
+def _build_cjk_block_shortcuts() -> dict[str, tuple[int, int]]:
+    """Map CJK shortcuts (URO, A, B, …) to (start, end) from Blocks.txt."""
+    table, names = Unicode._block_data()
+    by_name = {names[idx]: (s, e) for s, e, idx in table}
+    return {key: by_name[blk] for key, blk in _CJK_SHORTCUT_BLOCK_NAMES.items() if blk in by_name}
+
+
+CJK_BLOCK_SHORTCUTS: dict[str, tuple[int, int]] = _build_cjk_block_shortcuts()
 
 
 @dataclass(frozen=True)
@@ -139,6 +166,7 @@ class SrcRef:
         KP = _Src("DPRK", "DPRK", 0x0008, " KP", "kIRG_KPSource")
         K = _Src("ROK", "ROK", 0x0010, " K", "kIRG_KSource")
         M = _Src("MACAO_SAR", "Macau", 0x0020, " M", "kIRG_MSource")
+        SG = _Src("SINGAPORE", "Singapore", 0x0800, " GS", "kIRG_GSource")
         S = _Src("SAT", "SAT", 0x0040, " S", "kIRG_SSource")
         T = _Src("TCA", "TCA", 0x0080, " T", "kIRG_TSource")
         UK = _Src("UK", "UK", 0x0100, " UK", "kIRG_UKSource")
@@ -152,6 +180,7 @@ class SrcRef:
             "KP": KP,
             "K": K,
             "M": M,
+            "SG": SG,
             "S": S,
             "T": T,
             "UK": UK,
@@ -167,6 +196,8 @@ class SrcRef:
             "K": "K",
             "M": "M",
             "MY": None,
+            "GS": "SG",  # Singapore (current, in kIRG_GSource)
+            "SG": "SG",  # Singapore (future kIRG_SGSource)
             "SAT": "S",
             "T": "T",
             "UK": "UK",
@@ -181,6 +212,35 @@ class SrcRef:
         @classmethod
         def all(cls) -> dict[str, _Src]:
             return cls._BY_CODE
+
+        @classmethod
+        def source_codes(cls) -> dict[str, str | None]:
+            """{submitter code: Unihan source code}, e.g. 'SAT' → 'S', 'UTC' → 'U', 'SG' → 'G'."""
+            out: dict[str, str | None] = {}
+            for prefix, bykey in cls._REF_PREFIX.items():
+                if bykey is None:
+                    out[prefix] = None
+                else:
+                    out[prefix] = cls._BY_CODE[bykey].field.removeprefix("kIRG_").removesuffix("Source")
+            return out
+
+        @classmethod
+        def matches(cls, codes, refs, submitter: str) -> bool:
+            """Whether a character's Unihan sources (source codes + ref strings) belong to a submitter.
+
+            Singapore ('SG') is identified by GS- / SG- references (they live under the
+            G-source column in Unihan); 'G' (China) is every other G-source reference.
+            """
+            up = submitter.upper()
+            is_sg = any(r.upper().startswith(("GS-", "SG-")) for r in refs)
+            if up == "SG":
+                return is_sg
+            want = cls.source_codes().get(up)
+            if not want:
+                return False
+            if up == "G":
+                return want in codes and not is_sg
+            return want in codes
 
     @property
     def prefix(self) -> str:
@@ -585,5 +645,24 @@ class CJK(CodePoint):
 
     def source_reference(self, *, submitter: _Src | list[_Src] | None = None) -> list[SrcRef]:
         data = CJKLoader.load_unihan_IRGSources().get(self, {})
-        submitters = [submitter] if isinstance(submitter, _Src) else (submitter or list(SrcRef.IRGSrc.all().values()))
-        return [SrcRef(data[src.field][0]) for src in submitters if data.get(src.field)]
+        if isinstance(submitter, _Src):
+            submitters = [submitter]
+        else:
+            submitters = submitter or list(SrcRef.IRGSrc.all().values())
+        seen: set[str] = set()
+        out: list[SrcRef] = []
+        for src in submitters:
+            # Singapore shares the kIRG_GSource column with China — dedupe by
+            # field so it isn't reported twice; when queried alone, return only
+            # its GS- / SG- references.
+            if src.field in seen:
+                continue
+            seen.add(src.field)
+            refs = data.get(src.field, [])
+            if src.name == "SINGAPORE":
+                sg = [r for r in refs if r.startswith(("GS-", "SG-"))]
+                if sg:
+                    out.append(SrcRef(sg[0]))
+            elif refs:
+                out.append(SrcRef(refs[0]))
+        return out

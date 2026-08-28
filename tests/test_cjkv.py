@@ -168,6 +168,8 @@ class TestCJK:
         assert SrcRef("G0-5251").submitter.name == "CHINA_SINGAPORE"
         assert SrcRef("HB1-A477").submitter.name == "HONG_KONG_SAR"
         assert SrcRef("MY-12345").submitter is None
+        assert SrcRef("GS-12345").submitter.name == "SINGAPORE"
+        assert SrcRef("SG-12345").submitter.name == "SINGAPORE"
 
     def test_find(self):
         assert SrcRef("G0-482B").find() == CJK(0x5168)
@@ -178,7 +180,16 @@ class TestCJK:
         assert src.name == "CHINA_SINGAPORE"
         assert src.bit == 0x0001
         assert src.field == "kIRG_GSource"
-        assert len(SrcRef.IRGSrc.all()) == 11
+        assert SrcRef.IRGSrc.by_code("SG").name == "SINGAPORE"
+        assert len(SrcRef.IRGSrc.all()) == 12
+
+    def test_irg_matches_sg(self):
+        # A Singapore source: GS- ref under kIRG_GSource → codes ['G'], refs ['GS-xxxxx']
+        assert SrcRef.IRGSrc.matches(["G"], ["GS-12345"], "SG") is True
+        assert SrcRef.IRGSrc.matches(["G"], ["G0-12345"], "SG") is False
+        assert SrcRef.IRGSrc.matches(["G"], ["G0-12345"], "G") is True
+        assert SrcRef.IRGSrc.matches(["G"], ["GS-12345"], "G") is False
+        assert SrcRef.IRGSrc.matches(["H"], ["HB1-A477"], "H") is True
 
     def test_radical_strokes(self):
         rs = CJK("已").radical_strokes()

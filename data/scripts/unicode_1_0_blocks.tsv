@@ -1,0 +1,140 @@
+# BabelSoft Data: Unicode 1.0.0 / 1.0.1 historical block boundaries
+# Source: Unicode 1.0 / 1.0.1 (historical block tables, Unicode 1.0 book)
+#
+# The reconstructed UnicodeData files
+# (data/unicode/reconstructed/{1.0.0,1.0.1}/UnicodeData.txt) contain
+# per-character data but NO block information, so the historical block
+# boundaries for these two versions are kept here as data instead of being
+# hardcoded in Python.
+#
+# Character counts are intentionally NOT stored: they are computed from the
+# reconstructed repertoire at load time (see babelmap/backend/unicode_versions.py).
+#
+# Fields:
+#   1. table       - block table this row belongs to (1.0.0 or 1.0.1)
+#   2. block       - block name as of that Unicode version
+#   3. start       - start codepoint (U+XXXX)
+#   4. end         - end codepoint (U+XXXX)
+#   5. introduced  - Unicode version that first assigned the block
+#
+# Encoding: UTF-8
+# Delimiter: TAB
+#
+1.0.0	Basic Latin	U+0000	U+007F	1.0.0
+1.0.0	Latin-1 Supplement	U+0080	U+00FF	1.0.0
+1.0.0	Latin Extended-A	U+0100	U+017F	1.0.0
+1.0.0	Latin Extended-B	U+0180	U+024F	1.0.0
+1.0.0	IPA Extensions	U+0250	U+02AF	1.0.0
+1.0.0	Spacing Modifier Letters	U+02B0	U+02FF	1.0.0
+1.0.0	Combining Diacritical Marks	U+0300	U+036F	1.0.0
+1.0.0	Greek and Coptic	U+0370	U+03FF	1.0.0
+1.0.0	Cyrillic	U+0400	U+04FF	1.0.0
+1.0.0	Armenian	U+0530	U+058F	1.0.0
+1.0.0	Hebrew	U+0590	U+05FF	1.0.0
+1.0.0	Arabic	U+0600	U+06FF	1.0.0
+1.0.0	Devanagari	U+0900	U+097F	1.0.0
+1.0.0	Bengali	U+0980	U+09FF	1.0.0
+1.0.0	Gurmukhi	U+0A00	U+0A7F	1.0.0
+1.0.0	Gujarati	U+0A80	U+0AFF	1.0.0
+1.0.0	Oriya	U+0B00	U+0B7F	1.0.0
+1.0.0	Tamil	U+0B80	U+0BFF	1.0.0
+1.0.0	Telugu	U+0C00	U+0C7F	1.0.0
+1.0.0	Kannada	U+0C80	U+0CFF	1.0.0
+1.0.0	Malayalam	U+0D00	U+0D7F	1.0.0
+1.0.0	Thai	U+0E00	U+0E7F	1.0.0
+1.0.0	Lao	U+0E80	U+0EFF	1.0.0
+1.0.0	Tibetan	U+1000	U+104F	1.0.0
+1.0.0	Georgian	U+10A0	U+10FF	1.0.0
+1.0.0	General Punctuation	U+2000	U+206F	1.0.0
+1.0.0	Superscripts and Subscripts	U+2070	U+209F	1.0.0
+1.0.0	Currency Symbols	U+20A0	U+20CF	1.0.0
+1.0.0	Combining Diacritical Marks for Symbols	U+20D0	U+20FF	1.0.0
+1.0.0	Letterlike Symbols	U+2100	U+214F	1.0.0
+1.0.0	Number Forms	U+2150	U+218F	1.0.0
+1.0.0	Arrows	U+2190	U+21FF	1.0.0
+1.0.0	Mathematical Operators	U+2200	U+22FF	1.0.0
+1.0.0	Miscellaneous Technical	U+2300	U+23FF	1.0.0
+1.0.0	Control Pictures	U+2400	U+243F	1.0.0
+1.0.0	Optical Character Recognition	U+2440	U+245F	1.0.0
+1.0.0	Enclosed Alphanumerics	U+2460	U+24FF	1.0.0
+1.0.0	Box Drawing	U+2500	U+257F	1.0.0
+1.0.0	Block Elements	U+2580	U+259F	1.0.0
+1.0.0	Geometric Shapes	U+25A0	U+25FF	1.0.0
+1.0.0	Miscellaneous Symbols	U+2600	U+26FF	1.0.0
+1.0.0	Dingbats	U+2700	U+27BF	1.0.0
+1.0.0	CJK Symbols and Punctuation	U+3000	U+303F	1.0.0
+1.0.0	Hiragana	U+3040	U+309F	1.0.0
+1.0.0	Katakana	U+30A0	U+30FF	1.0.0
+1.0.0	Bopomofo	U+3100	U+312F	1.0.0
+1.0.0	Hangul Compatibility Jamo	U+3130	U+318F	1.0.0
+1.0.0	Kanbun	U+3190	U+319F	1.0.0
+1.0.0	Enclosed CJK Letters and Months	U+3200	U+32FF	1.0.0
+1.0.0	CJK Compatibility	U+3300	U+33FF	1.0.0
+1.0.0	Hangul Syllables	U+3400	U+4DFF	1.0.0
+1.0.0	Hangul Syllables	U+AC00	U+D7AF	2.0
+1.0.0	Private Use Area	U+E800	U+FDFF	1.0.0
+1.0.0	CJK Compatibility Forms	U+FE30	U+FE4F	1.0.0
+1.0.0	Small Form Variants	U+FE50	U+FE6F	1.0.0
+1.0.0	Arabic Presentation Forms-B	U+FE70	U+FEFF	1.0.0
+1.0.0	Halfwidth and Fullwidth Forms	U+FF00	U+FFEF	1.0.0
+1.0.0	Specials	U+FFF0	U+FFFF	1.0.0
+1.0.1	Basic Latin	U+0000	U+007F	1.0.0
+1.0.1	Latin-1 Supplement	U+0080	U+00FF	1.0.0
+1.0.1	Latin Extended-A	U+0100	U+017F	1.0.0
+1.0.1	Latin Extended-B	U+0180	U+024F	1.0.0
+1.0.1	IPA Extensions	U+0250	U+02AF	1.0.0
+1.0.1	Spacing Modifier Letters	U+02B0	U+02FF	1.0.0
+1.0.1	Combining Diacritical Marks	U+0300	U+036F	1.0.0
+1.0.1	Greek and Coptic	U+0370	U+03FF	1.0.0
+1.0.1	Cyrillic	U+0400	U+04FF	1.0.0
+1.0.1	Armenian	U+0530	U+058F	1.0.0
+1.0.1	Hebrew	U+0590	U+05FF	1.0.0
+1.0.1	Arabic	U+0600	U+06FF	1.0.0
+1.0.1	Devanagari	U+0900	U+097F	1.0.0
+1.0.1	Bengali	U+0980	U+09FF	1.0.0
+1.0.1	Gurmukhi	U+0A00	U+0A7F	1.0.0
+1.0.1	Gujarati	U+0A80	U+0AFF	1.0.0
+1.0.1	Oriya	U+0B00	U+0B7F	1.0.0
+1.0.1	Tamil	U+0B80	U+0BFF	1.0.0
+1.0.1	Telugu	U+0C00	U+0C7F	1.0.0
+1.0.1	Kannada	U+0C80	U+0CFF	1.0.0
+1.0.1	Malayalam	U+0D00	U+0D7F	1.0.0
+1.0.1	Thai	U+0E00	U+0E7F	1.0.0
+1.0.1	Lao	U+0E80	U+0EFF	1.0.0
+1.0.1	Tibetan	U+1000	U+104F	1.0.0
+1.0.1	Georgian	U+10A0	U+10FF	1.0.0
+1.0.1	General Punctuation	U+2000	U+206F	1.0.0
+1.0.1	Superscripts and Subscripts	U+2070	U+209F	1.0.0
+1.0.1	Currency Symbols	U+20A0	U+20CF	1.0.0
+1.0.1	Combining Diacritical Marks for Symbols	U+20D0	U+20FF	1.0.0
+1.0.1	Letterlike Symbols	U+2100	U+214F	1.0.0
+1.0.1	Number Forms	U+2150	U+218F	1.0.0
+1.0.1	Arrows	U+2190	U+21FF	1.0.0
+1.0.1	Mathematical Operators	U+2200	U+22FF	1.0.0
+1.0.1	Miscellaneous Technical	U+2300	U+23FF	1.0.0
+1.0.1	Control Pictures	U+2400	U+243F	1.0.0
+1.0.1	Optical Character Recognition	U+2440	U+245F	1.0.0
+1.0.1	Enclosed Alphanumerics	U+2460	U+24FF	1.0.0
+1.0.1	Box Drawing	U+2500	U+257F	1.0.0
+1.0.1	Block Elements	U+2580	U+259F	1.0.0
+1.0.1	Geometric Shapes	U+25A0	U+25FF	1.0.0
+1.0.1	Miscellaneous Symbols	U+2600	U+26FF	1.0.0
+1.0.1	Dingbats	U+2700	U+27BF	1.0.0
+1.0.1	CJK Symbols and Punctuation	U+3000	U+303F	1.0.0
+1.0.1	Hiragana	U+3040	U+309F	1.0.0
+1.0.1	Katakana	U+30A0	U+30FF	1.0.0
+1.0.1	Bopomofo	U+3100	U+312F	1.0.0
+1.0.1	Hangul Compatibility Jamo	U+3130	U+318F	1.0.0
+1.0.1	Kanbun	U+3190	U+319F	1.0.0
+1.0.1	Enclosed CJK Letters and Months	U+3200	U+32FF	1.0.0
+1.0.1	CJK Compatibility	U+3300	U+33FF	1.0.0
+1.0.1	Hangul Syllables	U+3400	U+4DFF	1.0.0
+1.0.1	CJK Unified Ideographs	U+4E00	U+9FFF	1.0.1
+1.0.1	Hangul Syllables	U+AC00	U+D7AF	2.0
+1.0.1	Private Use Area	U+E000	U+F8FF	1.0.0
+1.0.1	CJK Compatibility Ideographs	U+F900	U+FAFF	1.0.1
+1.0.1	CJK Compatibility Forms	U+FE30	U+FE4F	1.0.0
+1.0.1	Small Form Variants	U+FE50	U+FE6F	1.0.0
+1.0.1	Arabic Presentation Forms-B	U+FE70	U+FEFF	1.0.0
+1.0.1	Halfwidth and Fullwidth Forms	U+FF00	U+FFEF	1.0.0
+1.0.1	Specials	U+FFF0	U+FFFF	1.0.0

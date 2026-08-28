@@ -11,6 +11,10 @@
   import CharacterGrid from "./lib/components/CharacterGrid.svelte";
   import MenuBar from "./lib/components/MenuBar.svelte";
   import BottomPanel from "./lib/components/BottomPanel.svelte";
+  import UnicodeVersionsDialog from "./lib/components/UnicodeVersionsDialog.svelte";
+  import UnicodeScriptsDialog from "./lib/components/UnicodeScriptsDialog.svelte";
+  import UnicodePlanesDialog from "./lib/components/UnicodePlanesDialog.svelte";
+  import UnicodeBlocksDialog from "./lib/components/UnicodeBlocksDialog.svelte";
 
   let dark = $state(false);
   let grid = $state<GridPage | null>(null);
@@ -43,6 +47,10 @@
   let _filterNoBlock = $state(true);
   // ── Dialog / context menu state ────────────────────────────────────
   let showSaveDlg = $state(false);
+  let showUnicodeVersions = $state(false);
+  let showUnicodeScripts = $state(false);
+  let showUnicodePlanes = $state(false);
+  let showUnicodeBlocks = $state(false);
   let ctxShow = $state(false);
   let ctxX = $state(0);
   let ctxY = $state(0);
@@ -655,6 +663,11 @@
     else if (label === t("find.goto_han")) doGotoHan();
     else if (label === t("find.goto_cp")) doGo();
     else if (label === t("find.locate_char")) doLocateChar();
+    // Tools menu
+    else if (label === t("tools.unicode_versions")) showUnicodeVersions = true;
+    else if (label === t("tools.unicode_scripts")) showUnicodeScripts = true;
+    else if (label === t("tools.unicode_planes")) showUnicodePlanes = true;
+    else if (label === t("tools.unicode_blocks")) showUnicodeBlocks = true;
     // View menu
     else if (label === t("view.filter_no_block")) {
       _filterNoBlock = !_filterNoBlock;
@@ -783,6 +796,14 @@
       showStatus(t("status.copied"));
     }}
   />
+
+  <UnicodeVersionsDialog show={showUnicodeVersions} onClose={() => (showUnicodeVersions = false)} />
+
+  <UnicodeScriptsDialog show={showUnicodeScripts} onClose={() => (showUnicodeScripts = false)} />
+
+  <UnicodePlanesDialog show={showUnicodePlanes} onClose={() => (showUnicodePlanes = false)} />
+
+  <UnicodeBlocksDialog show={showUnicodeBlocks} onClose={() => (showUnicodeBlocks = false)} />
 
   <ContextMenu
     show={ctxShow}

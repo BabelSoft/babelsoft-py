@@ -221,8 +221,7 @@
     background: transparent;
     color: var(--fg);
   }
-  .cmi.cmi-disabled:hover .ar,
-  .cmi.cmi-disabled:hover .sk {
+  .cmi.cmi-disabled:hover .ar {
     color: var(--fg3);
   }
   .cmi:hover {

@@ -8,6 +8,7 @@ from __future__ import annotations
 import functools
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 from src.unicode.enums import (
     BidiClass,
@@ -253,6 +254,53 @@ class Unicode:
         return entries
 
     @staticmethod
+    @functools.lru_cache(maxsize=8)
+    def _assigned_codepoints(path: Path | None = None) -> list[int]:
+        """Sorted assigned code points from a UnicodeData file.
+
+        Defaults to the current release's ``UnicodeData.txt``; pass an explicit
+        path (e.g. an older release under ``data/unicode/``) to parse another
+        version.  ``<..., First>`` / ``<..., Last>`` ranges (CJK, surrogates,
+        PUA, …) are expanded to their full span.  Surrogates are included.
+        """
+        path = path or (UCD / "UnicodeData.txt")
+        cps: set[int] = set()
+        first: int | None = None
+        for line in TxtParser.get_txt(path):
+            if not line.strip() or line.startswith("#"):
+                continue
+            fields = line.split(";")
+            cp = int(fields[0], 16)
+            name = fields[1]
+            if name.startswith("<") and name.endswith(", First>"):
+                first = cp
+                continue
+            if name.startswith("<") and name.endswith(", Last>"):
+                if first is not None:
+                    cps.update(range(first, cp + 1))
+                    first = None
+                continue
+            cps.add(cp)
+        return sorted(cps)
+
+    @staticmethod
+    @functools.lru_cache(maxsize=8)
+    def _parse_blocks_file(path: Path) -> list[tuple[str, int, int]]:
+        """Parse a Blocks.txt — old 'START; END; Name' or modern 'START..END; Name'."""
+        blocks: list[tuple[str, int, int]] = []
+        for raw in TxtParser.get_txt(path):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if ".." in line.split(";", 1)[0]:
+                rng, name = line.split(";", 1)
+                start_s, end_s = rng.split("..")
+            else:
+                start_s, end_s, name = line.split(";", 2)
+            blocks.append((name.strip(), int(start_s.strip(), 16), int(end_s.strip(), 16)))
+        return blocks
+
+    @staticmethod
     def _binary_search(table: list[tuple[int, int, int]], cp: int, default: int = 0) -> int:
         lo, hi = 0, len(table) - 1
         while lo <= hi:
@@ -268,9 +316,32 @@ class Unicode:
 
     @staticmethod
     def _compress_ranges(entries: list[dict], val_fn) -> list[tuple[int, int, int]]:
+        """Compress ``_unicodedata`` entries into (start, end, value) ranges.
+
+        UnicodeData ``<..., First>`` / ``<..., Last>`` markers (CJK, PUA,
+        Hangul, Tangut, surrogates, …) are expanded to their full span without
+        materialising every code point — the whole range shares the marker's
+        property value.
+        """
         table: list[tuple[int, int, int]] = []
         rs, prev_cp, prev_val = -1, -2, -1
+        first_entry: dict | None = None
         for e in entries:
+            name = e["name"]
+            if name.startswith("<") and name.endswith(", First>"):
+                first_entry = e
+                continue
+            if name.startswith("<") and name.endswith(", Last>") and first_entry is not None:
+                v = val_fn(first_entry)
+                s, z = first_entry["cp"], e["cp"]
+                if rs >= 0 and s == prev_cp + 1 and v == prev_val:
+                    prev_cp = z
+                else:
+                    if rs >= 0:
+                        table.append((rs, prev_cp, prev_val))
+                    rs, prev_cp, prev_val = s, z, v
+                first_entry = None
+                continue
             v = val_fn(e)
             if e["cp"] == prev_cp + 1 and v == prev_val:
                 prev_cp = e["cp"]
@@ -371,6 +442,69 @@ class Unicode:
     def get_unicode1_name(cp: int) -> str:
         m = {e["cp"]: e["uni1"] for e in Unicode._unicodedata() if e["uni1"].strip()}
         return m.get(cp, "")
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _formal_alias_map() -> dict[int, list[str]]:
+        """Load NameAliases.txt -> {codepoint: [alias, ...]}. Only 'correction'
+        type aliases are formal aliases; we keep the full list for search."""
+        m: dict[int, list[str]] = {}
+        for line in filter(line_has_content, TxtParser.get_txt(UCD / "NameAliases.txt")):
+            parts = line.split(";")
+            if len(parts) < 3:
+                continue
+            try:
+                cp = int(parts[0].strip(), 16)
+            except ValueError:
+                continue
+            alias = parts[1].strip()
+            # Only formal aliases (type "correction") are true formal aliases,
+            # but include all for broader search coverage.
+            m.setdefault(cp, []).append(alias)
+        return m
+
+    @staticmethod
+    def get_formal_alias(cp: int) -> str:
+        """Return all name aliases for a codepoint, space-separated."""
+        return " ".join(Unicode._formal_alias_map().get(cp, []))
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _age_table() -> list[tuple[int, int, str]]:
+        """Load DerivedAge.txt -> [(start, end, version)]. Sorted by start."""
+        table: list[tuple[int, int, str]] = []
+        for line in filter(line_has_content, TxtParser.get_txt(UCD / "DerivedAge.txt")):
+            parts = line.split(";")
+            if len(parts) < 2:
+                continue
+            ver = parts[1].strip().split("#")[0].strip()
+            if not ver:
+                continue
+            rp = parts[0].strip()
+            if ".." in rp:
+                s_str, e_str = rp.split("..")
+                s, e = int(s_str, 16), int(e_str, 16)
+            else:
+                s = e = int(rp, 16)
+            table.append((s, e, ver))
+        table.sort()
+        return table
+
+    @staticmethod
+    def get_character_age(cp: int) -> str:
+        """Return the Unicode version in which this character was introduced,
+        e.g. '5.0', or '' if unassigned."""
+        lo, hi = 0, len(Unicode._age_table()) - 1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            s, e, ver = Unicode._age_table()[mid]
+            if cp < s:
+                hi = mid - 1
+            elif cp > e:
+                lo = mid + 1
+            else:
+                return ver
+        return ""
 
     @staticmethod
     def _get_algorithmic_name(cp: int) -> str:
@@ -685,6 +819,22 @@ class Unicode:
     @staticmethod
     def get_script_extensions(cp: int) -> list[str]:
         return Unicode._script_ext_map().get(cp, [])
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _pva_script_codes() -> dict[str, str]:
+        """{Unicode Script value: ISO 15924 code} from PropertyValueAliases.txt."""
+        mapping: dict[str, str] = {}
+        for line in filter(line_has_content, TxtParser.get_txt(UCD / "PropertyValueAliases.txt")):
+            parts = [p.strip() for p in line.split(";")]
+            if len(parts) >= 3 and parts[0] == "sc":
+                mapping[parts[2]] = parts[1]
+        return mapping
+
+    @staticmethod
+    def get_script_iso_code(script_value: str) -> str:
+        """ISO 15924 code for a Unicode Script value (e.g. 'Beria_Erfe' → 'Berf'), or '' if unknown."""
+        return Unicode._pva_script_codes().get(script_value, "")
 
     # ==================================================================
     #  Block
@@ -1442,6 +1592,14 @@ class Unicode:
                 return f"{Unicode._PLANE_ABBREV[plane]}: {name}"
             return name
         return f"Plane {plane}"
+
+    @staticmethod
+    def get_plane_display_name(plane: int) -> str:
+        """Plane name without the trailing '(ABBR)' abbreviation suffix.
+
+        e.g. 'Basic Multilingual Plane (BMP)' → 'Basic Multilingual Plane'.
+        """
+        return re.sub(r"\s*\([A-Za-z0-9-]+\)$", "", Unicode.get_plane_name(plane))
 
     @staticmethod
     def get_plane_abbreviation(plane: int) -> str:

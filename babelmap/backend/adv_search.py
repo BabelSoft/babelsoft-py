@@ -7,6 +7,7 @@ from enum import Enum, auto
 from typing import Any
 
 from src.unicode.core import Unicode
+from src.cjkv.cjk import CJK_BLOCK_SHORTCUTS, SrcRef
 
 # ── Property definitions ───────────────────────────────────────────
 
@@ -138,6 +139,14 @@ ADV_PROPS: list[dict[str, Any]] = [
     {"key": "script", "label": "Script", "type": "text", "desc": "ISO 15924 script (comma-separated)"},
     {"key": "block", "label": "Block", "type": "text", "desc": "Unicode block name"},
     {
+        "key": "plane",
+        "label": "Plane",
+        "type": "enum",
+        "alias": ["pl"],
+        "values": [str(p) for p in range(17)],
+        "desc": "Unicode plane number 0-16",
+    },
+    {
         "key": "unicode",
         "label": "Unicode",
         "type": "version",
@@ -157,6 +166,26 @@ ADV_PROPS: list[dict[str, Any]] = [
         "type": "bool",
         "values": ["True", "False"],
         "desc": "Exclude Private Use Areas",
+    },
+    {
+        "key": "submitter",
+        "label": "IRGSubmitter",
+        "type": "enum",
+        "values": ["G", "H", "J", "K", "KP", "M", "MY", "SAT", "SG", "T", "UK", "UTC", "V"],
+        "desc": "IRG source submitter",
+    },
+    {
+        "key": "ref",
+        "label": "SourceRef",
+        "type": "text",
+        "desc": "IRG source reference (e.g. G0-, *G0-*, SAT-00061)",
+    },
+    {
+        "key": "nocomp",
+        "label": "NoCJKCompat",
+        "type": "bool",
+        "values": ["True", "False"],
+        "desc": "Exclude CJK Compatibility Ideographs",
     },
 ]
 
@@ -607,7 +636,16 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
                 return negate
             return not negate if _match_multi(val, vals, n, wildcard, whole_words) else negate
 
-        if key in ("formalalias", "unicode1name"):
+        if key == "formalalias":
+            try:
+                n = Unicode.get_formal_alias(cp)
+            except Exception:
+                n = ""
+            if not n:
+                return negate
+            return not negate if _match_multi(val, vals, n, wildcard, whole_words) else negate
+
+        if key == "unicode1name":
             try:
                 n = Unicode.get_unicode1_name(cp)
             except Exception:
@@ -624,6 +662,9 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             n1 = Unicode.get_unicode1_name(cp)
             if n1:
                 names.append(n1)
+            fa = Unicode.get_formal_alias(cp)
+            if fa:
+                names.append(fa)
             combined = " | ".join(names) if names else ""
             return not negate if _match_multi(val, vals, combined, wildcard, whole_words) else negate
 
@@ -635,7 +676,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
 
         # ── Categorical ──
         if key == "gc":
-            m = str(Unicode.get_general_category(cp)).upper() in (v.upper() for v in vals)
+            m = Unicode.get_general_category(cp).name.upper() in (v.upper() for v in vals)
             return not m if negate else m
 
         if key == "script":
@@ -644,13 +685,54 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
 
         if key == "block":
             blk = _find_block(cp, blocks)
-            if not blk:
+            m = False
+            for v in vals:
+                up = v.upper()
+                rng = CJK_BLOCK_SHORTCUTS.get(up)
+                if rng:
+                    if rng[0] <= cp <= rng[1]:
+                        m = True
+                        break
+                elif blk and up in blk["name"].upper():
+                    m = True
+                    break
+            return not m if negate else m
+
+        if key == "plane":
+            p = cp >> 16
+            m = str(p) in (v for v in vals)
+            return not m if negate else m
+
+        if key == "submitter":
+            from src.cjkv.cjk import CJKLoader
+
+            irg = CJKLoader.load_cjk_irg_sources().get(cp)
+            if not irg:
                 return negate
-            m = any(v.upper() in blk["name"].upper() for v in vals)
+            codes, refs_str = irg
+            refs = [r.strip() for r in refs_str.split(",") if r.strip()]
+            m = any(SrcRef.IRGSrc.matches(codes, refs, v) for v in vals)
+            return not m if negate else m
+
+        if key == "ref":
+            from src.cjkv.cjk import CJKLoader
+
+            irg = CJKLoader.load_cjk_irg_sources().get(cp)
+            if not irg:
+                return negate
+            _, refs_str = irg
+            refs = [r.strip() for r in refs_str.split(",") if r.strip()]
+            m = any(_match_val(v, r, wildcard, False) for v in vals for r in refs)
+            return not m if negate else m
+
+        if key == "nocomp":
+            want = vals[0].lower() in ("true", "1", "yes")
+            is_comp = (0xF900 <= cp <= 0xFAFF) or (0x2F800 <= cp <= 0x2FA1F)
+            m = (not is_comp) if want else True
             return not m if negate else m
 
         if key == "bc":
-            m = str(Unicode.get_bidi_class(cp)).upper() in (v.upper() for v in vals)
+            m = Unicode.get_bidi_class(cp).name.upper() in (v.upper() for v in vals)
             return not m if negate else m
 
         if key == "bm":
@@ -664,8 +746,8 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             return not m if negate else m
 
         if key == "dt":
-            dt = str(Unicode.get_decomposition_type(cp))
-            m = any(v.upper() in dt.upper() for v in vals)
+            dt = Unicode.get_decomposition_type(cp).name.upper()
+            m = any(v.upper() in dt for v in vals)
             return not m if negate else m
 
         if key == "nt":
@@ -674,7 +756,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             return not m if negate else m
 
         if key == "lb":
-            lb = str(Unicode.get_line_break(cp)).upper()
+            lb = Unicode.get_line_break(cp).name.upper()
             m = lb in (v.upper() for v in vals)
             return not m if negate else m
 
@@ -685,27 +767,32 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
         # ── Unicode version ──
         if key == "unicode":
             try:
-                age = getattr(Unicode, "get_character_age", lambda c: "5.0")(cp)
+                age = Unicode.get_character_age(cp)
             except Exception:
-                age = "5.0"
+                age = ""
             if not age:
                 return True if op in (">=", ">") else negate
-            m_ver = re.match(r"(\d+)\.?(\d+)?", str(age))
-            m_val = re.match(r"(\d+)\.?(\d+)?", val)
-            if not m_val:
+
+            def _ver_tuple(s: str) -> tuple[int, int]:
+                m = re.match(r"(\d+)\.?(\d+)?", s)
+                if not m:
+                    return (0, 0)
+                return (int(m.group(1)), int(m.group(2) or 0))
+
+            age_v = _ver_tuple(str(age))
+            val_v = _ver_tuple(val)
+            if age_v == (0, 0) and val_v == (0, 0):
                 return negate
-            age_num = float(f"{m_ver.group(1)}.{m_ver.group(2) or 0}") if m_ver else 5.0
-            val_num = float(f"{m_val.group(1)}.{m_val.group(2) or 0}")
             if op == ">=":
-                m = age_num >= val_num
+                m = age_v >= val_v
             elif op == "<=":
-                m = age_num <= val_num
+                m = age_v <= val_v
             elif op == ">":
-                m = age_num > val_num
+                m = age_v > val_v
             elif op == "<":
-                m = age_num < val_num
+                m = age_v < val_v
             else:
-                m = age_num == val_num
+                m = age_v == val_v
             return not m if negate else m
 
         # ── Exclusions ──

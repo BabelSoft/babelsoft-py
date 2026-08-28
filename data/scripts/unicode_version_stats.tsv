@@ -1,0 +1,69 @@
+# BabelSoft Data: Unicode per-version statistics (Version History)
+# Source: computed from data/unicode/ (each version's own UnicodeData + C++ era
+# rules from c/Unicode/VersionHistory.h).  One row per downloaded snapshot,
+# labelled with its real minor version.
+#
+# Derived columns are computed at load time exactly as the C++
+# CDialogVersions::FillHistoryList:
+#   Encoded = Graphic + Format + Control
+#   Named   = Graphic + Format
+#   Total   = total_planes * 65536
+#   Assigned = Encoded + PrivateUse + Noncharacters + Surrogates
+#   Unassigned = Total - Assigned
+#   Added   = net change in Encoded vs the previous snapshot
+#
+# Fields:
+#   1. version         - minor version label (1.0.0, 1.0.1, 1.1.5, 2.0.14, ...)
+#   2. date            - official release date of that version
+#   3. total_planes    - number of planes (1 = BMP only, 17 = full)
+#   4. planes_in_use   - planes that contain assigned characters
+#   5. scripts         - number of scripts in that version
+#   6. blocks          - number of blocks in that version
+#   7. graphic         - graphic characters (GC != {Cc|Cn|Co|Cf|Zl|Zp})
+#   8. control         - control characters (GC = {Cc})
+#   9. format          - format characters (GC = {Cf|Zl|Zp})
+#   10. pua            - private use characters (GC = {Co})
+#   11. nonchar        - noncharacter code points (GC = {Cn})
+#   12. surrogate      - surrogate code points
+#   13. added          - characters added in that version (net)
+#   14. removed        - characters removed in that version (net)
+#
+# Encoding: UTF-8
+# Delimiter: TAB
+#
+1.0.0	October 1991	1	1	24	57	7085	32	44	5632	2	0	7161	0
+1.0.1	June 1992	1	1	25	59	28283	32	44	6144	2	0	21198	0
+1.1.5	July 1995	1	1	24	63	34151	65	17	6400	2	0	5874	0
+2.0.14	July 1996	17	3	25	67	38867	65	18	137468	34	2048	4717	0
+2.1.2	May 1998	17	3	25	67	38869	65	18	137468	34	2048	2	0
+2.1.5	August 1998	17	3	25	67	38869	65	18	137468	34	2048	0	0
+2.1.8	December 1998	17	3	25	67	38869	65	18	137468	34	2048	0	0
+2.1.9	April 1999	17	3	25	67	38869	65	18	137468	34	2048	0	0
+3.0.0	September 1999	17	3	38	86	49168	65	26	137468	34	2048	10307	0
+3.0.1	August 2000	17	3	38	86	49168	65	26	137468	34	2048	0	0
+3.1.0	March 2001	17	6	41	95	94009	65	131	137468	66	2048	44946	0
+3.1.1	August 2001	17	6	41	95	94009	65	131	137468	66	2048	0	0
+3.2.0	March 2002	17	6	45	107	95023	65	133	137468	66	2048	1016	0
+4.0.0	April 2003	17	6	52	122	96243	65	139	137468	66	2048	1226	0
+4.0.1	March 2004	17	6	52	122	96242	65	140	137468	66	2048	0	0
+4.1.0	March 2005	17	6	59	142	97515	65	140	137468	66	2048	1273	0
+5.0.0	July 2006	17	6	64	151	98884	65	140	137468	66	2048	1369	0
+5.1.0	April 2008	17	6	75	168	100507	65	141	137468	66	2048	1624	0
+5.2.0	October 2009	17	6	90	194	107154	65	142	137468	66	2048	6648	0
+6.0.0	October 2010	17	6	93	206	109242	65	142	137468	66	2048	2088	0
+6.1.0	January 2012	17	6	100	217	109975	65	141	137468	66	2048	732	0
+6.2.0	September 2012	17	6	100	217	109976	65	141	137468	66	2048	1	0
+6.3.0	September 2013	17	6	100	217	109975	65	147	137468	66	2048	5	0
+7.0.0	June 2014	17	6	123	249	112804	65	152	137468	66	2048	2834	0
+8.0.0	June 2015	17	6	129	259	120520	65	152	137468	66	2048	7716	0
+9.0.0	June 2016	17	6	135	270	128019	65	153	137468	66	2048	7500	0
+10.0.0	June 2017	17	6	139	277	136537	65	153	137468	66	2048	8518	0
+11.0.0	June 2018	17	6	146	288	137220	65	154	137468	66	2048	684	0
+12.0.0	March 2019	17	6	150	297	137765	65	163	137468	66	2048	554	0
+12.1.0	May 2019	17	6	150	297	137766	65	163	137468	66	2048	1	0
+13.0.0	March 2020	17	7	154	305	143696	65	163	137468	66	2048	5930	0
+14.0.0	September 2021	17	7	159	317	144532	65	165	137468	66	2048	838	0
+15.0.0	September 2022	17	7	161	324	149014	65	172	137468	66	2048	4489	0
+15.1.0	September 2023	17	7	161	325	149641	65	172	137468	66	2048	627	0
+16.0.0	September 2024	17	7	168	335	154826	65	172	137468	66	2048	5185	0
+17.0.0	September 2025	17	7	173	344	159629	65	172	137468	66	2048	4803	0

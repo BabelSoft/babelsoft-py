@@ -16,12 +16,15 @@
   let sugIdx = $state(-1);
   let _sugQuery = $state("");
 
-  // Static property list — no backend call needed
+  // Static property list — no backend call needed.
+  // Mirrors ADV_PROPS in backend/adv_search.py.
   const ALL_PROPS = [
     { key: "name", label: "Name", type: "text", desc: "|cc starts, cc| ends, |cc| exact, cc contains" },
     { key: "formalalias", label: "FormalAlias", type: "text", desc: "Formal name alias" },
     { key: "unicode1name", label: "Unicode1Name", type: "text", desc: "Unicode 1.0 name" },
     { key: "aliases", label: "Aliases", type: "text", desc: "All names & aliases" },
+    { key: "notes", label: "Notes", type: "text", desc: "Character notes" },
+    { key: "crossreferences", label: "CrossReferences", type: "text", desc: "Cross references" },
     { key: "wholewords", label: "WholeWords", type: "bool", values: ["True", "False"], desc: "Whole word matching" },
     {
       key: "gc",
@@ -44,10 +47,20 @@
     { key: "lb", label: "LineBreak", type: "text", desc: "AK, AL, BB, BK" },
     { key: "binary", label: "BinaryProperty", type: "text", desc: "Dash, Math, Emoji, ID_Start" },
     { key: "script", label: "Script", type: "text", desc: "Latn, Hani, Cyrl" },
-    { key: "block", label: "Block", type: "text", desc: "Block name" },
+    { key: "block", label: "Block", type: "text", desc: "Block name or CJK shortcut (URO,A,B,…,Comp,CompSup)" },
+    { key: "plane", label: "Plane", type: "enum", values: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"], desc: "0-16" },
     { key: "unicode", label: "Unicode", type: "version", desc: "5.0, >=5.0, <=5.0" },
     { key: "nocjkui", label: "NoCJKUI", type: "bool", values: ["True", "False"], desc: "Exclude CJK UI" },
     { key: "nopua", label: "NoPUA", type: "bool", values: ["True", "False"], desc: "Exclude PUA" },
+    { key: "nocomp", label: "NoCJKCompat", type: "bool", values: ["True", "False"], desc: "Exclude CJK Compatibility Ideographs" },
+    {
+      key: "submitter",
+      label: "IRGSubmitter",
+      type: "enum",
+      values: ["G", "H", "J", "K", "KP", "M", "MY", "SAT", "SG", "T", "UK", "UTC", "V"],
+      desc: "IRG source submitter",
+    },
+    { key: "ref", label: "SourceRef", type: "text", desc: "IRG source reference (e.g. G0-, *G0-*, SAT-00061)" },
   ];
 
   function fetchSuggestions(q: string) {

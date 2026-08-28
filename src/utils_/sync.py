@@ -1,6 +1,5 @@
-import zipfile
+import re
 from pathlib import Path
-from shutil import rmtree
 
 import requests
 from .dirs import Dirs
@@ -11,10 +10,15 @@ from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeR
 class UnicodeDataDownloader:
     console = Console()
 
+    # unicode.org/Public root — used by sync_unicode to download a remote folder.
+    UNICODE_BASE = "https://www.unicode.org/Public"
+
+    # Extensions we keep (skip archives, PDFs and derived docs: zip/jar/gz/pdf/html).
+    _KEEP_RE = re.compile(r"\.(?:txt|TXT|tsv|TSV)$")
+
     @classmethod
-    def _initialize_folder(cls, folder: Path) -> None:
-        if folder.exists():
-            rmtree(folder)
+    def _ensure_folder(cls, folder: Path) -> None:
+        """Create a folder if missing; never wipe existing data."""
         folder.mkdir(parents=True, exist_ok=True)
 
     @classmethod
@@ -45,105 +49,132 @@ class UnicodeDataDownloader:
                     progress.update(task, advance=len(chunk))
 
         if debug:
-            cls.console.print(f"✅ [green]Downloaded[/green] → {output}")
+            cls.console.print(f"[green]Downloaded[/green] -> {output}")
 
     @classmethod
-    def _extract_zip(cls, zip_path: Path, output_dir: Path, show_progress: bool = True, txt_only: bool = False) -> None:
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        progress = Progress(
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(),
-            DownloadColumn(),
-            TransferSpeedColumn(),
-            TimeRemainingColumn(),
-            console=cls.console,
-            disable=not show_progress,
-        )
-
-        with progress:
-            with zipfile.ZipFile(zip_path) as zf:
-                members = [
-                    member
-                    for member in zf.infolist()
-                    if not member.is_dir() and (not txt_only or member.filename.endswith(".txt"))
-                ]
-
-                task = progress.add_task("Extracting files", total=len(members))
-
-                for member in members:
-                    dest_path = output_dir / member.filename
-                    dest_path.parent.mkdir(parents=True, exist_ok=True)
-
-                    with zf.open(member) as source, dest_path.open("wb") as target:
-                        target.write(source.read())
-
-                    progress.advance(task)
-
-        if show_progress:
-            cls.console.print(f"✅ [green]Extracted[/green] → {output_dir}")
+    def _dir_listing(cls, url: str) -> list[str]:
+        """Return file names (no subdirs) for a plain unicode.org directory listing."""
+        r = requests.get(url, timeout=120)
+        r.raise_for_status()
+        names: list[str] = []
+        for m in re.finditer(r"href=\"([^\"]+)\"", r.text):
+            name = m.group(1)
+            if name in (".", "..") or name.endswith("/"):
+                continue
+            names.append(name)
+        return names
 
     @classmethod
-    def _download_and_extract_zip(
-        cls, url: str, output: Path, debug: bool = True, txt_only: bool = False, delete_zip: bool = True
-    ) -> None:
-        output.mkdir(parents=True, exist_ok=True)
-        zip_path = output / Path(url).name
+    def _download_one(cls, url: str, dest: Path, debug: bool = True, force: bool = False) -> bool:
+        """Download one file into dest.
 
-        cls._download(url=url, output=zip_path, debug=debug)
-        cls._extract_zip(zip_path=zip_path, output_dir=output, show_progress=debug, txt_only=txt_only)
-
-        if delete_zip and zip_path.exists():
-            zip_path.unlink()
+        Idempotent: if dest already exists and is non-empty, it is skipped entirely
+        (no network request at all).  Pass ``force=True`` to re-download anyway.
+        Returns True if a download happened, False if skipped (already present).
+        """
+        if not force and dest.exists() and dest.stat().st_size > 0:
             if debug:
-                cls.console.print(f"🗑️  [yellow]Deleted zip[/yellow] → {zip_path}")
-
-    @classmethod
-    def _download_and_extract_txt_only(cls, url: str, output: Path, debug: bool = True) -> None:
-        cls._download_and_extract_zip(url=url, output=output, debug=debug, txt_only=True, delete_zip=True)
-
-    @classmethod
-    def sync_ucd(cls, debug: bool = True) -> None:
-        cls._initialize_folder(Dirs.UCD)
-        ucd_url: str = "https://www.unicode.org/Public/latest/ucd/UCD.zip"
-        cls.console.print("[bold yellow]=== Download UCD data ===")
-        cls._download_and_extract_txt_only(url=ucd_url, output=Dirs.UCD, debug=debug)
-
-    @classmethod
-    def sync_unihan(cls, debug: bool = True) -> None:
-        cls._initialize_folder(Dirs.UNIHAN)
-        unihan_url: str = "https://www.unicode.org/Public/latest/ucd/Unihan.zip"
-        cls.console.print("[bold yellow]=== Download Unihan data ===")
-        cls._download_and_extract_txt_only(url=unihan_url, output=Dirs.UNIHAN, debug=debug)
+                print(f"    (skip, already downloaded) {dest.name}")
+            return False
+        r = requests.get(url, timeout=600)
+        r.raise_for_status()
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(r.content)
+        if debug:
+            print(f"    {dest.name} ({len(r.content):,} B)")
+        return True
 
     @classmethod
     def sync_ids(cls, debug: bool = True) -> None:
-        cls._initialize_folder(Dirs.BABELSTONE)
+        cls._ensure_folder(Dirs.BABELSTONE)
         ids_url: str = "https://www.babelstone.co.uk/CJK/IDS.TXT"
         cls.console.print("[bold yellow]=== Download IDS data ===")
         cls._download(url=ids_url, output=Dirs.BABELSTONE / "IDS.TXT", debug=debug)
 
     @classmethod
-    def sync_charts(cls, debug: bool = True) -> None:
-        cls._initialize_folder(Dirs.CHARTS)
-        charts_url: str = "https://www.unicode.org/Public/latest/charts/RSIndex.txt"
-        cls.console.print("[bold yellow]=== Download charts data ===")
-        cls._download(url=charts_url, output=Dirs.CHARTS / "RSIndex.txt", debug=debug)
-
-    @classmethod
     def sync_ivd(cls, debug: bool = True) -> None:
         """Download IVD (Ideographic Variation Database) data from unicode.org."""
-        cls._initialize_folder(Dirs.IVD)
+        cls._ensure_folder(Dirs.IVD)
         base_url = "https://www.unicode.org/ivd/data/latest"
         files = ["IVD_Sequences.txt", "IVD_Collections.txt", "IVD_Stats.txt"]
         cls.console.print("[bold yellow]=== Download IVD data ===")
         for filename in files:
             cls._download(url=f"{base_url}/{filename}", output=Dirs.IVD / filename, debug=debug)
 
+    @classmethod
+    def sync_unicode(cls, folder: str, debug: bool = True) -> None:
+        """Download every keepable file under unicode.org/Public/<folder>/.
+
+        Mirrors the remote folder into ``data/unicode/<folder>/``, skipping
+        archives and derived docs (zip / jar / gz / pdf / html / …).
+
+        Examples:
+            sync_unicode("17.0.0/ucd")          # current UCD data files
+            sync_unicode("17.0.0/ucd/unihan")   # Unihan split files
+            sync_unicode("17.0.0/charts")       # charts
+            sync_unicode("1.1-Update")          # a legacy "-Update" dir
+            sync_unicode("reconstructed/1.0.0") # reconstructed 1.0.0 data
+        """
+        folder = folder.strip("/")
+        remote = f"{cls.UNICODE_BASE}/{folder}"
+        dest = Dirs.UNICODE / folder
+        cls.console.print(f"[bold yellow]=== Download unicode.org/Public/{folder} ===")
+        for name in cls._dir_listing(remote):
+            if not cls._KEEP_RE.search(name):
+                continue
+            cls._download_one(f"{remote}/{name}", dest / name, debug=debug)
+
+    # ── ISO 15924 script codes ────────────────────────────────────────────────
+    ISO15924_URL = "https://www.unicode.org/iso15924/iso15924-codes.html"
+    ISO15924_FILE = Dirs.DATA / "scripts" / "iso15924.tsv"
+    # Matches the per-cell content of a data row: <td>…</td> / <td nowrap>…</td>
+    _TD_RE = re.compile(r"<td[^>]*>(.*?)</td>")
+    _TAG_RE = re.compile(r"<[^>]+>")
+
+    @classmethod
+    def sync_iso15924(cls, debug: bool = True) -> None:
+        """Download & parse the ISO 15924 Alphabetical Code List → iso15924.tsv.
+
+        Source: https://www.unicode.org/iso15924/iso15924-codes.html
+        The page is a single HTML table with columns:
+            Code  N°  English Name  Nom français  Alias  Age  Date
+        Written (tab-separated) to data/scripts/iso15924.tsv.
+        """
+        cls._ensure_folder(cls.ISO15924_FILE.parent)
+        cls.console.print("[bold yellow]=== Download ISO 15924 code list ===")
+        html = requests.get(cls.ISO15924_URL, timeout=120).text
+
+        rows: list[list[str]] = []
+        for raw in re.findall(r"<tr>(.*?)</tr>", html, flags=re.S):
+            cells = [cls._clean_td(m) for m in cls._TD_RE.findall(raw)]
+            if len(cells) != 7 or not cells[0] or cells[0] == "Code":
+                continue
+            rows.append(cells)
+
+        # Keep a stable alphabetical order by code.
+        rows.sort(key=lambda r: r[0])
+        lines = [
+            "# BabelSoft Data: ISO 15924 script codes (Alphabetical Code List)",
+            "# Source: https://www.unicode.org/iso15924/iso15924-codes.html",
+            "# Fields: code\\tnumber\\tenglish_name\\tfrench_name\\talias\\tage\\tdate",
+        ]
+        lines += ["\t".join(cells) for cells in rows]
+        text = "\n".join(lines) + "\n"
+        cls.ISO15924_FILE.write_text(text, encoding="utf-8")
+        if debug:
+            cls.console.print(f"[green]Parsed {len(rows)} scripts[/green] -> {cls.ISO15924_FILE}")
+
+    @classmethod
+    def _clean_td(cls, cell: str) -> str:
+        """Strip tags, decode &nbsp;, collapse whitespace inside one <td> cell."""
+        return re.sub(r"\s+", " ", cls._TAG_RE.sub("", cell)).replace("&nbsp;", " ").strip()
+
 
 if __name__ == "__main__":
-    UnicodeDataDownloader.sync_ucd()
-    UnicodeDataDownloader.sync_unihan()
+    import sys
+
+    folder = sys.argv[1] if len(sys.argv) > 1 else f"{Dirs.CURRENT}/ucd"
+    UnicodeDataDownloader.sync_unicode(folder)
     UnicodeDataDownloader.sync_ids()
-    UnicodeDataDownloader.sync_charts()
     UnicodeDataDownloader.sync_ivd()
+    UnicodeDataDownloader.sync_iso15924()
