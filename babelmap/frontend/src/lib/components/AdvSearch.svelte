@@ -61,6 +61,16 @@
       desc: "IRG source submitter",
     },
     { key: "ref", label: "SourceRef", type: "text", desc: "IRG source reference (e.g. G0-, *G0-*, SAT-00061)" },
+    { key: "pinyin", label: "Pinyin", type: "text", desc: "Pinyin reading, optional tone 1-5 (a, a1, zhong4)" },
+    { key: "cantonese", label: "Cantonese", type: "text", desc: "Cantonese Jyutping, optional tone 1-6 (aan, aan3)" },
+    { key: "cjkradical", label: "CJKRadical", type: "text", desc: "CJK radical number 1-214 (e.g. 154)" },
+    { key: "residualstroke", label: "ResidualStroke", type: "text", desc: "Residual stroke count for CJK/Yi (=,!=,>,<,>=,<=)" },
+    { key: "yiradical", label: "YiRadical", type: "text", desc: "Yi radical glyph (e.g. ꓆)" },
+    { key: "lifanwen2008", label: "LiFanwen2008", type: "text", desc: "Li Fanwen 2008 number (|22|, 22, 22|)" },
+    { key: "lifanwen1997", label: "LiFanwen1997", type: "text", desc: "Li Fanwen 1997 number (|22|, 22, 22|)" },
+    { key: "kychanov2006", label: "Kychanov2006", type: "text", desc: "Kychanov 2006 number (|22|, 22, 22|)" },
+    { key: "sofronov1968", label: "Sofronov1968", type: "text", desc: "Sofronov 1968 number (|22|, 22, 22|)" },
+    { key: "nishida1966", label: "Nishida1966", type: "text", desc: "Nishida 1966 reference (|22|, 22, 22|)" },
   ];
 
   function fetchSuggestions(q: string) {

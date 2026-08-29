@@ -23,6 +23,10 @@ class Dirs:
     # UCD data files of the current release (data/unicode/17.0.0/ucd/).
     UCD = UNICODE / CURRENT / "ucd"
 
+    # Emoji data files of the current release (data/unicode/17.0.0/emoji/):
+    # emoji-test.txt, emoji-sequences.txt, emoji-zwj-sequences.txt.
+    EMOJI = UNICODE / CURRENT / "emoji"
+
     # Charts of the current release (data/unicode/17.0.0/charts/).
     CHARTS = UNICODE / CURRENT / "charts"
 

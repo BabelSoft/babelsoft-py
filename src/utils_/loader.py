@@ -451,7 +451,7 @@ class ScriptsLoader:
         rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "tangut_li_fanwen.tsv")
         data: list[dict] = []
         for row in rows:
-            if len(row) < 8:
+            if len(row) < 2:
                 continue
             try:
                 cp = int(row[0][2:], 16)
@@ -462,12 +462,13 @@ class ScriptsLoader:
                 data.append({})
             data[offset] = {
                 "number": int(row[1]) if row[1] else 0,
-                "variant": int(row[2]) if row[2] else 0,
-                "additional": int(row[3]) if row[3] else 0,
-                "reading": row[4],
-                "english": row[5],
-                "tone": int(row[6]) if row[6] else 0,
-                "rime": int(row[7]) if row[7] else 0,
+                "number1997": int(row[2]) if len(row) > 2 and row[2] else 0,
+                "variant": int(row[3]) if len(row) > 3 and row[3] else 0,
+                "additional": int(row[4]) if len(row) > 4 and row[4] else 0,
+                "rime": int(row[5]) if len(row) > 5 and row[5] else 0,
+                "tone": int(row[6]) if len(row) > 6 and row[6] else 0,
+                "reading": row[7] if len(row) > 7 else "",
+                "english": row[8] if len(row) > 8 else "",
             }
         return data
 
@@ -549,6 +550,36 @@ class ScriptsLoader:
                 "reading": row[3],
             }
         return data
+
+    # ─── Yi radical/stroke ──────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_yi_radicals() -> dict[int, list[tuple[int, int]]]:
+        """Load Yi syllable → list of (radical_number, stroke_count) pairs.
+
+        Each data line is: U+XXXXX\tradical.stroke [radical.stroke ...]
+        (a syllable can carry several radical/stroke pairs).
+        """
+        rows = TsvParser.get_tsv(ScriptsLoader.DATA_DIR / "yi_radicals.tsv")
+        result: dict[int, list[tuple[int, int]]] = {}
+        for row in rows:
+            if len(row) < 2:
+                continue
+            try:
+                cp = int(row[0][2:], 16)
+            except (ValueError, IndexError):
+                continue
+            pairs: list[tuple[int, int]] = []
+            for token in row[1].split():
+                try:
+                    r, s = token.split(".", 1)
+                    pairs.append((int(r), int(s)))
+                except ValueError:
+                    continue
+            if pairs:
+                result[cp] = pairs
+        return result
 
     # ─── Tangut: Miyake ─────────────────────────────────────────────
 

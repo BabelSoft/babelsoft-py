@@ -304,6 +304,116 @@ def _assigned_codepoints(path: Path) -> list[int]:
     return Unicode._assigned_codepoints(path)
 
 
+@functools.lru_cache(maxsize=64)
+def _usable_unicode_data_path(version: str) -> Path | None:
+    """Path to the version's usable UnicodeData.txt, inheriting backwards.
+
+    Same fallback chain as ``_version_blocks``: versions with compressed
+    UnicodeData (1.1.5) or with no usable file (3.1.1) inherit the previous
+    version's file; 1.0.0/1.0.1 use the reconstructed repertoire.
+    """
+    if version in ("1.0.0", "1.0.1"):
+        p = _RECONSTRUCTED_DIR / version / "UnicodeData.txt"
+        return p if p.exists() else None
+    dirname = dict(_VERSION_DIRS).get(version)
+    if dirname is None:
+        return None
+    base = Dirs.UNICODE / dirname
+    ud = _find_file(base, "UnicodeData") if base.exists() else None
+    if ud is not None and not _unicode_data_is_compressed(ud):
+        return ud
+    versions = [v for v, _ in _VERSION_DIRS]
+    i = versions.index(version)
+    if i > 0:
+        return _usable_unicode_data_path(versions[i - 1])
+    return None
+
+
+@functools.lru_cache(maxsize=64)
+def _version_unicode_data_path(version: str) -> Path | None:
+    """Path to the version's OWN UnicodeData.txt (no compression inheritance).
+
+    Reconstructed data for 1.0.0/1.0.1; the version's own file otherwise.
+    Only inherits when the version ships no UnicodeData at all (e.g. 3.1.1).
+    Unlike ``_usable_unicode_data_path`` this does NOT treat compressed files
+    (1.1.5's <CJK IDEOGRAPH REPRESENTATIVE>) as unusable — the rest of those
+    files is still real per-version data.
+    """
+    if version in ("1.0.0", "1.0.1"):
+        p = _RECONSTRUCTED_DIR / version / "UnicodeData.txt"
+        return p if p.exists() else None
+    dirname = dict(_VERSION_DIRS).get(version)
+    if dirname is None:
+        return None
+    base = Dirs.UNICODE / dirname
+    ud = _find_file(base, "UnicodeData") if base.exists() else None
+    if ud is not None:
+        return ud
+    versions = [v for v, _ in _VERSION_DIRS]
+    i = versions.index(version)
+    if i > 0:
+        return _version_unicode_data_path(versions[i - 1])
+    return None
+
+
+@functools.lru_cache(maxsize=64)
+def raw_codepoints_for(version: str) -> list[int]:
+    """Sorted assigned codepoints from the version's own UnicodeData.
+
+    1.0.0/1.0.1 use the reconstructed repertoire; 1.1.5 keeps its real data
+    (Hangul at U+3400-4DFF, the CJK block reduced to its representative entry).
+    """
+    if version in ("1.0.0", "1.0.1"):
+        return sorted(_reconstructed_codepoints(version) or [])
+    path = _version_unicode_data_path(version)
+    if path is None:
+        return []
+    return Unicode._assigned_codepoints(path)
+
+
+@functools.lru_cache(maxsize=8)
+def _ucd_entries_for(version: str) -> dict[int, dict]:
+    """{cp: full 15-field UnicodeData entry} for the version's own file."""
+    path = _version_unicode_data_path(version)
+    if path is None:
+        return {}
+    return {e["cp"]: e for e in Unicode._unicodedata_file(path)}
+
+
+@functools.lru_cache(maxsize=128)
+def props_for_version(version: str, cp: int) -> dict | None:
+    """Full UCD entry (cp/name/gc/ccc/bidi/decomp/dec/digit/num/mirrored/
+    uni1/iso/up/lo/ti) for a codepoint in a given version, or None."""
+    return _ucd_entries_for(version).get(cp)
+
+
+@functools.lru_cache(maxsize=128)
+def name_for_version(version: str, cp: int) -> str:
+    """Name of a codepoint as encoded in a given Unicode version, or ``""``
+    when unassigned / a range placeholder in that version."""
+    e = props_for_version(version, cp)
+    if not e:
+        return ""
+    n = e["name"]
+    return "" if n.startswith("<") else n
+
+
+@functools.lru_cache(maxsize=64)
+def assigned_codepoints_for(version: str) -> list[int]:
+    """Sorted assigned codepoints for a version, inheriting on unusable data.
+
+    Same as ``raw_codepoints_for`` except compressed (1.1.5) or missing (3.1.1)
+    UnicodeData inherits the previous version's full set — used where the whole
+    repertoire matters (e.g. the version diff), not per-character history.
+    """
+    if version in ("1.0.0", "1.0.1"):
+        return sorted(_reconstructed_codepoints(version) or [])
+    path = _usable_unicode_data_path(version)
+    if path is None:
+        return []
+    return Unicode._assigned_codepoints(path)
+
+
 def _unicode_data_is_compressed(path: Path) -> bool:
     """Old 1.1-era files use a single '<CJK IDEOGRAPH REPRESENTATIVE>' entry."""
     for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():

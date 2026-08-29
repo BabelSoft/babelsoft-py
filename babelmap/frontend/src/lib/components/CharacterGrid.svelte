@@ -9,9 +9,16 @@
     onSelect: (r: number, c: number) => void;
     onAddToBuffer: (r: number, c: number) => void;
     onWheel: (deltaY: number) => void;
+    onDblClick?: (r: number, c: number) => void;
   }
 
-  let { grid, plane, sr, sc, onSelect, onAddToBuffer, onWheel }: Props = $props();
+  let { grid, plane, sr, sc, onSelect, onAddToBuffer, onWheel, onDblClick = () => {} }: Props = $props();
+
+  // Double-click detection via click timer (more reliable than relying on the
+  // browser's dblclick event, which some environments suppress).
+  let lastClick = 0;
+  let lastRi = -1;
+  let lastCi = -1;
 
   function rowLabel(row: GridCell[], ri: number): string {
     if (row.every((c) => c.codepoint < 0)) return "\u2014";
@@ -37,6 +44,17 @@
     if (b) {
       const ri = +b.dataset.ri!;
       const ci = +b.dataset.ci!;
+      const now = Date.now();
+      if (ri === lastRi && ci === lastCi && now - lastClick < 350) {
+        // double-click on the same cell → open character properties
+        lastClick = 0;
+        onSelect(ri, ci);
+        onDblClick(ri, ci);
+        return;
+      }
+      lastClick = now;
+      lastRi = ri;
+      lastCi = ci;
       onSelect(ri, ci);
       onAddToBuffer(ri, ci);
     }

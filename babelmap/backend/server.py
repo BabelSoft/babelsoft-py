@@ -387,21 +387,83 @@ def codepoint_info(cp: int):
 
     if not Unicode.is_valid_code_point(cp) or Unicode.is_surrogate(cp):
         return JSONResponse({"error": "Invalid"}, 400)
+
+    def _s(fn, default=""):
+        try:
+            v = fn(cp)
+            return v if v not in (None, "") else default
+        except Exception:
+            return default
+
+    def _enum(fn):
+        try:
+            return fn(cp).name
+        except Exception:
+            return ""
+
+    info = {
+        "codepoint": cp,
+        "name": _s(Unicode.get_character_name),
+        "block": _s(Unicode.get_block_name),
+        "script": _s(Unicode.get_script),
+        "age": _s(Unicode.get_character_age),
+        "general_category": _enum(Unicode.get_general_category),
+        "canonical_combining_class": _s(lambda c: str(Unicode.get_canonical_combining_class(c))),
+        "bidi_class": _enum(Unicode.get_bidi_class),
+        "bidi_mirrored": "Y" if Unicode.get_bidi_mirrored(cp) else "N",
+        "line_break": _enum(Unicode.get_line_break),
+        "east_asian_width": _enum(Unicode.get_east_asian_width),
+        "decomposition_type": _enum(Unicode.get_decomposition_type),
+        "decomposition": _s(Unicode.get_decomposition),
+        "numeric_type": _enum(Unicode.get_numeric_type),
+        "numeric_value": _s(Unicode.get_numeric_value),
+        "unicode1_name": _s(Unicode.get_unicode1_name),
+        "formal_aliases": Unicode._formal_alias_map().get(cp, []),
+        "joining_type": _enum(Unicode.get_joining_type),
+        "joining_group": _s(Unicode.get_joining_group),
+        "utf8": " ".join(f"{b:02X}" for b in chr(cp).encode("utf-8")),
+    }
     try:
-        n = Unicode.get_character_name(cp)
+        u1 = Unicode.unicode1_codepoint(cp)
+        info["unicode1_codepoint"] = u1 if u1 not in (None, 0) else None
     except Exception:
-        n = f"U+{cp:04X}"
+        info["unicode1_codepoint"] = None
+    # Simple case mappings (empty when identity).
+    info["simple_uppercase"] = _mapping_str(Unicode.get_simple_uppercase(cp), cp)
+    info["simple_lowercase"] = _mapping_str(Unicode.get_simple_lowercase(cp), cp)
+    info["simple_titlecase"] = _mapping_str(Unicode.get_simple_titlecase(cp), cp)
+    if cp == 0x03A3:  # GREEK CAPITAL LETTER SIGMA — final sigma special case
+        info["simple_lowercase"] = "03C3 or 03C2 (final)"
+    # Encodings.
+    if cp <= 0xFFFF:
+        info["utf16"] = f"{cp:04X}"
+    else:
+        hi, lo = Unicode.get_surrogates_from_unicode32(cp)
+        info["utf16"] = f"{hi:04X} {lo:04X}"
+    info["utf32"] = f"{cp:08X}"
+    # Extra property areas: binary properties, NamesList, variants, named sequences.
     try:
-        gc = str(Unicode.get_general_category(cp))
+        from src.unicode.extras import (
+            binary_properties,
+            emoji_variation_sequences,
+            named_sequences_for,
+            nameslist,
+            standardized_variants,
+        )
+
+        info["binary_properties"] = binary_properties(cp)
+        nl = nameslist(cp)
+        info["nameslist"] = {"aliases": nl["aliases"], "notes": nl["notes"], "xrefs": nl["xrefs"]}
+        info["standardized_variants"] = [[vs, desc] for vs, desc in standardized_variants(cp)]
+        info["emoji_variants"] = [[vs, style] for vs, style in emoji_variation_sequences(cp)]
+        info["named_sequences"] = [[name, list(cps)] for name, cps in named_sequences_for(cp)]
     except Exception:
-        gc = "Cn"
-    try:
-        sc = str(Unicode.get_script(cp))
-    except Exception:
-        sc = "Unknown"
-    blk = _find_block(cp)
-    bn = blk["name"] if blk else "Unknown"
-    info = {"codepoint": cp, "name": n, "general_category": gc, "script": sc, "block": bn}
+        info["binary_properties"] = []
+        info["nameslist"] = {"aliases": [], "notes": [], "xrefs": []}
+        info["standardized_variants"] = []
+        info["emoji_variants"] = []
+        info["named_sequences"] = []
+    # CJK readings / radical-stroke (kept from before).
     try:
         from src.cjkv.cjk import CJK
 
@@ -420,6 +482,13 @@ def codepoint_info(cp: int):
     except Exception:
         pass
     return info
+
+
+def _mapping_str(v: int, src: int) -> str:
+    """Format a simple case-mapping codepoint; empty string when identity."""
+    if not v or v == src:
+        return ""
+    return f"{v:04X}"
 
 
 @app.get("/api/glyph/{cp}")
@@ -503,6 +572,32 @@ def search_properties(q: str = Query("", min_length=0)):
     from babelmap.backend.adv_search import matching_properties
 
     return matching_properties(q)
+
+
+@app.get("/api/emoji/search")
+def emoji_search(q: str = Query("", max_length=80), limit: int = Query(80, ge=1, le=500)):
+    """Emojipedia-style emoji search by name, keyword or codepoint."""
+    from src.unicode.emoji import search as search_emoji
+
+    try:
+        results = [e.to_dict() for e in search_emoji(q, limit)]
+    except Exception:
+        results = []
+    return {"query": q, "results": results}
+
+
+@app.get("/api/emoji/list")
+def emoji_list(limit: int = Query(0, ge=0, le=6000)):
+    """All RGI emoji in CLDR order (browse mode). limit=0 → all."""
+    from src.unicode.emoji import all_emoji
+
+    try:
+        entries = all_emoji()
+    except Exception:
+        entries = []
+    if limit:
+        entries = entries[:limit]
+    return {"total": len(entries), "results": [e.to_dict() for e in entries]}
 
 
 @app.get("/api/fonts")
@@ -593,42 +688,97 @@ def unicode_plane_blocks(plane: int):
 
 
 @app.get("/api/unicode/blocks")
-def unicode_blocks():
-    """Block table of the latest release (Block Name / Range / Code Points / Characters / Version)."""
+def unicode_blocks(version: str = Query(None, min_length=1)):
+    """Block table for a Unicode version (defaults to the latest release)."""
     from babelmap.backend.version import all_versions, blocks_for_version
 
-    latest = all_versions()[-1]["version"]
+    if not version:
+        version = all_versions()[-1]["version"]
     blocks = [
         dict(b, code_points=b["end"] - b["start"] + 1)
-        for b in blocks_for_version(latest)
+        for b in blocks_for_version(version)
         if not (0xD800 <= b["start"] <= 0xDFFF)
     ]
-    return {"version": latest, "blocks": blocks}
+    return {"version": version, "blocks": blocks}
 
 
 @app.get("/api/unicode/blocks/{name:path}/characters")
-def unicode_block_characters(name: str):
-    """Assigned characters inside one block of the latest release."""
-    from babelmap.backend.version import all_versions, blocks_for_version
+def unicode_block_characters(name: str, version: str = Query(None, min_length=1)):
+    """Assigned characters inside one block of a Unicode version (defaults to latest)."""
+    from babelmap.backend.version import (
+        all_versions,
+        assigned_codepoints_for,
+        blocks_for_version,
+    )
 
-    latest = all_versions()[-1]["version"]
-    block = next((b for b in blocks_for_version(latest) if b["name"] == name), None)
+    if not version:
+        version = all_versions()[-1]["version"]
+    block = next((b for b in blocks_for_version(version) if b["name"] == name), None)
     if block is None:
         return JSONResponse({"error": "Block not found"}, 404)
     from src.unicode.core import Unicode
 
-    characters = []
-    for cp in range(block["start"], block["end"] + 1):
-        if not _is_assigned(cp):
-            continue
-        characters.append(
-            {
-                "codepoint": cp,
-                "char": chr(cp),
-                "name": _safe_name(Unicode, cp) or "",
-            }
-        )
-    return {"version": latest, "block": name, "characters": characters}
+    cps = assigned_codepoints_for(version)
+    lo = bisect.bisect_left(cps, block["start"])
+    hi = bisect.bisect_right(cps, block["end"])
+    characters = [{"codepoint": cp, "char": chr(cp), "name": _safe_name(Unicode, cp) or ""} for cp in cps[lo:hi]]
+    return {"version": version, "block": name, "characters": characters}
+
+
+@app.get("/api/unicode/diff")
+def unicode_diff(
+    from_version: str = Query(..., alias="from", min_length=1), to_version: str = Query(..., alias="to", min_length=1)
+):
+    """Changes between two Unicode versions: blocks added/removed + character counts."""
+    from babelmap.backend.version import assigned_codepoints_for, blocks_for_version
+
+    a_blocks = blocks_for_version(from_version)
+    b_blocks = blocks_for_version(to_version)
+    a_names = {b["name"] for b in a_blocks}
+    b_names = {b["name"] for b in b_blocks}
+    added_blocks = [dict(b, code_points=b["end"] - b["start"] + 1) for b in b_blocks if b["name"] not in a_names]
+    removed_blocks = [dict(b, code_points=b["end"] - b["start"] + 1) for b in a_blocks if b["name"] not in b_names]
+
+    a_cps = set(assigned_codepoints_for(from_version))
+    b_cps = set(assigned_codepoints_for(to_version))
+    added_cps = sorted(b_cps - a_cps)
+    removed_cps = sorted(a_cps - b_cps)
+
+    per_block_added: list[dict] = []
+    for b in b_blocks:
+        lo = bisect.bisect_left(added_cps, b["start"])
+        hi = bisect.bisect_right(added_cps, b["end"])
+        if hi > lo:
+            per_block_added.append(
+                {
+                    "name": b["name"],
+                    "start": b["start"],
+                    "end": b["end"],
+                    "added": hi - lo,
+                    "version": b.get("version"),
+                }
+            )
+    per_block_added.sort(key=lambda x: x["added"], reverse=True)
+
+    return {
+        "from": from_version,
+        "to": to_version,
+        "added_blocks": added_blocks,
+        "removed_blocks": removed_blocks,
+        "added_characters": len(added_cps),
+        "removed_characters": len(removed_cps),
+        "per_block_added": per_block_added,
+    }
+
+
+@app.get("/api/unicode/history")
+def unicode_character_history(cp: int):
+    """Character History — codepoint/name of one character across versions."""
+    from babelmap.backend.history import character_history
+
+    if not Unicode.is_valid_code_point(cp) or Unicode.is_surrogate(cp):
+        return JSONResponse({"error": "Invalid"}, 400)
+    return character_history(cp)
 
 
 if __name__ == "__main__":

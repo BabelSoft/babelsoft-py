@@ -219,10 +219,15 @@ class Unicode:
     # ==================================================================
 
     @staticmethod
-    @functools.lru_cache(maxsize=1)
-    def _unicodedata() -> list[dict]:
+    @functools.lru_cache(maxsize=8)
+    def _unicodedata_file(path: Path) -> list[dict]:
+        """Parse any UnicodeData file (any version) into 15-field entries.
+
+        Rows are keyed ``cp/name/gc/ccc/bidi/decomp/dec/digit/num/mirrored/
+        uni1/iso/up/lo/ti`` — the standard UnicodeData field order.
+        """
         entries: list[dict] = []
-        for line in TxtParser.get_txt(UCD / "UnicodeData.txt"):
+        for line in TxtParser.get_txt(path):
             if not line.strip() or line.startswith("#"):
                 continue
             p = line.split(";")
@@ -252,6 +257,11 @@ class Unicode:
                 }
             )
         return entries
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _unicodedata() -> list[dict]:
+        return Unicode._unicodedata_file(UCD / "UnicodeData.txt")
 
     @staticmethod
     @functools.lru_cache(maxsize=8)
@@ -428,6 +438,70 @@ class Unicode:
     @functools.lru_cache(maxsize=1)
     def _name_map() -> dict[int, str]:
         return {e["cp"]: e["name"] for e in Unicode._unicodedata() if e["name"]}
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _unicode1_mappings() -> (
+        tuple[dict[int, int], dict[int, int], dict[int, int], set[int], dict[int, int], set[int]]
+    ):
+        """Parse data/scripts/unicode_1_0_mappings.tsv.
+
+        Returns ``(moved, tibetan, hangul, removed_cp1, removed_unified, moved_cp1)``:
+        * moved/tibetan/hangul  — reverse maps {later cp: Unicode 1.0 cp}
+        * removed_cp1           — set of 1.0 codepoints that were removed
+        * removed_unified       — {later cp: 1.0 cp} for characters unified into
+                                  a different codepoint in a later version
+        * moved_cp1             — set of 1.0 codepoints whose occupant moved
+        """
+        moved: dict[int, int] = {}
+        tibetan: dict[int, int] = {}
+        hangul: dict[int, int] = {}
+        removed_cp1: set[int] = set()
+        removed_unified: dict[int, int] = {}
+        moved_cp1: set[int] = set()
+        path = Dirs.DATA / "scripts" / "unicode_1_0_mappings.tsv"
+        for line in TxtParser.get_txt(path):
+            if not line.strip() or line.startswith("#"):
+                continue
+            table, cp1, cp2, unified, _name = line.split("\t")
+            a = int(cp1, 16)
+            b = int(cp2, 16) if cp2 else 0
+            if table == "MOVED":
+                moved[b] = a
+                moved_cp1.add(a)
+            elif table == "TIBETAN":
+                tibetan[b] = a
+            elif table == "HANGUL":
+                hangul[b] = a
+            elif table == "REMOVED":
+                removed_cp1.add(a)
+                if b and b != 0xFFFD:
+                    removed_unified[b] = a
+        return moved, tibetan, hangul, removed_cp1, removed_unified, moved_cp1
+
+    @staticmethod
+    def unicode1_codepoint(cp: int) -> int | None:
+        """Return the Unicode 1.0 codepoint of ``cp``, or None if the character
+        occupied the same codepoint in Unicode 1.0 (or did not exist then).
+        Covers Hangul / Tibetan / other moves and unified removals."""
+        moved, tibetan, hangul, _removed, removed_unified, _moved_cp1 = Unicode._unicode1_mappings()
+        for m in (hangul, tibetan, moved, removed_unified):
+            if cp in m:
+                return m[cp]
+        return None
+
+    @staticmethod
+    def is_unicode1_removed(cp: int) -> bool:
+        """True if the codepoint's Unicode 1.0 occupant was removed in 1.0.1,
+        i.e. the current character at this codepoint did not exist in 1.0."""
+        return cp in Unicode._unicode1_mappings()[3]
+
+    @staticmethod
+    def is_unicode1_moved(cp: int) -> bool:
+        """True if the codepoint's Unicode 1.0 occupant moved to another
+        codepoint, i.e. the current character at this codepoint did not exist
+        in 1.0."""
+        return cp in Unicode._unicode1_mappings()[5]
 
     @staticmethod
     def get_character_name(cp: int) -> str:
@@ -619,6 +693,21 @@ class Unicode:
         ]
         return "HANGUL SYLLABLE " + LEADING[li] + VOWEL[vi] + TRAILING[ti]
 
+    @staticmethod
+    def _hangul_decomposition(cp: int) -> str:
+        """Canonical decomposition of a Hangul syllable → ``"XXXX XXXX XXXX"``
+        (jamo codepoints, UnicodeData format).  Empty for non-Hangul."""
+        if not (Unicode.HANGUL_FIRST <= cp <= Unicode.HANGUL_LAST):
+            return ""
+        i = cp - Unicode.HANGUL_FIRST
+        t = i % 28
+        v = (i // 28) % 21
+        li = i // (28 * 21)
+        parts = [0x1100 + li, 0x1161 + v]
+        if t:
+            parts.append(0x11A7 + t)
+        return " ".join(f"{p:04X}" for p in parts)
+
     # ==================================================================
     #  Numeric
     # ==================================================================
@@ -764,6 +853,20 @@ class Unicode:
     def get_decomposition_mapping(cp: int) -> int:
         v = Unicode._binary_search(Unicode._decomp_table(), cp, -1)
         return cp if v < 0 else (v & 0xFFFFFF)
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _decomp_full_map() -> dict[int, str]:
+        """Full UnicodeData decomposition strings (e.g. '<compat> 0020 0301')."""
+        return {e["cp"]: e["decomp"].strip() for e in Unicode._unicodedata() if e["decomp"].strip()}
+
+    @staticmethod
+    def get_decomposition(cp: int) -> str:
+        """Return the full UnicodeData decomposition field for a codepoint.
+
+        E.g. ``<compat> 0020 0301`` or ``0041 030A``, or ``""`` if none.
+        """
+        return Unicode._decomp_full_map().get(cp, "")
 
     # ==================================================================
     #  Script

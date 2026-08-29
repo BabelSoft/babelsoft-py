@@ -51,7 +51,7 @@ def _get(data: list[dict], offset: int | None) -> dict | None:
 
 
 class LiFanwen:
-    """Li Fanwen 2008 Tangut dictionary."""
+    """Li Fanwen 2008 Tangut dictionary (1997 numbers come from the data)."""
 
     @staticmethod
     def get_source_name() -> str:
@@ -71,11 +71,20 @@ class LiFanwen:
         off = _offset(ch)
         data = ScriptsLoader.load_tangut_li_fanwen()
         entry = _get(data, off)
-        if not entry or entry.get("number", 0) == 0:
+        if not entry:
             return ""
-        num = entry["number"]
-        var = entry["variant"]
-        result = f"L2008-{num:04d}"
+        # 1997 numbers are materialized in the data (tangut_li_fanwen.tsv);
+        # an empty number1997 means "same as 2008" — except 2008 numbers
+        # >= 5995, which have no 1997 entry.
+        num = entry["number1997"] if b1997 else entry.get("number", 0)
+        if not num and b1997:
+            n2008 = entry.get("number", 0)
+            num = n2008 if n2008 and n2008 < 5995 else 0
+        if not num:
+            return ""
+        prefix = "L1997-" if b1997 else "L2008-"
+        var = entry.get("variant", 0)
+        result = f"{prefix}{num:04d}"
         if var == 1:
             result += "A"
         elif var == 2:

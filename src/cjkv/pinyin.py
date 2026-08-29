@@ -150,6 +150,12 @@ class Pinyin(Lookup):
 
         return sorted(set(results))
 
+    @classmethod
+    def get_readings(cls, cp: int) -> list[tuple[str, int]]:
+        """Return all (reading, tone) entries for a codepoint (empty list if none)."""
+        cls._load_data()
+        return cls._readings.get(cp, [])
+
     @staticmethod
     def decomp(ch: int) -> tuple[int, int, int] | None:
         """Decompose a Pinyin reading codepoint into its three constituent parts.

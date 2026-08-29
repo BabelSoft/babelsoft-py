@@ -11,10 +11,9 @@
   import CharacterGrid from "./lib/components/CharacterGrid.svelte";
   import MenuBar from "./lib/components/MenuBar.svelte";
   import BottomPanel from "./lib/components/BottomPanel.svelte";
-  import UnicodeVersionsDialog from "./lib/components/UnicodeVersionsDialog.svelte";
-  import UnicodeScriptsDialog from "./lib/components/UnicodeScriptsDialog.svelte";
-  import UnicodePlanesDialog from "./lib/components/UnicodePlanesDialog.svelte";
-  import UnicodeBlocksDialog from "./lib/components/UnicodeBlocksDialog.svelte";
+  import UnicodeDialog from "./lib/components/UnicodeDialog.svelte";
+  import CharacterPropertiesDialog from "./lib/components/CharacterPropertiesDialog.svelte";
+  import EmojiLookupDialog from "./lib/components/EmojiLookupDialog.svelte";
 
   let dark = $state(false);
   let grid = $state<GridPage | null>(null);
@@ -47,10 +46,10 @@
   let _filterNoBlock = $state(true);
   // ── Dialog / context menu state ────────────────────────────────────
   let showSaveDlg = $state(false);
-  let showUnicodeVersions = $state(false);
-  let showUnicodeScripts = $state(false);
-  let showUnicodePlanes = $state(false);
-  let showUnicodeBlocks = $state(false);
+  let showUnicode = $state(false);
+  let showCharProps = $state(false);
+  let showEmojiLookup = $state(false);
+  let charPropsCp = $state(-1);
   let ctxShow = $state(false);
   let ctxX = $state(0);
   let ctxY = $state(0);
@@ -637,7 +636,23 @@
       else if (e.ctrlKey) copyRtf();
       else if (e.shiftKey) cutPlain();
       else copyPlain();
+    } else if (e.key === "F9") {
+      e.preventDefault();
+      openCharProps();
+    } else if (e.key === "F8" && e.shiftKey) {
+      e.preventDefault();
+      showEmojiLookup = true;
     }
+  }
+
+  function openCharProps() {
+    const cp = selCp();
+    if (cp == null || cp < 0) {
+      showStatus(t("general.not_assigned"));
+      return;
+    }
+    charPropsCp = cp;
+    showCharProps = true;
   }
 
   function onMenuAction(label: string) {
@@ -664,10 +679,9 @@
     else if (label === t("find.goto_cp")) doGo();
     else if (label === t("find.locate_char")) doLocateChar();
     // Tools menu
-    else if (label === t("tools.unicode_versions")) showUnicodeVersions = true;
-    else if (label === t("tools.unicode_scripts")) showUnicodeScripts = true;
-    else if (label === t("tools.unicode_planes")) showUnicodePlanes = true;
-    else if (label === t("tools.unicode_blocks")) showUnicodeBlocks = true;
+    else if (label === t("tools.unicode")) showUnicode = true;
+    else if (label === t("tools.properties")) openCharProps();
+    else if (label === t("tools.emoji_lookup")) showEmojiLookup = true;
     // View menu
     else if (label === t("view.filter_no_block")) {
       _filterNoBlock = !_filterNoBlock;
@@ -699,7 +713,7 @@
   <div class="main">
     <div class="gw">
       <GridHeader {loading} {err} {grid} />
-      <CharacterGrid {grid} {plane} {sr} {sc} onSelect={selectCell} onAddToBuffer={addToBuf} onWheel={(deltaY: number) => nav(deltaY > 0 ? 1 : -1)} />
+      <CharacterGrid {grid} {plane} {sr} {sc} onSelect={selectCell} onAddToBuffer={addToBuf} onDblClick={openCharProps} onWheel={(deltaY: number) => nav(deltaY > 0 ? 1 : -1)} />
     </div>
 
     <NavPanel
@@ -797,13 +811,25 @@
     }}
   />
 
-  <UnicodeVersionsDialog show={showUnicodeVersions} onClose={() => (showUnicodeVersions = false)} />
+  <UnicodeDialog
+    show={showUnicode}
+    onClose={() => (showUnicode = false)}
+    onGotoCP={(cp: number) => {
+      showUnicode = false;
+      gotoCP(cp);
+    }}
+  />
 
-  <UnicodeScriptsDialog show={showUnicodeScripts} onClose={() => (showUnicodeScripts = false)} />
+  <CharacterPropertiesDialog show={showCharProps} cp={charPropsCp} onClose={() => (showCharProps = false)} />
 
-  <UnicodePlanesDialog show={showUnicodePlanes} onClose={() => (showUnicodePlanes = false)} />
-
-  <UnicodeBlocksDialog show={showUnicodeBlocks} onClose={() => (showUnicodeBlocks = false)} />
+  <EmojiLookupDialog
+    show={showEmojiLookup}
+    onClose={() => (showEmojiLookup = false)}
+    onGotoCP={(cp: number) => {
+      showEmojiLookup = false;
+      gotoCP(cp);
+    }}
+  />
 
   <ContextMenu
     show={ctxShow}

@@ -161,3 +161,9 @@ class Jyutping(Lookup):
             results.append(cp)
 
         return sorted(set(results))
+
+    @classmethod
+    def get_readings(cls, cp: int) -> list[tuple[str, int]]:
+        """Return all (reading, tone) entries for a codepoint (empty list if none)."""
+        cls._load_data()
+        return cls._readings.get(cp, [])

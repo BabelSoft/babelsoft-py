@@ -168,6 +168,18 @@ class TestDecomposition:
     def test_mapping(self):
         assert Unicode.get_decomposition_mapping(0xC0) == 0x41
 
+    def test_full_canonical(self):
+        # Á = A + combining acute: "0041 0301" (À = A + grave: "0041 0300")
+        assert Unicode.get_decomposition(0xC1) == "0041 0301"
+        assert Unicode.get_decomposition(0xC0) == "0041 0300"
+
+    def test_full_compat(self):
+        # ① (circled one) = <circled> 0031
+        assert Unicode.get_decomposition(0x2460).endswith("0031")
+
+    def test_full_none(self):
+        assert Unicode.get_decomposition(0x41) == ""
+
 
 class TestNormalization:
     def test_nfc(self):

@@ -17,25 +17,25 @@ Modern rebuild of the BabelSoft BabelMap tool using:
 
 ## Implementation Status
 
-| Area                        | Status                                    |
-| --------------------------- | ----------------------------------------- |
-| Backend REST/SSE API        | ✅ Core complete                          |
-| Character grid & navigation | ✅ Complete                               |
-| Expression search engine    | ✅ Complete (AST parser + SSE streaming)  |
-| Edit buffer (modes, RTF)    | ✅ Complete                               |
-| Save dialog (encodings/BOM) | ✅ Complete                               |
-| Context menu (text editing) | ✅ Complete                               |
-| Menu bar                    | ⚠️ Menu structure complete, most items 🚫 |
-| Plane tabs                  | ✅ Complete (7 fixed / 17 unfiltered)     |
-| Block selector              | ✅ Complete                               |
-| Localization                | ✅ 7 languages                            |
-| Fonts toolbar               | ⚠️ Size only; font config is placeholder  |
-| Tools menu dialogs          | 🚫 Not implemented                        |
-| Options menu                | 🚫 Not implemented                        |
-| Bookmarks                   | 🚫 Not implemented                        |
-| Help / About                | 🚫 Not implemented                        |
-| Zoom (View)                 | 🚫 Menu item only                         |
-| Glyph rendering (PIL)       | ✅ `/api/glyph` available; grid uses text |
+| Area                        | Status                                                       |
+| --------------------------- | ------------------------------------------------------------ |
+| Backend REST/SSE API        | ✅ Core complete                                             |
+| Character grid & navigation | ✅ Complete                                                  |
+| Expression search engine    | ✅ Complete (AST parser + SSE streaming)                     |
+| Edit buffer (modes, RTF)    | ✅ Complete                                                  |
+| Save dialog (encodings/BOM) | ✅ Complete                                                  |
+| Context menu (text editing) | ✅ Complete                                                  |
+| Menu bar                    | ⚠️ Menu structure complete, most items 🚫                    |
+| Plane tabs                  | ✅ Complete (7 fixed / 17 unfiltered)                        |
+| Block selector              | ✅ Complete                                                  |
+| Localization                | ✅ 7 languages                                               |
+| Fonts toolbar               | ⚠️ Size only; font config is placeholder                     |
+| Tools menu dialogs          | ⚠️ Unicode / Character Properties / Emoji Lookup ✅; rest 🚫 |
+| Options menu                | 🚫 Not implemented                                           |
+| Bookmarks                   | 🚫 Not implemented                                           |
+| Help / About                | 🚫 Not implemented                                           |
+| Zoom (View)                 | 🚫 Menu item only                                            |
+| Glyph rendering (PIL)       | ✅ `/api/glyph` available; grid uses text                    |
 
 ---
 
@@ -89,35 +89,46 @@ All endpoints implemented and working. Port **18080** (`http://127.0.0.1:18080`)
 ## Expression Search --- `backend/adv_search.py`
 
 AST parser with tokenizer, `AND / OR / NOT`, parentheses, comparison ops
-(`= != >= <= > < :`), comma lists, `|` pipe boundaries for names, and
-`|cc|` / `cc|` / `|cc` / `cc` wildcard semantics.
+(`= != >= <= > < :`), comma lists, `|` pipe boundaries (names **and**
+Tangut reference fields), and `|cc|` / `cc|` / `|cc` / `cc` wildcard
+semantics. Space-separated conditions (`a=1 b=2`) imply `AND`.
 
 ### Searchable properties
 
-| Property              | Key            | Status | Notes                             |
-| --------------------- | -------------- | ------ | --------------------------------- |
-| Character Name        | `name`         | ✅     | wildcards, `\|` boundaries        |
-| Formal Alias          | `formalalias`  | ✅     | from `NameAliases.txt`            |
-| Unicode 1.0           | `unicode1name` | ✅     | from `UnicodeData.txt`            |
-| All aliases           | `aliases`      | ✅     | name + uni1 + formal              |
-| Whole words           | `wholewords`   | ✅     | meta-flag                         |
-| General Category      | `gc`           | ✅     | Lu, Ll, Lo, ...                   |
-| Combining Class       | `ccc`          | ✅     | 0–240                             |
-| Bidi Class            | `bc`           | ✅     | L, R, AL, ...                     |
-| Bidi Mirrored         | `bm`           | ✅     | bool                              |
-| Decomposition Type    | `dt`           | ✅     | canonical, compat, ...            |
-| Numeric Type          | `nt`           | ✅     | Decimal, Digit, Numeric           |
-| Line Break            | `lb`           | ✅     | AK, AL, BB, ...                   |
-| Binary Property       | `binary`       | ✅     | Dash, Math, Emoji, ...            |
-| Script                | `script`       | ✅     | ISO 15924                         |
-| Block                 | `block`        | ✅     | name **or** CJK shortcut          |
-| Plane                 | `plane`        | ✅     | 0–16                              |
-| Unicode version / age | `unicode`      | ✅     | `>=6.0`, `=5.0`                   |
-| Exclude CJK UI        | `nocjkui`      | ✅     | bool                              |
-| Exclude PUA           | `nopua`        | ✅     | incl. SPUA                        |
-| IRG submitter         | `submitter`    | ✅     | G,H,J,K,KP,M,MY,SAT,SG,T,UK,UTC,V |
-| IRG source ref        | `ref`          | ✅     | `*G0-*`, `G0-`                    |
-| Exclude CJK Compat    | `nocomp`       | ✅     | bool                              |
+| Property              | Key              | Status | Notes                                   |
+| --------------------- | ---------------- | ------ | --------------------------------------- |
+| Character Name        | `name`           | ✅     | wildcards, `\|` boundaries              |
+| Formal Alias          | `formalalias`    | ✅     | from `NameAliases.txt`                  |
+| Unicode 1.0           | `unicode1name`   | ✅     | from `UnicodeData.txt`                  |
+| All aliases           | `aliases`        | ✅     | name + uni1 + formal                    |
+| Whole words           | `wholewords`     | ✅     | meta-flag                               |
+| General Category      | `gc`             | ✅     | Lu, Ll, Lo, ...                         |
+| Combining Class       | `ccc`            | ✅     | 0–240                                   |
+| Bidi Class            | `bc`             | ✅     | L, R, AL, ...                           |
+| Bidi Mirrored         | `bm`             | ✅     | bool                                    |
+| Decomposition Type    | `dt`             | ✅     | canonical, compat, ...                  |
+| Numeric Type          | `nt`             | ✅     | Decimal, Digit, Numeric                 |
+| Line Break            | `lb`             | ✅     | AK, AL, BB, ...                         |
+| Binary Property       | `binary`         | ✅     | Dash, Math, Emoji, ...                  |
+| Script                | `script`         | ✅     | ISO 15924                               |
+| Block                 | `block`          | ✅     | name **or** CJK shortcut                |
+| Plane                 | `plane`          | ✅     | 0–16                                    |
+| Unicode version / age | `unicode`        | ✅     | `>=6.0`, `=5.0`                         |
+| Exclude CJK UI        | `nocjkui`        | ✅     | bool                                    |
+| Exclude PUA           | `nopua`          | ✅     | incl. SPUA                              |
+| IRG submitter         | `submitter`      | ✅     | G,H,J,K,KP,M,MY,SAT,SG,T,UK,UTC,V       |
+| IRG source ref        | `ref`            | ✅     | `*G0-*`, `G0-`                          |
+| Exclude CJK Compat    | `nocomp`         | ✅     | bool                                    |
+| Pinyin                | `pinyin`         | ✅     | reading + optional tone 1–5 (a, a1)     |
+| Cantonese (Jyutping)  | `cantonese`      | ✅     | reading + optional tone 1–6 (aan, aan3) |
+| CJK radical           | `cjkradical`     | ✅     | radical number 1–214 (e.g. 154)         |
+| Residual stroke       | `residualstroke` | ✅     | CJK/Yi count; `= != > < >= <=`          |
+| Yi radical            | `yiradical`      | ✅     | Yi radical glyph (e.g. ꓆)              |
+| Li Fanwen 2008        | `lifanwen2008`   | ✅     | `\|22\|` exact / `22` contains          |
+| Li Fanwen 1997        | `lifanwen1997`   | ✅     | `\|22\|` exact / `22` contains          |
+| Kychanov 2006         | `kychanov2006`   | ✅     | `\|22\|` exact / `22` contains          |
+| Sofronov 1968         | `sofronov1968`   | ✅     | `\|22\|` exact / `22` contains          |
+| Nishida 1966          | `nishida1966`    | ✅     | `\|22\|` exact / `22` contains          |
 
 **CJK block shortcuts** for `block=`:
 `URO, A, B, C, D, E, F, G, H, I, Comp, CompSup`.
@@ -186,28 +197,25 @@ toggle). ✅ = handled in `App.onMenuAction()`, 🚫 = placeholder (no handler),
 
 > **Note:** _Advanced Character Search_ and _Han Ideograph Search_ need no
 > separate menu dialog — both are already implemented by the **Expression
-> Search** box in the bottom panel.
+> Search** box in the bottom panel. The same box also replaces the
+> Mandarin (Pinyin), Cantonese (Jyutping), Han Radical, Yi Radical and
+> Tangut References lookups via `pinyin=`, `cantonese=`, `cjkradical=`,
+> `residualstroke=`, `yiradical=` and the Tangut reference fields
+> (`lifanwen2008=`, `lifanwen1997=`, `kychanov2006=`, `sofronov1968=`,
+> `nishida1966=`).
 
-| Item                             | Keys      | Status | Notes                                            |
-| -------------------------------- | --------- | ------ | ------------------------------------------------ |
-| Unicode Versions...              | ---       | ✅     | history + per-version blocks                     |
-| Unicode Scripts...               | ---       | ✅     | per-script blocks (Show Blocks)                  |
-| Unicode Planes...                | ---       | ✅     | per-plane stats + blocks (Show Blocks)           |
-| Unicode Blocks...                | ---       | ✅     | latest blocks + assigned chars (Show Characters) |
-| Mandarin (Pinyin) Lookup...      | F12       | 🚫     |                                                  |
-| Cantonese (Jyutping) Lookup...   | Shift+F12 | 🚫     |                                                  |
-| Han Radical Lookup...            | F11       | 🚫     |                                                  |
-| Yi Radical Lookup...             | Shift+F11 | 🚫     |                                                  |
-| Tangut References Lookup...      | ---       | 🚫     |                                                  |
-| Emoji Lookup...                  | Shift+F8  | 🚫     |                                                  |
-| Character Properties...          | F9        | 🚫     |                                                  |
-| Extended Character Properties... | Shift+F9  | 🚫     |                                                  |
-| Ideographic Properties...        | Ctrl+F9   | 🚫     |                                                  |
-| Character History...             | ---       | 🚫     |                                                  |
-| Unicode Variation Sequences...   | ---       | 🚫     |                                                  |
-| Generate Core UCD Data...        | ---       | 🚫     |                                                  |
-| Generate Full UCD XML Data...    | ---       | 🚫     |                                                  |
-| OpenType Test Framework...       | ---       | 🚫     |                                                  |
+| Item                             | Keys     | Status | Notes                                                                                                                                                                                                 |
+| -------------------------------- | -------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unicode...                       | ---      | ✅     | unified window: version selector + Planes/Blocks/Scripts/Compare views + character grid (click → main grid)                                                                                           |
+| Emoji Lookup...                  | Shift+F8 | ✅     | Emojipedia-style: live search by name/keyword/codepoint; colored grid with CLDR names, groups & emoji version                                                                                         |
+| Character Properties...          | F9       | ✅     | C++-mirrored: summary bar + grouped Unicode properties (identity, block/script/version, general, decomposition/numeric, joining, case mappings, encodings) + Copy + per-version Character History tab |
+| Extended Character Properties... | Shift+F9 | 🚫     |                                                                                                                                                                                                       |
+| Ideographic Properties...        | Ctrl+F9  | 🚫     |                                                                                                                                                                                                       |
+| Character History...             | ---      | ✅     | inside Character Properties (F9 / double-click a cell)                                                                                                                                                |
+| Unicode Variation Sequences...   | ---      | 🚫     |                                                                                                                                                                                                       |
+| Generate Core UCD Data...        | ---      | 🚫     |                                                                                                                                                                                                       |
+| Generate Full UCD XML Data...    | ---      | 🚫     |                                                                                                                                                                                                       |
+| OpenType Test Framework...       | ---      | 🚫     |                                                                                                                                                                                                       |
 
 ### 4. Fonts --- ⚠️ partial
 

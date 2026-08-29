@@ -187,6 +187,76 @@ ADV_PROPS: list[dict[str, Any]] = [
         "values": ["True", "False"],
         "desc": "Exclude CJK Compatibility Ideographs",
     },
+    {
+        "key": "pinyin",
+        "label": "Pinyin",
+        "type": "text",
+        "alias": ["pyn"],
+        "desc": "Pinyin reading, optional tone digit 1-5 (e.g. a, a1, zhong4)",
+    },
+    {
+        "key": "cantonese",
+        "label": "Cantonese",
+        "type": "text",
+        "alias": ["jyutping"],
+        "desc": "Cantonese Jyutping reading, optional tone digit 1-6 (e.g. aan, aan3)",
+    },
+    {
+        "key": "cjkradical",
+        "label": "CJKRadical",
+        "type": "text",
+        "alias": ["cjk_radical", "radical"],
+        "desc": "CJK radical number 1-214 (e.g. 154)",
+    },
+    {
+        "key": "residualstroke",
+        "label": "ResidualStroke",
+        "type": "text",
+        "alias": ["residual_stroke", "residualstrokes"],
+        "desc": "Residual stroke count for CJK or Yi (ops =, !=, >, <, >=, <=)",
+    },
+    {
+        "key": "yiradical",
+        "label": "YiRadical",
+        "type": "text",
+        "alias": ["yi_radical"],
+        "desc": "Yi radical glyph (e.g. ꓆)",
+    },
+    {
+        "key": "lifanwen2008",
+        "label": "LiFanwen2008",
+        "type": "text",
+        "alias": ["lf2008", "lifanwen"],
+        "desc": "Li Fanwen 2008 number (|22|, 22, 22|)",
+    },
+    {
+        "key": "lifanwen1997",
+        "label": "LiFanwen1997",
+        "type": "text",
+        "alias": ["lf1997"],
+        "desc": "Li Fanwen 1997 number (|22|, 22, 22|)",
+    },
+    {
+        "key": "kychanov2006",
+        "label": "Kychanov2006",
+        "type": "text",
+        "alias": ["kychanov"],
+        "desc": "Kychanov 2006 number (|22|, 22, 22|)",
+    },
+    {
+        "key": "sofronov1968",
+        "label": "Sofronov1968",
+        "type": "text",
+        "alias": ["sofronov"],
+        "desc": "Sofronov 1968 number (|22|, 22, 22|)",
+    },
+    {
+        "key": "nishida1966",
+        "label": "Nishida1966",
+        "type": "text",
+        "alias": ["nishida"],
+        "desc": "Nishida 1966 reference (|22|, 22, 22|)",
+    },
 ]
 
 
@@ -211,7 +281,17 @@ def matching_properties(q: str) -> list[dict[str, Any]]:
 
 # ── Pipe boundary syntax ───────────────────────────────────────────
 
-_PIPE_FIELDS = {"name", "formalalias", "unicode1name", "aliases"}
+_PIPE_FIELDS = {
+    "name",
+    "formalalias",
+    "unicode1name",
+    "aliases",
+    "lifanwen2008",
+    "lifanwen1997",
+    "kychanov2006",
+    "sofronov1968",
+    "nishida1966",
+}
 
 
 def _convert_pipe_to_wildcard(val: str) -> tuple[str, bool]:
@@ -310,10 +390,10 @@ def _tokenize(q: str) -> list[Token]:
         if matched:
             continue
 
-        # Word: AND / OR / NOT (case-insensitive)
+        # Word: AND / OR / NOT (case-insensitive) or identifier
         if ch.isalpha():
             j = i
-            while j < n and q[j].isalpha():
+            while j < n and (q[j].isalpha() or q[j].isdigit() or q[j] == "_"):
                 j += 1
             word = q[i:j].upper()
             if word == "AND":
@@ -323,7 +403,7 @@ def _tokenize(q: str) -> list[Token]:
             elif word == "NOT":
                 tokens.append(Token(TokenType.NOT, word, i))
             else:
-                # It's an identifier (property key)
+                # It's an identifier (property key), e.g. lifanwen1997
                 tokens.append(Token(TokenType.IDENT, q[i:j], i))
             i = j
             continue
@@ -353,6 +433,10 @@ def _tokenize(q: str) -> list[Token]:
                 parts: list[str] = []
                 start_pos = tokens[k].pos
                 while k < m and tokens[k].type in (TokenType.IDENT, TokenType.VALUE):
+                    # An IDENT followed by an operator starts a NEW condition
+                    # (e.g. "cjkradical=154 residualstroke=14") — stop merging.
+                    if tokens[k].type == TokenType.IDENT and k + 1 < m and tokens[k + 1].type == TokenType.OP:
+                        break
                     parts.append(tokens[k].text)
                     k += 1
                 merged.append(Token(TokenType.VALUE, "".join(parts), start_pos))
@@ -457,11 +541,19 @@ class Parser:
             left = BinOp(left, "OR", right)
         return left
 
-    # ── and_expr = not_expr ("AND" not_expr)* ──
+    # ── and_expr = not_expr (("AND" | implicit) not_expr)* ──
+    # Implicit AND: consecutive space-separated conditions, e.g.
+    # "cjkradical=154 residualstroke=14" (the tokenizer merge already splits
+    # key=value pairs, so an IDENT/LPAREN/NOT here starts a new condition).
     def _parse_and(self) -> ASTNode:
         left = self._parse_not()
-        while self._cur.type == TokenType.AND:
-            self._advance()
+        while self._cur.type == TokenType.AND or self._cur.type in (
+            TokenType.IDENT,
+            TokenType.LPAREN,
+            TokenType.NOT,
+        ):
+            if self._cur.type == TokenType.AND:
+                self._advance()
             right = self._parse_not()
             left = BinOp(left, "AND", right)
         return left
@@ -608,6 +700,94 @@ def _match_val(val: str, target: str, wildcard: bool, whole_words: bool) -> bool
 
 def _match_multi(val: str, vals: list[str], target: str, wildcard: bool, whole_words: bool) -> bool:
     return any(_match_val(v, target, wildcard, whole_words) for v in vals)
+
+
+_TANGUT_FIELDS = {
+    "lifanwen2008",
+    "lifanwen1997",
+    "kychanov2006",
+    "sofronov1968",
+    "nishida1966",
+}
+
+
+def _tangut_ref(key: str, cp: int) -> str:
+    """Return the Tangut source reference string for a codepoint, or "" if none."""
+    from src.scripts.tangut import Tangut
+
+    if key == "lifanwen2008":
+        return Tangut.get_li_fanwen_number(cp)
+    if key == "lifanwen1997":
+        return Tangut.get_li_fanwen_1997_number(cp)
+    if key == "kychanov2006":
+        return Tangut.get_kychanov_number(cp)
+    if key == "sofronov1968":
+        return Tangut.get_sofronov_number(cp)
+    if key == "nishida1966":
+        return Tangut.get_nishida_reference(cp)
+    return ""
+
+
+def _match_tangut_val(val: str, ref: str, wildcard: bool) -> bool:
+    """Match a Tangut source reference (L2008-0022, K0022, S1100, 1-052).
+
+    Pipe syntax mirrors name fields:
+      22     → contains (becomes *22*)
+      |22|   → exact
+      |22    → starts-with
+      22|    → ends-with
+    Matches against the full reference and the digit-only form (so |22|
+    matches L2008-0022 / K0022 via the trimmed digit core "22").
+    """
+    ref_u = ref.upper()
+    v = val.upper()
+    # The reference NUMBER is the last run of digits (e.g. "0022" in
+    # "L2008-0022", "3698" in "K3698", "052" in "1-052").
+    runs = re.findall(r"\d+", ref)
+    digits = runs[-1] if runs else ""
+    trimmed = digits.lstrip("0") or "0"
+    if not wildcard:
+        return v in ref_u or (bool(digits) and v in digits)
+    candidates = {ref_u}
+    if digits:
+        candidates.add(digits)
+        candidates.add(trimmed)
+    return any(fnmatch.fnmatch(c, v) for c in candidates)
+
+
+def _parse_syllable(val: str, max_tone: int) -> tuple[str, int | None]:
+    """Split a reading value into (syllable, tone|None).
+
+    A trailing digit in 1..max_tone is treated as the tone; otherwise the
+    tone is unconstrained (any).
+    """
+    val = val.strip()
+    if val and val[-1].isdigit():
+        tone = int(val[-1])
+        if 1 <= tone <= max_tone:
+            return val[:-1], tone
+    return val, None
+
+
+def _match_readings(entries: list[tuple[str, int]], syllable: str, tone: int | None) -> bool:
+    """Return True if any (reading, tone) entry matches the syllable + optional tone."""
+    sl = syllable.lower()
+    for reading, t in entries:
+        if reading.lower() == sl and (tone is None or t == tone):
+            return True
+    return False
+
+
+def _cmp_int(a: int, op: str, b: int) -> bool:
+    if op == ">=":
+        return a >= b
+    if op == "<=":
+        return a <= b
+    if op == ">":
+        return a > b
+    if op == "<":
+        return a < b
+    return a == b
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -807,6 +987,79 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             want = vals[0].lower() in ("true", "1", "yes")
             is_pua = (0xE000 <= cp <= 0xF8FF) or (0xF0000 <= cp <= 0xFFFFD) or (0x100000 <= cp <= 0x10FFFD)
             m = (not is_pua) if want else True
+            return not m if negate else m
+
+        # ── Readings ──
+        if key == "pinyin":
+            from src.cjkv.pinyin import Pinyin
+
+            syllable, tone = _parse_syllable(val, 5)
+            m = _match_readings(Pinyin.get_readings(cp), syllable, tone)
+            return not m if negate else m
+
+        if key == "cantonese":
+            from src.cjkv.jyutping import Jyutping
+
+            syllable, tone = _parse_syllable(val, 6)
+            m = _match_readings(Jyutping.get_readings(cp), syllable, tone)
+            return not m if negate else m
+
+        # ── Radicals / strokes ──
+        if key == "cjkradical":
+            from src.cjkv.cjk import CJK
+
+            try:
+                rad = int(val)
+            except ValueError:
+                return negate
+            m = False
+            try:
+                rs = CJK(cp).primary_radical_stroke()
+                m = rs is not None and rs.radical.rad == rad
+            except Exception:
+                m = False
+            return not m if negate else m
+
+        if key == "residualstroke":
+            try:
+                n = int(val)
+            except ValueError:
+                return negate
+            strokes: list[int] | None = None
+            try:
+                from src.cjkv.cjk import CJK
+
+                rs = CJK(cp).primary_radical_stroke()
+                strokes = [rs.residual_stroke] if rs else None
+            except Exception:
+                strokes = None
+            if not strokes:
+                from src.scripts.yi import YiRadical
+
+                strokes = [s for (_, s) in YiRadical.get_radical_stroke(cp)]
+            if not strokes:
+                return negate
+            m = any(_cmp_int(st, op, n) for st in strokes)
+            return not m if negate else m
+
+        if key == "yiradical":
+            from src.scripts.yi import YiRadical
+
+            if len(val) == 1:
+                rn = YiRadical.radical_number_for_glyph(ord(val))
+            else:
+                rn = None
+            if rn is None:
+                return negate
+            m = any(r == rn for (r, _) in YiRadical.get_radical_stroke(cp))
+            return not m if negate else m
+
+        # ── Tangut sources ──
+        if key in _TANGUT_FIELDS:
+            ref = _tangut_ref(key, cp)
+            if not ref:
+                return negate
+            m = _match_tangut_val(val, ref, wildcard)
             return not m if negate else m
 
     except Exception:

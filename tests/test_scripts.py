@@ -408,6 +408,77 @@ class TestLiFanwen:
                 assert cp >= TANGUT_START
 
 
+# ═══════════════════  Tangut: Li Fanwen 1997  ═══════════════════
+
+
+class TestLiFanwen1997:
+    """Tests for the derived Li Fanwen 1997 numbers."""
+
+    def test_normal_char_falls_back_to_2008(self):
+        # 17D55 has 2008 number 22 and no distinct 1997 number (number1997
+        # is empty in the data) → 1997 matches 2008.
+        assert LiFanwen.get_number(0x17D55, True) == "L1997-0022"
+
+    def test_special_only_1997(self):
+        # These have NO 2008 entry but DO exist in the 1997 edition.
+        assert LiFanwen.get_number(0x1869E, True) == "L1997-5995"
+        assert LiFanwen.get_number(0x17872, True) == "L1997-5996"
+        assert LiFanwen.get_number(0x18148, True) == "L1997-5997"
+        assert LiFanwen.get_number(0x17917, True) == "L1997-5998"
+        assert LiFanwen.get_number(0x179C4, True) == "L1997-5999"
+        assert LiFanwen.get_number(0x17B70, True) == "L1997-6000"
+        # No 2008 entry for these.
+        assert LiFanwen.get_number(0x1869E) == ""
+
+    def test_swapped_numbers(self):
+        assert LiFanwen.get_number(0x17158) == "L2008-1914"
+        assert LiFanwen.get_number(0x17158, True) == "L1997-1913"
+        assert LiFanwen.get_number(0x171A4) == "L2008-1913"
+        assert LiFanwen.get_number(0x171A4, True) == "L1997-1914"
+        assert LiFanwen.get_number(0x1868E, True) == "L1997-4452"
+        assert LiFanwen.get_number(0x187CA, True) == "L1997-4453"
+
+    def test_excluded_over_5995(self):
+        # 2008 number 6000 has no 1997 entry.
+        assert LiFanwen.get_number(0x17102) == "L2008-6000"
+        assert LiFanwen.get_number(0x17102, True) == ""
+
+
+# ═══════════════════  Yi radical / stroke  ═══════════════════
+
+
+class TestYiRadical:
+    """Tests for Yi radical/stroke lookups (src/scripts/yi.py)."""
+
+    def test_get_radical_stroke(self):
+        from src.scripts.yi import YiRadical
+
+        # ꇭ U+A1ED → radical 26, residual stroke 2
+        assert YiRadical.get_radical_stroke(0xA1ED) == [(26, 2)]
+        # ꐭ U+A42D → radical 8, residual stroke 4
+        assert YiRadical.get_radical_stroke(0xA42D) == [(8, 4)]
+
+    def test_get_radical_stroke_missing(self):
+        from src.scripts.yi import YiRadical
+
+        assert YiRadical.get_radical_stroke(0x0041) == []
+
+    def test_radical_number_for_glyph(self):
+        from src.scripts.yi import YiRadical
+
+        # ꓆ U+A4C6 is radical number 26
+        assert YiRadical.radical_number_for_glyph(0xA4C6) == 26
+        assert YiRadical.radical_number_for_glyph(0x0041) is None
+
+    def test_radical_codepoint_roundtrip(self):
+        from src.scripts.yi import YiRadical
+
+        for n in range(1, 27):
+            glyph = YiRadical.get_radical_codepoint(n)
+            assert glyph != 0
+            assert YiRadical.radical_number_for_glyph(glyph) == n
+
+
 # ═══════════════════  Tangut: Kychanov  ═══════════════════
 
 
