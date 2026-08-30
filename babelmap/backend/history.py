@@ -169,6 +169,39 @@ def character_history(cp: int) -> dict:
     }
 
 
+def block_unicodedata(version: str, block_name: str) -> list[dict] | None:
+    """UnicodeData rows (codepoint + name + all UCD fields) for every assigned
+    character in one block of a Unicode version.  Returns None for an unknown
+    block.
+
+    Mirrors the per-character UCD fields used by the Character History dialog
+    (gc/ccc/bidi/decomp/dec/digit/num/mirrored/uni1/iso/up/lo/ti);
+    range-encoded characters (Hangul, CJK, …) fall back to the current
+    release's synthesized properties.
+    """
+    from babelmap.backend.version import assigned_codepoints_for, blocks_for_version
+
+    block = next((b for b in blocks_for_version(version) if b["name"] == block_name), None)
+    if block is None:
+        return None
+    cps = assigned_codepoints_for(version)
+    lo = bisect.bisect_left(cps, block["start"])
+    hi = bisect.bisect_right(cps, block["end"])
+    rows: list[dict] = []
+    for cp in cps[lo:hi]:
+        e = props_for_version(version, cp) or {}
+        if not e or e.get("name", "").startswith("<"):
+            e = _current_props(cp)
+        name = e.get("name", "")
+        if not name or name.startswith("<"):
+            name = Unicode.get_character_name(cp) or ""
+        r = {"codepoint": cp, "name": name}
+        for k in _FIELDS:
+            r[k] = e.get(k, "")
+        rows.append(r)
+    return rows
+
+
 @functools.lru_cache(maxsize=1)
 def _self_test() -> None:
     """Sanity checks mirroring known BabelMap cases."""

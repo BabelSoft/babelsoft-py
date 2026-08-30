@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "../icons/Icon.svelte";
   import { t } from "../i18n.svelte";
 
   interface Props {
@@ -16,7 +17,20 @@
     onRandom: () => void;
   }
 
-  let { maxScroll, scroll, onScrollInput, onPlaneStart, onPlaneEnd, onPrevBlock, onNextBlock, onPageUp, onPageDown, onRowStart, onRowEnd, onRandom }: Props = $props();
+  let {
+    maxScroll,
+    scroll,
+    onScrollInput,
+    onPlaneStart,
+    onPlaneEnd,
+    onPrevBlock,
+    onNextBlock,
+    onPageUp,
+    onPageDown,
+    onRowStart,
+    onRowEnd,
+    onRandom,
+  }: Props = $props();
 </script>
 
 <aside class="rn">
@@ -33,16 +47,35 @@
     />
   </div>
   <div class="nb">
-    <button onclick={onPlaneStart} title={t("nav.plane_start")}>⏮️</button>
-    <button onclick={onPlaneEnd} title={t("nav.plane_end")}>⏭️</button>
-    <button onclick={onPrevBlock} title={t("nav.prev_block")}>⏪</button>
-    <button onclick={onNextBlock} title={t("nav.next_block")}>⏩</button>
-    <button onclick={onPageUp} title={t("nav.page_up")}>⬆️</button>
-    <button onclick={onPageDown} title={t("nav.page_down")}>⬇️</button>
-    <button onclick={onRowStart} title={t("nav.row_start")}>⤒</button>
-    <button onclick={onRowEnd} title={t("nav.row_end")}>⤓</button>
-    <button title={t("nav.ivs")} disabled>〰️</button>
-    <button onclick={onRandom} title={t("nav.random")}>🎲</button>
+    <button onclick={onPlaneStart} title={t("nav.plane_start")}
+      ><Icon name="skip-start" size={16} /></button
+    >
+    <button onclick={onPlaneEnd} title={t("nav.plane_end")}
+      ><Icon name="skip-end" size={16} /></button
+    >
+    <button onclick={onPrevBlock} title={t("nav.prev_block")}
+      ><Icon name="rewind" size={16} /></button
+    >
+    <button onclick={onNextBlock} title={t("nav.next_block")}
+      ><Icon name="fast-forward" size={16} /></button
+    >
+    <button onclick={onPageUp} title={t("nav.page_up")}
+      ><Icon name="arrow-up" size={16} /></button
+    >
+    <button onclick={onPageDown} title={t("nav.page_down")}
+      ><Icon name="arrow-down" size={16} /></button
+    >
+    <button onclick={onRowStart} title={t("nav.row_start")}
+      ><Icon name="row-start" size={16} /></button
+    >
+    <button onclick={onRowEnd} title={t("nav.row_end")}
+      ><Icon name="row-end" size={16} /></button
+    >
+    <button title={t("nav.ivs")} disabled><Icon name="wavy" size={16} /></button
+    >
+    <button onclick={onRandom} title={t("nav.random")}
+      ><Icon name="dice" size={16} /></button
+    >
   </div>
 </aside>
 

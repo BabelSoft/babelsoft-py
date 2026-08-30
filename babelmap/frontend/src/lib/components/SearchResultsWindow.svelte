@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from "../icons/Icon.svelte";
+
   interface Props {
     results: { codepoint: number; name: string }[];
     idx: number;
@@ -11,7 +13,17 @@
     onLoadMore: () => void;
   }
 
-  let { results, idx, query, progress, show, loading, onResultClick, onClose, onLoadMore }: Props = $props();
+  let {
+    results,
+    idx,
+    query,
+    progress,
+    show,
+    loading,
+    onResultClick,
+    onClose,
+    onLoadMore,
+  }: Props = $props();
 
   // ── Scroll-to-bottom → load more ──
   let listEl = $state<HTMLDivElement>();
@@ -93,18 +105,31 @@
 </script>
 
 {#if show && results.length > 0}
-  <div class="srw" style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;" class:dragging class:resizing>
+  <div
+    class="srw"
+    style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;"
+    class:dragging
+    class:resizing
+  >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="srw-header" onmousedown={onDragStart}>
-      <span class="srw-title">{results.length} results — <code>{query}</code></span>
-      <button class="srw-close" onclick={onClose} title="Close">✕</button>
+      <span class="srw-title"
+        >{results.length} results — <code>{query}</code></span
+      >
+      <button class="srw-close" onclick={onClose} title="Close"
+        ><Icon name="close" size={14} /></button
+      >
     </div>
     <div class="srw-bar">
       <div class="srw-bar-fill" style="width:{progress}%"></div>
     </div>
     <div class="srw-list" bind:this={listEl} onscroll={onScroll}>
       {#each results as r, i}
-        <button class="srw-item" class:active={i === idx} onclick={() => onResultClick(r.codepoint)}>
+        <button
+          class="srw-item"
+          class:active={i === idx}
+          onclick={() => onResultClick(r.codepoint)}
+        >
           <span class="srw-cp"
             >U+{r.codepoint
               .toString(16)

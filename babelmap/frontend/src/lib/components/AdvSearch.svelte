@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "../icons/Icon.svelte";
   import { t } from "../i18n.svelte";
 
   interface Props {
@@ -9,7 +10,8 @@
     onSearchNext: () => void;
   }
 
-  let { sv, onSvChange, onSearch, onSearchPrev, onSearchNext }: Props = $props();
+  let { sv, onSvChange, onSearch, onSearchPrev, onSearchNext }: Props =
+    $props();
 
   let sugOpen = $state(false);
   let suggestions = $state<any[]>([]);
@@ -19,58 +21,291 @@
   // Static property list — no backend call needed.
   // Mirrors ADV_PROPS in backend/adv_search.py.
   const ALL_PROPS = [
-    { key: "name", label: "Name", type: "text", desc: "|cc starts, cc| ends, |cc| exact, cc contains" },
-    { key: "formalalias", label: "FormalAlias", type: "text", desc: "Formal name alias" },
-    { key: "unicode1name", label: "Unicode1Name", type: "text", desc: "Unicode 1.0 name" },
-    { key: "aliases", label: "Aliases", type: "text", desc: "All names & aliases" },
+    {
+      key: "name",
+      label: "Name",
+      type: "text",
+      desc: "|cc starts, cc| ends, |cc| exact, cc contains",
+    },
+    {
+      key: "formalalias",
+      label: "FormalAlias",
+      type: "text",
+      desc: "Formal name alias",
+    },
+    {
+      key: "unicode1name",
+      label: "Unicode1Name",
+      type: "text",
+      desc: "Unicode 1.0 name",
+    },
+    {
+      key: "aliases",
+      label: "Aliases",
+      type: "text",
+      desc: "All names & aliases",
+    },
     { key: "notes", label: "Notes", type: "text", desc: "Character notes" },
-    { key: "crossreferences", label: "CrossReferences", type: "text", desc: "Cross references" },
-    { key: "wholewords", label: "WholeWords", type: "bool", values: ["True", "False"], desc: "Whole word matching" },
+    {
+      key: "crossreferences",
+      label: "CrossReferences",
+      type: "text",
+      desc: "Cross references",
+    },
+    {
+      key: "wholewords",
+      label: "WholeWords",
+      type: "bool",
+      values: ["True", "False"],
+      desc: "Whole word matching",
+    },
     {
       key: "gc",
       label: "GeneralCategory",
       type: "enum",
-      values: ["Lu", "Ll", "Lt", "Lm", "Lo", "Mn", "Mc", "Me", "Nd", "Nl", "No", "Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po", "Sm", "Sc", "Sk", "So", "Zs", "Zl", "Zp", "Cc", "Cf", "Cs", "Co", "Cn"],
+      values: [
+        "Lu",
+        "Ll",
+        "Lt",
+        "Lm",
+        "Lo",
+        "Mn",
+        "Mc",
+        "Me",
+        "Nd",
+        "Nl",
+        "No",
+        "Pc",
+        "Pd",
+        "Ps",
+        "Pe",
+        "Pi",
+        "Pf",
+        "Po",
+        "Sm",
+        "Sc",
+        "Sk",
+        "So",
+        "Zs",
+        "Zl",
+        "Zp",
+        "Cc",
+        "Cf",
+        "Cs",
+        "Co",
+        "Cn",
+      ],
       desc: "",
     },
-    { key: "ccc", label: "CanonicalCombiningClass", type: "text", desc: "0-240" },
+    {
+      key: "ccc",
+      label: "CanonicalCombiningClass",
+      type: "text",
+      desc: "0-240",
+    },
     {
       key: "bc",
       label: "BidiClass",
       type: "enum",
-      values: ["L", "R", "AL", "EN", "ES", "ET", "AN", "CS", "NSM", "BN", "B", "S", "WS", "ON", "LRE", "LRO", "RLE", "RLO", "PDF", "LRI", "RLI", "FSI", "PDI"],
+      values: [
+        "L",
+        "R",
+        "AL",
+        "EN",
+        "ES",
+        "ET",
+        "AN",
+        "CS",
+        "NSM",
+        "BN",
+        "B",
+        "S",
+        "WS",
+        "ON",
+        "LRE",
+        "LRO",
+        "RLE",
+        "RLO",
+        "PDF",
+        "LRI",
+        "RLI",
+        "FSI",
+        "PDI",
+      ],
       desc: "",
     },
-    { key: "bm", label: "BidiMirrored", type: "bool", values: ["True", "False"], desc: "" },
-    { key: "dt", label: "DecompositionType", type: "text", desc: "canonical, compat, circle, font" },
-    { key: "nt", label: "NumericType", type: "text", desc: "Decimal, Digit, Numeric, None" },
+    {
+      key: "bm",
+      label: "BidiMirrored",
+      type: "bool",
+      values: ["True", "False"],
+      desc: "",
+    },
+    {
+      key: "dt",
+      label: "DecompositionType",
+      type: "text",
+      desc: "canonical, compat, circle, font",
+    },
+    {
+      key: "nt",
+      label: "NumericType",
+      type: "text",
+      desc: "Decimal, Digit, Numeric, None",
+    },
     { key: "lb", label: "LineBreak", type: "text", desc: "AK, AL, BB, BK" },
-    { key: "binary", label: "BinaryProperty", type: "text", desc: "Dash, Math, Emoji, ID_Start" },
+    {
+      key: "binary",
+      label: "BinaryProperty",
+      type: "text",
+      desc: "Dash, Math, Emoji, ID_Start",
+    },
     { key: "script", label: "Script", type: "text", desc: "Latn, Hani, Cyrl" },
-    { key: "block", label: "Block", type: "text", desc: "Block name or CJK shortcut (URO,A,B,…,Comp,CompSup)" },
-    { key: "plane", label: "Plane", type: "enum", values: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"], desc: "0-16" },
-    { key: "unicode", label: "Unicode", type: "version", desc: "5.0, >=5.0, <=5.0" },
-    { key: "nocjkui", label: "NoCJKUI", type: "bool", values: ["True", "False"], desc: "Exclude CJK UI" },
-    { key: "nopua", label: "NoPUA", type: "bool", values: ["True", "False"], desc: "Exclude PUA" },
-    { key: "nocomp", label: "NoCJKCompat", type: "bool", values: ["True", "False"], desc: "Exclude CJK Compatibility Ideographs" },
+    {
+      key: "block",
+      label: "Block",
+      type: "text",
+      desc: "Block name or CJK shortcut (URO,A,B,…,Comp,CompSup)",
+    },
+    {
+      key: "plane",
+      label: "Plane",
+      type: "enum",
+      values: [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+      ],
+      desc: "0-16",
+    },
+    {
+      key: "unicode",
+      label: "Unicode",
+      type: "version",
+      desc: "5.0, >=5.0, <=5.0",
+    },
+    {
+      key: "nocjkui",
+      label: "NoCJKUI",
+      type: "bool",
+      values: ["True", "False"],
+      desc: "Exclude CJK UI",
+    },
+    {
+      key: "nopua",
+      label: "NoPUA",
+      type: "bool",
+      values: ["True", "False"],
+      desc: "Exclude PUA",
+    },
+    {
+      key: "nocomp",
+      label: "NoCJKCompat",
+      type: "bool",
+      values: ["True", "False"],
+      desc: "Exclude CJK Compatibility Ideographs",
+    },
     {
       key: "submitter",
       label: "IRGSubmitter",
       type: "enum",
-      values: ["G", "H", "J", "K", "KP", "M", "MY", "SAT", "SG", "T", "UK", "UTC", "V"],
+      values: [
+        "G",
+        "H",
+        "J",
+        "K",
+        "KP",
+        "M",
+        "MY",
+        "SAT",
+        "SG",
+        "T",
+        "UK",
+        "UTC",
+        "V",
+      ],
       desc: "IRG source submitter",
     },
-    { key: "ref", label: "SourceRef", type: "text", desc: "IRG source reference (e.g. G0-, *G0-*, SAT-00061)" },
-    { key: "pinyin", label: "Pinyin", type: "text", desc: "Pinyin reading, optional tone 1-5 (a, a1, zhong4)" },
-    { key: "cantonese", label: "Cantonese", type: "text", desc: "Cantonese Jyutping, optional tone 1-6 (aan, aan3)" },
-    { key: "cjkradical", label: "CJKRadical", type: "text", desc: "CJK radical number 1-214 (e.g. 154)" },
-    { key: "residualstroke", label: "ResidualStroke", type: "text", desc: "Residual stroke count for CJK/Yi (=,!=,>,<,>=,<=)" },
-    { key: "yiradical", label: "YiRadical", type: "text", desc: "Yi radical glyph (e.g. ꓆)" },
-    { key: "lifanwen2008", label: "LiFanwen2008", type: "text", desc: "Li Fanwen 2008 number (|22|, 22, 22|)" },
-    { key: "lifanwen1997", label: "LiFanwen1997", type: "text", desc: "Li Fanwen 1997 number (|22|, 22, 22|)" },
-    { key: "kychanov2006", label: "Kychanov2006", type: "text", desc: "Kychanov 2006 number (|22|, 22, 22|)" },
-    { key: "sofronov1968", label: "Sofronov1968", type: "text", desc: "Sofronov 1968 number (|22|, 22, 22|)" },
-    { key: "nishida1966", label: "Nishida1966", type: "text", desc: "Nishida 1966 reference (|22|, 22, 22|)" },
+    {
+      key: "ref",
+      label: "SourceRef",
+      type: "text",
+      desc: "IRG source reference (e.g. G0-, *G0-*, SAT-00061)",
+    },
+    {
+      key: "pinyin",
+      label: "Pinyin",
+      type: "text",
+      desc: "Pinyin reading, optional tone 1-5 (a, a1, zhong4)",
+    },
+    {
+      key: "cantonese",
+      label: "Cantonese",
+      type: "text",
+      desc: "Cantonese Jyutping, optional tone 1-6 (aan, aan3)",
+    },
+    {
+      key: "cjkradical",
+      label: "CJKRadical",
+      type: "text",
+      desc: "CJK radical number 1-214 (e.g. 154)",
+    },
+    {
+      key: "residualstroke",
+      label: "ResidualStroke",
+      type: "text",
+      desc: "Residual stroke count for CJK/Yi (=,!=,>,<,>=,<=)",
+    },
+    {
+      key: "yiradical",
+      label: "YiRadical",
+      type: "text",
+      desc: "Yi radical glyph (e.g. ꓆)",
+    },
+    {
+      key: "lifanwen2008",
+      label: "LiFanwen2008",
+      type: "text",
+      desc: "Li Fanwen 2008 number (|22|, 22, 22|)",
+    },
+    {
+      key: "lifanwen1997",
+      label: "LiFanwen1997",
+      type: "text",
+      desc: "Li Fanwen 1997 number (|22|, 22, 22|)",
+    },
+    {
+      key: "kychanov2006",
+      label: "Kychanov2006",
+      type: "text",
+      desc: "Kychanov 2006 number (|22|, 22, 22|)",
+    },
+    {
+      key: "sofronov1968",
+      label: "Sofronov1968",
+      type: "text",
+      desc: "Sofronov 1968 number (|22|, 22, 22|)",
+    },
+    {
+      key: "nishida1966",
+      label: "Nishida1966",
+      type: "text",
+      desc: "Nishida 1966 reference (|22|, 22, 22|)",
+    },
   ];
 
   function fetchSuggestions(q: string) {
@@ -82,7 +317,9 @@
     _sugQuery = q;
     const qu = q.toLowerCase();
     // Property suggestions
-    const props = ALL_PROPS.filter((p) => p.key.includes(qu) || p.label.toLowerCase().includes(qu)).map((p) => ({
+    const props = ALL_PROPS.filter(
+      (p) => p.key.includes(qu) || p.label.toLowerCase().includes(qu),
+    ).map((p) => ({
       key: p.key,
       label: p.label,
       type: p.type,
@@ -91,9 +328,27 @@
     }));
     // Operator suggestions
     const ops = [
-      { key: " AND ", label: "AND", type: "op", values: undefined, desc: "Logical AND" },
-      { key: " OR ", label: "OR", type: "op", values: undefined, desc: "Logical OR" },
-      { key: " NOT ", label: "NOT", type: "op", values: undefined, desc: "Logical NOT" },
+      {
+        key: " AND ",
+        label: "AND",
+        type: "op",
+        values: undefined,
+        desc: "Logical AND",
+      },
+      {
+        key: " OR ",
+        label: "OR",
+        type: "op",
+        values: undefined,
+        desc: "Logical OR",
+      },
+      {
+        key: " NOT ",
+        label: "NOT",
+        type: "op",
+        values: undefined,
+        desc: "Logical NOT",
+      },
     ].filter((o) => o.label.toLowerCase().includes(qu));
     suggestions = [...props, ...ops];
     sugOpen = suggestions.length > 0;
@@ -104,7 +359,14 @@
     onSvChange(v);
     const words = v.split(/\s+/);
     const last = words[words.length - 1];
-    if (last && !last.includes("=") && !last.includes(":") && !last.includes("!") && !last.includes(">") && !last.includes("<")) {
+    if (
+      last &&
+      !last.includes("=") &&
+      !last.includes(":") &&
+      !last.includes("!") &&
+      !last.includes(">") &&
+      !last.includes("<")
+    ) {
       fetchSuggestions(last);
     } else {
       sugOpen = false;
@@ -115,7 +377,9 @@
     if (idx < 0 || idx >= suggestions.length) return;
     const s = suggestions[idx];
     const suffix = s.type === "op" ? s.key : s.key + "=";
-    const v = sv.endsWith(_sugQuery) ? sv.slice(0, -_sugQuery.length) + suffix : sv + " " + suffix;
+    const v = sv.endsWith(_sugQuery)
+      ? sv.slice(0, -_sugQuery.length) + suffix
+      : sv + " " + suffix;
     onSvChange(v);
     suggestions = [];
     sugOpen = false;
@@ -158,15 +422,27 @@
         }, 200)}
       placeholder={t("bottom.search_name") + "  e.g. gc=Lu AND script=Latin"}
     />
-    <button class="adv-btn" onclick={onSearchPrev} title={t("find.search_prev")}>⬅</button>
-    <button class="adv-btn" onclick={onSearchNext} title={t("find.search_next")}>➡</button>
+    <button class="adv-btn" onclick={onSearchPrev} title={t("find.search_prev")}
+      ><Icon name="chevron-left" size={14} /></button
+    >
+    <button class="adv-btn" onclick={onSearchNext} title={t("find.search_next")}
+      ><Icon name="chevron-right" size={14} /></button
+    >
     {#if sugOpen && suggestions.length > 0}
       <div class="adv-sug">
         {#each suggestions as s, i}
-          <button class="adv-sug-item" class:active={i === sugIdx} onclick={() => pickSug(i)} onmousedown={(e) => e.preventDefault()}>
+          <button
+            class="adv-sug-item"
+            class:active={i === sugIdx}
+            onclick={() => pickSug(i)}
+            onmousedown={(e) => e.preventDefault()}
+          >
             <span class="sug-key">{s.key}</span>
             <span class="sug-label">{s.label}</span>
-            <span class="sug-desc">{s.desc || (s.values ? s.values.slice(0, 5).join(", ") + "…" : "")}</span>
+            <span class="sug-desc"
+              >{s.desc ||
+                (s.values ? s.values.slice(0, 5).join(", ") + "…" : "")}</span
+            >
           </button>
         {/each}
       </div>

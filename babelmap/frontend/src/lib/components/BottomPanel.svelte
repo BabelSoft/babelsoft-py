@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "../icons/Icon.svelte";
   import { t } from "../i18n.svelte";
   import type { BlockInfo } from "../types";
   import AdvSearch from "./AdvSearch.svelte";
@@ -118,14 +119,23 @@
       >
         <!-- trigger -->
         <button class="block-sel-trig" onclick={toggleOpen} onblur={onBlur}>
-          <span class="block-sel-label">{sblock || t("bottom.select_block")}</span>
-          <span class="block-sel-arrow" class:open>▾</span>
+          <span class="block-sel-label"
+            >{sblock || t("bottom.select_block")}</span
+          >
+          <span class="block-sel-arrow" class:open
+            ><Icon name="chevron-down" size={12} /></span
+          >
         </button>
         <!-- dropdown -->
         {#if open}
           <div class="block-sel-dd" bind:this={ddEl}>
             {#each blocks as b}
-              <button class="block-sel-opt" class:active={b.name === sblock} onclick={() => pick(b.name)} title={b.name}>
+              <button
+                class="block-sel-opt"
+                class:active={b.name === sblock}
+                onclick={() => pick(b.name)}
+                title={b.name}
+              >
                 {b.name}
               </button>
             {/each}
@@ -160,11 +170,24 @@
     onLoadMore={onLoadMoreResults}
   />
   <div class="br2">
-    <label class="rd"><input type="radio" name="fm" checked /> {t("font.composite_font")}</label>
+    <label class="rd"
+      ><input type="radio" name="fm" checked />
+      {t("font.composite_font")}</label
+    >
     <button class="sb">{t("font.configure")}</button>
-    <label class="rd"><input type="radio" name="fm" /> {t("font.single_font")}</label>
+    <label class="rd"
+      ><input type="radio" name="fm" /> {t("font.single_font")}</label
+    >
     <select class="fsel"><option>Arial</option></select>
-    <input type="number" class="fsz" value={fsize} min="8" max="72" onchange={(e) => onFontSizeChange(parseInt((e.target as HTMLInputElement).value) || 16)} />
+    <input
+      type="number"
+      class="fsz"
+      value={fsize}
+      min="8"
+      max="72"
+      onchange={(e) =>
+        onFontSizeChange(parseInt((e.target as HTMLInputElement).value) || 16)}
+    />
     <button class="sb" style="margin-left:auto">{t("font.show")}</button>
   </div>
   <fieldset class="eb">
@@ -180,22 +203,43 @@
     <div class="ebc">
       <div class="ebr">
         <label class="rd">
-          <input type="radio" name="rdr" checked={glyph} onchange={() => onGlyphToggle(true)} />
+          <input
+            type="radio"
+            name="rdr"
+            checked={glyph}
+            onchange={() => onGlyphToggle(true)}
+          />
           {t("bottom.glyph")}
         </label>
         <label class="rd">
-          <input type="radio" name="rdr" checked={!glyph} onchange={() => onGlyphToggle(false)} />
+          <input
+            type="radio"
+            name="rdr"
+            checked={!glyph}
+            onchange={() => onGlyphToggle(false)}
+          />
           {t("bottom.text")}
         </label>
         <label class="ck">
-          <input type="checkbox" checked={colour} onchange={(e) => onColourToggle((e.target as HTMLInputElement).checked)} />
+          <input
+            type="checkbox"
+            checked={colour}
+            onchange={(e) =>
+              onColourToggle((e.target as HTMLInputElement).checked)}
+          />
           {t("bottom.colour")}
         </label>
       </div>
       <div class="ebr">
         {#each [{ l: t("edit.char"), v: "char" }, { l: t("edit.ncr_hex"), v: "ncr_hex" }, { l: t("edit.ncr_dec"), v: "ncr_dec" }, { l: t("edit.html"), v: "html" }, { l: t("edit.ucn"), v: "ucn" }] as m}
           <label class="rd">
-            <input type="radio" name="em" value={m.v} checked={mode === m.v} onchange={() => onModeChange(m.v)} />
+            <input
+              type="radio"
+              name="em"
+              value={m.v}
+              checked={mode === m.v}
+              onchange={() => onModeChange(m.v)}
+            />
             {m.l}
           </label>
         {/each}

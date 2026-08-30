@@ -181,7 +181,8 @@ class TestCJK:
         assert src.bit == 0x0001
         assert src.field == "kIRG_GSource"
         assert SrcRef.IRGSrc.by_code("SG").name == "SINGAPORE"
-        assert len(SrcRef.IRGSrc.all()) == 12
+        assert SrcRef.IRGSrc.by_code("MY").display == "Malaysia"
+        assert len(SrcRef.IRGSrc.all()) == 13
 
     def test_irg_matches_sg(self):
         # A Singapore source: GS- ref under kIRG_GSource → codes ['G'], refs ['GS-xxxxx']

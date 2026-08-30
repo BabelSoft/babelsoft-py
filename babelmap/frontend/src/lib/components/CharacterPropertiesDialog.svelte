@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from "../icons/Icon.svelte";
+
   // Character Properties + Character History.
   // Shows the current UCD properties of a character and how its codepoint/name
   // changed across Unicode versions (early characters moved codepoints — the
@@ -36,7 +38,20 @@
   }
 
   // UCD property columns (after Version / Code Point / Name), UnicodeData order.
-  const PROP_COLS = ["gc", "ccc", "bidi", "decomp", "dec", "digit", "num", "mirrored", "uni1", "iso", "up", "lo", "ti"];
+  const PROP_COLS = [
+    "gc",
+    "ccc",
+    "bidi",
+    "decomp",
+    "dec",
+    "digit",
+    "num",
+    "mirrored",
+    "iso",
+    "up",
+    "lo",
+    "ti",
+  ];
   // Headers match the C++ Unicode::UCDFields labels (c/Unicode/Properties.h).
   const HEAD_COLS = [
     "Version",
@@ -50,7 +65,6 @@
     "Numeric Value (2)",
     "Numeric Value (3)",
     "Bidi Mirrored",
-    "Unicode 1.0 Name",
     "ISO Comment",
     "Upper Case Mapping",
     "Lower Case Mapping",
@@ -64,9 +78,10 @@
       "Identity",
       [
         ["name", "Name"],
+        ["formal_aliases", "Formal Alias"],
+        ["abbreviation", "Abbreviation"],
         ["unicode1_name", "Unicode 1.0 Name"],
         ["unicode1_codepoint", "Unicode 1.0 Code Point", true],
-        ["formal_aliases", "Formal Aliases"],
       ],
     ],
     [
@@ -74,7 +89,7 @@
       [
         ["block", "Block"],
         ["script", "Script"],
-        ["age", "Unicode Version"],
+        ["introduced", "Introduced in Version"],
         ["east_asian_width", "East Asian Width"],
       ],
     ],
@@ -113,13 +128,6 @@
       ],
     ],
     [
-      "CJK",
-      [
-        ["pinyin", "Pinyin"],
-        ["radical_stroke", "Radical/Stroke"],
-      ],
-    ],
-    [
       "Encodings",
       [
         ["utf8", "UTF-8", true],
@@ -129,17 +137,171 @@
     ],
   ];
 
+  // Joining Type short char (enum name) -> full name — matches the C++ build
+  // which displays "T (Transparent)" etc.
+  const JOINING_TYPE_NAMES: Record<string, string> = {
+    U: "Non Joining",
+    C: "Join Causing",
+    D: "Dual Joining",
+    L: "Left Joining",
+    R: "Right Joining",
+    T: "Transparent",
+  };
+
+  // "short code [long description]" maps — labels match the C++ build
+  // (c/Unicode/Properties.h StrGeneralCategory / StrBidiClass / StrLineBreak /
+  // StrCanonicalCombiningClass).
+  const GC_LONG: Record<string, string> = {
+    Lu: "Letter, Uppercase",
+    Ll: "Letter, Lowercase",
+    Lt: "Letter, Titlecase",
+    Lm: "Letter, Modifier",
+    Lo: "Letter, Other",
+    Mn: "Mark, Non-Spacing",
+    Mc: "Mark, Spacing Combining",
+    Me: "Mark, Enclosing",
+    Nd: "Number, Decimal",
+    Nl: "Number, Letter",
+    No: "Number, Other",
+    Pc: "Punctuation, Connector",
+    Pd: "Punctuation, Dash",
+    Ps: "Punctuation, Open",
+    Pe: "Punctuation, Close",
+    Pi: "Punctuation, Initial quote",
+    Pf: "Punctuation, Final quote",
+    Po: "Punctuation, Other",
+    Sm: "Symbol, Math",
+    Sc: "Symbol, Currency",
+    Sk: "Symbol, Modifier",
+    So: "Symbol, Other",
+    Zs: "Separator, Space",
+    Zl: "Separator, Line",
+    Zp: "Separator, Paragraph",
+    Cc: "Other, Control",
+    Cf: "Other, Format",
+    Cs: "Other, Surrogate",
+    Co: "Other, Private Use",
+    Cn: "Other, Not Assigned",
+  };
+  const BIDI_LONG: Record<string, string> = {
+    L: "Left-to-Right",
+    LRE: "Left-to-Right Embedding",
+    LRO: "Left-to-Right Override",
+    R: "Right-to-Left",
+    AL: "Right-to-Left Arabic",
+    RLE: "Right-to-Left Embedding",
+    RLO: "Right-to-Left Override",
+    PDF: "Pop Directional Format",
+    EN: "European Number",
+    ES: "European Number Separator",
+    ET: "European Number Terminator",
+    AN: "Arabic Number",
+    CS: "Common Number Separator",
+    NSM: "Non-Spacing Mark",
+    BN: "Boundary Neutral",
+    B: "Paragraph Separator",
+    S: "Segment Separator",
+    WS: "Whitespace",
+    ON: "Other Neutrals",
+    LRI: "Left-To-Right Isolate",
+    RLI: "Right-To-Left Isolate",
+    FSI: "First Strong Isolate",
+    PDI: "Pop Directional Isolate",
+  };
+  const LB_LONG: Record<string, string> = {
+    BK: "Mandatory Break",
+    CR: "Carriage Return",
+    LF: "Line Feed",
+    CM: "Attached Characters and Combining Marks",
+    NL: "Next Line",
+    SG: "Surrogates",
+    WJ: "Word Joiner",
+    ZW: "Zero Width Space",
+    GL: 'Non-breaking ("Glue")',
+    CB: "Contingent Break Opportunity",
+    SP: "Space",
+    B2: "Break Opportunity Before and After",
+    BA: "Break Opportunity After",
+    BB: "Break Opportunity Before",
+    HY: "Hyphen",
+    CL: "Closing Punctuation",
+    CP: "Closing Parenthesis",
+    EX: "Exclamation/Interrogation",
+    IN: "Inseparable",
+    NS: "Non Starter",
+    OP: "Opening Punctuation",
+    QU: "Ambiguous Quotation",
+    IS: "Infix Separator (Numeric)",
+    NU: "Numeric",
+    PO: "Postfix (Numeric)",
+    PR: "Prefix (Numeric)",
+    SY: "Symbols Allowing Breaks",
+    AI: "Ambiguous (Alphabetic or Ideographic)",
+    AL: "Ordinary Alphabetic and Symbol Characters",
+    H2: "Hangul LV Syllable",
+    H3: "Hangul LVT Syllable",
+    ID: "Ideographic",
+    JL: "Hangul L Jamo",
+    JV: "Hangul J Jamo",
+    JT: "Hangul T Jamo",
+    SA: "Complex Context (South East Asian)",
+    XX: "Unknown",
+    HL: "Hebrew Letter",
+    CJ: "Conditional Japanese Starter",
+    RI: "Regional Indicator",
+    ZWJ: "Zero Width Joiner",
+    EB: "Emoji Base",
+    EM: "Emoji Modifier",
+  };
+  const CCC_LONG: Record<string, string> = {
+    "0": "Not Reordered",
+    "1": "Overlay",
+    "6": "Han Reading",
+    "7": "Nukta",
+    "8": "Kana Voicing",
+    "9": "Virama",
+    "200": "Attached Below Left",
+    "202": "Attached Below",
+    "204": "Attached Bottom Right",
+    "208": "Attached Left",
+    "210": "Attached Right",
+    "212": "Attached Top Left",
+    "214": "Attached Above",
+    "216": "Attached Above Right",
+    "218": "Below Left",
+    "220": "Below",
+    "222": "Below Right",
+    "224": "Left",
+    "226": "Right",
+    "228": "Above Left",
+    "230": "Above",
+    "232": "Above Right",
+    "233": "Double Below",
+    "234": "Double Above",
+    "240": "Iota Subscript",
+  };
+
   let info = $state<Record<string, any> | null>(null);
   let rows = $state<HistRow[]>([]);
   let loading = $state(false);
   let err = $state("");
-  let view = $state<"props" | "history">("props");
+  let view = $state<"props" | "extended" | "ideographic" | "history">("props");
 
   // ── Drag / position state ──
   let x = $state(240);
   let y = $state(120);
-  let w = $state(Math.min(880, (typeof window !== "undefined" ? window.innerWidth : 880) - 32));
-  let h = $state(Math.min(660, (typeof window !== "undefined" ? window.innerHeight : 660) - 40));
+  let w = $state(
+    Math.min(
+      880,
+      (typeof window !== "undefined" ? window.innerWidth : 880) - 32,
+    ),
+  );
+  let h = $state(
+    Math.min(
+      660,
+      (typeof window !== "undefined" ? window.innerHeight : 660) - 40,
+    ),
+  );
   let dragging = $state(false);
   let dragStartX = $state(0);
   let dragStartY = $state(0);
@@ -237,12 +399,35 @@
 
   // ── property value formatting ──
   function val(key: string): string {
+    if (key === "introduced") {
+      // Introduced version is computed from the character history (the first
+      // version where this codepoint was present), e.g. "1.0.0 (October 1991)".
+      return firstPresent
+        ? `${firstPresent.version} (${firstPresent.date})`
+        : "";
+    }
     if (!info) return "";
     const v = (info as any)[key];
-    if (v === undefined || v === null || v === "") return "";
+    if (v === undefined || v === null || v === "") {
+      // C++ always shows the Joining Group row ("No Joining Group" when none).
+      if (key === "joining_group") return "No Joining Group";
+      return "";
+    }
     if (Array.isArray(v)) return v.join(", ");
     if (key === "unicode1_codepoint") return uhex(v);
     if (key.startsWith("simple_")) return "U+" + v;
+    if (key === "joining_type" && JOINING_TYPE_NAMES[v]) {
+      return `${v} (${JOINING_TYPE_NAMES[v]})`;
+    }
+    if (key === "general_category" && GC_LONG[v]) return `${v} [${GC_LONG[v]}]`;
+    if (key === "bidi_class" && BIDI_LONG[v]) return `${v} [${BIDI_LONG[v]}]`;
+    if (key === "line_break" && LB_LONG[v]) return `${v} [${LB_LONG[v]}]`;
+    if (key === "canonical_combining_class" && CCC_LONG[v]) {
+      return `${v} [${CCC_LONG[v]}]`;
+    }
+    if (key === "bidi_mirrored") {
+      return v === "Y" ? "Yes" : v === "N" ? "No" : String(v);
+    }
     if (key === "decomposition_type" && v === "None_") return "";
     if (key === "numeric_type" && v === "None") return "";
     return String(v);
@@ -251,8 +436,16 @@
     return val(key) !== "";
   }
 
-  const nameslistHas = $derived(!!info?.nameslist && (info.nameslist.aliases?.length || info.nameslist.notes?.length || info.nameslist.xrefs?.length));
-  const stdVarCount = $derived((info?.standardized_variants?.length || 0) + (info?.emoji_variants?.length || 0));
+  const nameslistHas = $derived(
+    !!info?.nameslist &&
+      (info.nameslist.aliases?.length ||
+        info.nameslist.notes?.length ||
+        info.nameslist.xrefs?.length),
+  );
+  const stdVarCount = $derived(
+    (info?.standardized_variants?.length || 0) +
+      (info?.emoji_variants?.length || 0),
+  );
   function vsIndex(vs: number): number {
     if (vs >= 0xfe00 && vs <= 0xfe0f) return vs - 0xfe00 + 1; // VS1..VS16
     if (vs >= 0xe0100 && vs <= 0xe01ef) return vs - 0xe0100 + 17; // VS17..VS256
@@ -265,14 +458,17 @@
   // ── Copy properties as text (mirrors C++ CopyProperties) ──
   async function copyProps() {
     if (!info) return;
-    const lines: string[] = [`Character Properties for ${uhex(cp)} — ${info.name ?? ""}`];
+    const lines: string[] = [
+      `Character Properties for ${uhex(cp)} — ${info.name ?? ""}`,
+    ];
     for (const [title, props] of PROPS) {
       const filled = props.filter((r) => nonEmpty(r[0]));
       if (!filled.length) continue;
       lines.push(`[${title}]`);
       for (const [k, label] of filled) lines.push(`  ${label}: ${val(k)}`);
     }
-    if (info.binary_properties?.length) lines.push("[Binary Properties]\n  " + info.binary_properties.join(", "));
+    if (info.binary_properties?.length)
+      lines.push("[Binary Properties]\n  " + info.binary_properties.join(", "));
     if (nameslistHas) {
       lines.push("[Notes, Aliases & Cross-References]");
       for (const a of info.nameslist?.aliases ?? []) lines.push(`  = ${a}`);
@@ -281,16 +477,20 @@
     }
     if (info.standardized_variants?.length) {
       lines.push("[Standardized Variation Sequences]");
-      for (const [vs, desc] of info.standardized_variants) lines.push(`  VS${vsIndex(vs)} <${uhex(cp)} ${uhex(vs)}> = ${desc}`);
+      for (const [vs, desc] of info.standardized_variants)
+        lines.push(`  VS${vsIndex(vs)} <${uhex(cp)} ${uhex(vs)}> = ${desc}`);
     }
     if (info.named_sequences?.length) {
       lines.push("[Named Sequences]");
-      for (const [name, cps] of info.named_sequences) lines.push(`  ${name}; ${hexSeq(cps)}`);
+      for (const [name, cps] of info.named_sequences)
+        lines.push(`  ${name}; ${hexSeq(cps)}`);
     }
     if (rows.length) {
       lines.push("[Character History]");
       for (const r of rows) {
-        lines.push(`  ${r.version} ${r.present && r.codepoint != null ? uhex(r.codepoint) : "—"} ${r.name}`);
+        lines.push(
+          `  ${r.version} ${r.present && r.codepoint != null ? uhex(r.codepoint) : "—"} ${r.name}`,
+        );
       }
     }
     try {
@@ -308,15 +508,26 @@
 <svelte:window onkeydown={onKey} />
 
 {#if show}
-  <div class="cpd" class:dragging class:resizing style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;">
+  <div
+    class="cpd"
+    class:dragging
+    class:resizing
+    style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;"
+  >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="cpd-header" onmousedown={onDragStart}>
-      <span class="cpd-title">Character Properties — {info?.name || uhex(cp)}</span>
+      <span class="cpd-title"
+        >Character Properties — {info?.name || uhex(cp)}</span
+      >
       {#if movedCount > 0}
         <span class="cpd-moved">moved {movedCount}×</span>
       {/if}
-      <button class="cpd-copy" onclick={copyProps} title="Copy properties">⧉</button>
-      <button class="cpd-close" onclick={onClose} title="Close">✕</button>
+      <button class="cpd-copy" onclick={copyProps} title="Copy properties"
+        ><Icon name="copy" size={14} /></button
+      >
+      <button class="cpd-close" onclick={onClose} title="Close"
+        ><Icon name="close" size={14} /></button
+      >
     </div>
 
     <div class="cpd-body">
@@ -332,95 +543,316 @@
               <span class="mono cpd-cp">{uhex(cp)}</span>
               {#if info?.block}<span class="cpd-chip">{info.block}</span>{/if}
               {#if info?.script}<span class="cpd-chip">{info.script}</span>{/if}
-              {#if info?.age}<span class="cpd-chip">Unicode {info.age}</span>{/if}
+              {#if firstPresent}<span class="cpd-chip"
+                  >Unicode {firstPresent.version}</span
+                >{/if}
             </div>
           </div>
         </div>
 
         <!-- tabs -->
         <div class="cpd-tabs">
-          <button class:on={view === "props"} onclick={() => (view = "props")}>Unicode Properties</button>
-          <button class:on={view === "history"} onclick={() => (view = "history")}>Character History ({rows.length})</button>
+          <button class:on={view === "props"} onclick={() => (view = "props")}
+            >Unicode Properties</button
+          >
+          <button
+            class:on={view === "extended"}
+            onclick={() => (view = "extended")}>Extended Properties</button
+          >
+          {#if info?.ideographic && Object.keys(info.ideographic).length}
+            <button
+              class:on={view === "ideographic"}
+              onclick={() => (view = "ideographic")}
+              >Ideographic Properties</button
+            >
+          {/if}
+          <button
+            class:on={view === "history"}
+            onclick={() => (view = "history")}
+            >Character History ({rows.length})</button
+          >
         </div>
 
         {#if view === "props"}
           <div class="cpd-props">
-            {#each PROPS as [title, props]}
-              {#if props.some((r) => nonEmpty(r[0]))}
-                <div class="cpd-sec">
-                  <div class="cpd-sec-title">{title}</div>
-                  <table class="cpd-ptable">
-                    <tbody>
-                      {#each props as r}
-                        {#if nonEmpty(r[0])}
-                          <tr>
+            <div class="cpd-cols">
+              <div class="cpd-col">
+                {#each PROPS as [title, props]}
+                  <div class="cpd-sec">
+                    <div class="cpd-sec-title">{title}</div>
+                    <table class="cpd-ptable">
+                      <tbody>
+                        {#each props as r}
+                          <tr class:empty={!nonEmpty(r[0])}>
                             <td class="cpd-k">{r[1]}</td>
-                            <td class:mono={r[2]}>{val(r[0])}</td>
+                            <td class="mono">{val(r[0])}</td>
                           </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                {/each}
+              </div>
+
+              <div class="cpd-col">
+                {#if nameslistHas}
+                  <div class="cpd-sec">
+                    <div class="cpd-sec-title">
+                      Notes, Aliases &amp; Cross-References
+                    </div>
+                    <table class="cpd-ptable">
+                      <tbody>
+                        {#each info!.nameslist.aliases as a}<tr
+                            ><td class="cpd-k mono">=</td><td class="mono"
+                              >{a}</td
+                            ></tr
+                          >{/each}
+                        {#each info!.nameslist.notes as n}<tr
+                            ><td class="cpd-k mono">*</td><td
+                              class="mono cpd-wrap">{n}</td
+                            ></tr
+                          >{/each}
+                        {#each info!.nameslist.xrefs as x}<tr
+                            ><td class="cpd-k mono">x</td><td class="mono"
+                              >{x}</td
+                            ></tr
+                          >{/each}
+                      </tbody>
+                    </table>
+                  </div>
+                {/if}
+
+                {#if info?.binary_properties?.length}
+                  <div class="cpd-sec">
+                    <div class="cpd-sec-title">Binary Properties</div>
+                    <div class="cpd-bins">
+                      {#each info.binary_properties as bp}<span class="cpd-bin"
+                          >{bp}</span
+                        >{/each}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if stdVarCount > 0}
+                  <div class="cpd-sec">
+                    <div class="cpd-sec-title">
+                      Standardized Variation Sequences
+                    </div>
+                    <table class="cpd-ptable">
+                      <tbody>
+                        {#each info!.standardized_variants as [vs, desc]}
+                          <tr>
+                            <td class="cpd-k cpd-vs"
+                              >{glyph}{String.fromCodePoint(vs)}</td
+                            >
+                            <td>
+                              <div class="cpd-vs-t">
+                                <span class="cpd-vs-n">VS{vsIndex(vs)}</span
+                                ><span class="mono cpd-vs-s"
+                                  >{uhex(cp)} {uhex(vs)}</span
+                                >
+                              </div>
+                              <div class="cpd-vs-b cpd-wrap">{desc}</div>
+                            </td>
+                          </tr>
+                        {/each}
+                        {#each info!.emoji_variants as [vs, style]}
+                          <tr>
+                            <td class="cpd-k cpd-vs"
+                              >{glyph}{String.fromCodePoint(vs)}</td
+                            >
+                            <td>
+                              <div class="cpd-vs-t">
+                                <span class="cpd-vs-n">VS{vsIndex(vs)}</span
+                                ><span class="mono cpd-vs-s"
+                                  >{uhex(cp)} {uhex(vs)}</span
+                                >
+                              </div>
+                              <div class="cpd-vs-b cpd-wrap">{style}</div>
+                            </td>
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                {/if}
+
+                {#if info?.ideographic_variants?.length}
+                  <div class="cpd-sec">
+                    <div class="cpd-sec-title">
+                      Ideographic Variation Sequences
+                    </div>
+                    <table class="cpd-ptable">
+                      <tbody>
+                        {#each info!.ideographic_variants as [vs, coll, ref]}
+                          <tr>
+                            <td class="cpd-k cpd-vs"
+                              >{glyph}{String.fromCodePoint(vs)}</td
+                            >
+                            <td>
+                              <div class="cpd-vs-t">
+                                <span class="cpd-vs-n">VS{vsIndex(vs)}</span
+                                ><span class="mono cpd-vs-s"
+                                  >{uhex(cp)} {uhex(vs)}</span
+                                >
+                              </div>
+                              <div class="cpd-vs-b2">
+                                <span class="cpd-vs-src">{coll}</span><span
+                                  class="cpd-vs-id">{ref}</span
+                                >
+                              </div>
+                            </td>
+                          </tr>
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                {/if}
+
+                {#if info?.named_sequences?.length}
+                  <div class="cpd-sec">
+                    <div class="cpd-sec-title">Named Sequences</div>
+                    <table class="cpd-ptable">
+                      <tbody>
+                        {#each info!.named_sequences as [name, cps]}
+                          <tr
+                            ><td class="cpd-k mono cpd-wrap">{name}</td><td
+                              class="mono">{hexSeq(cps)}</td
+                            ></tr
+                          >
+                        {/each}
+                      </tbody>
+                    </table>
+                  </div>
+                {/if}
+              </div>
+            </div>
+          </div>
+        {:else if view === "extended"}
+          <div class="cpd-props">
+            <div class="cpd-x">
+              <div class="cpd-sec-title">Extended Character Properties</div>
+              <table class="cpd-ptable">
+                <thead>
+                  <tr>
+                    <th class="cpd-xh">Property</th>
+                    <th class="cpd-xh">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each info?.extended ?? [] as [label, value]}
+                    <tr class:empty={!value}>
+                      <td class="cpd-k">{label}</td>
+                      <td class="mono cpd-wrap">{value}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+              <div class="cpd-x-alias">
+                <div class="cpd-sec-title">Name Aliases</div>
+                <table class="cpd-ptable">
+                  <thead>
+                    <tr>
+                      <th class="cpd-xh">Alias Type</th>
+                      <th class="cpd-xh">Alias</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each info?.name_aliases ?? [] as [type, alias]}
+                      <tr>
+                        <td class="cpd-k mono">{type}</td>
+                        <td class="mono">{alias}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        {:else if view === "ideographic"}
+          <div class="cpd-props">
+            <div class="cpd-x">
+              <div class="cpd-sec-title">Ideographic Properties</div>
+              <table class="cpd-ptable">
+                <tbody>
+                  <tr class:empty={!info?.ideographic?.radical?.glyph}>
+                    <td class="cpd-k">Kangxi Radical</td>
+                    <td>
+                      {#if info?.ideographic?.radical?.glyph}
+                        <span class="cpd-glyph-sm"
+                          >{info.ideographic.radical.glyph.char}</span
+                        >
+                        <span class="mono cpd-cp2"
+                          >{uhex(info.ideographic.radical.glyph.cp)}</span
+                        >
+                      {/if}
+                    </td>
+                  </tr>
+                  <tr class:empty={!info?.ideographic?.radical?.strokes}>
+                    <td class="cpd-k">Radical/Strokes</td>
+                    <td class="mono"
+                      >{info?.ideographic?.radical?.strokes ?? ""}</td
+                    >
+                  </tr>
+                  <tr class:empty={!info?.ideographic?.ids}>
+                    <td class="cpd-k">IDS</td>
+                    <td class="cpd-wrap">{info?.ideographic?.ids ?? ""}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="cpd-sec-title">Related Characters</div>
+              <table class="cpd-ptable">
+                <tbody>
+                  {#each [["Traditional Form", "traditional"], ["Chinese Simplified", "simplified_chinese"], ["Japanese Simplified", "simplified_japanese"]] as [label, key]}
+                    {@const g = info?.ideographic?.related?.[key]}
+                    <tr class:empty={!g}>
+                      <td class="cpd-k">{label}</td>
+                      <td>
+                        {#if g}
+                          <span class="cpd-glyph-sm">{g.char}</span>
+                          <span class="mono cpd-cp2">{uhex(g.cp)}</span>
                         {/if}
-                      {/each}
-                    </tbody>
-                  </table>
-                </div>
-              {/if}
-            {/each}
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
 
-            {#if nameslistHas}
-              <div class="cpd-sec">
-                <div class="cpd-sec-title">Notes, Aliases &amp; Cross-References</div>
-                <table class="cpd-ptable">
-                  <tbody>
-                    {#each info!.nameslist.aliases as a}<tr><td class="cpd-k mono">=</td><td>{a}</td></tr>{/each}
-                    {#each info!.nameslist.notes as n}<tr><td class="cpd-k mono">*</td><td>{n}</td></tr>{/each}
-                    {#each info!.nameslist.xrefs as x}<tr><td class="cpd-k mono">x</td><td>{x}</td></tr>{/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
+              <div class="cpd-sec-title">Readings</div>
+              <table class="cpd-ptable">
+                <tbody>
+                  {#each [["Mandarin", "mandarin"], ["Cantonese", "cantonese"], ["Korean", "korean"], ["Vietnamese", "vietnamese"]] as [label, key]}
+                    <tr class:empty={!info?.ideographic?.readings?.[key]}>
+                      <td class="cpd-k">{label}</td>
+                      <td class="cpd-wrap"
+                        >{info?.ideographic?.readings?.[key] ?? ""}</td
+                      >
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
 
-            {#if info?.binary_properties?.length}
-              <div class="cpd-sec">
-                <div class="cpd-sec-title">Binary Properties</div>
-                <div class="cpd-bins">
-                  {#each info.binary_properties as bp}<span class="cpd-bin">{bp}</span>{/each}
-                </div>
-              </div>
-            {/if}
-
-            {#if stdVarCount > 0}
-              <div class="cpd-sec">
-                <div class="cpd-sec-title">Standardized Variation Sequences</div>
-                <table class="cpd-ptable">
-                  <tbody>
-                    {#each info!.standardized_variants as [vs, desc]}
-                      <tr><td class="cpd-k mono">VS{vsIndex(vs)}</td><td class="mono">{uhex(cp)} {uhex(vs)}</td><td>{desc}</td></tr>
-                    {/each}
-                    {#each info!.emoji_variants as [vs, style]}
-                      <tr><td class="cpd-k mono">VS{vsIndex(vs)}</td><td class="mono">{uhex(cp)} {uhex(vs)}</td><td>{style}</td></tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
-
-            {#if info?.named_sequences?.length}
-              <div class="cpd-sec">
-                <div class="cpd-sec-title">Named Sequences</div>
-                <table class="cpd-ptable">
-                  <tbody>
-                    {#each info!.named_sequences as [name, cps]}
-                      <tr><td class="cpd-k">{name}</td><td class="mono">{hexSeq(cps)}</td></tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
+              <div class="cpd-sec-title">Source References</div>
+              <table class="cpd-ptable">
+                <tbody>
+                  {#each info?.ideographic?.sources ?? [] as [label, ref]}
+                    <tr class:empty={!ref}>
+                      <td class="cpd-k">{label}</td>
+                      <td class="mono">{ref}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           </div>
         {:else}
           <div class="cpd-h">
             <span class="cpd-htitle">Character History</span>
             {#if firstPresent}
-              <span class="cpd-hsub">first encoded in {firstPresent.version}</span>
+              <span class="cpd-hsub"
+                >first encoded in {firstPresent.version}</span
+              >
             {/if}
           </div>
           <div class="cpd-hwrap">
@@ -433,9 +865,13 @@
               <tbody>
                 {#each rows as r}
                   <tr class:abs={!r.present} class:mv={r.moved}>
-                    <td class="cpd-ver">{r.version}</td>
-                    <td class="mono">{r.present && r.codepoint != null ? uhex(r.codepoint) : "—"}</td>
-                    <td class="cpd-nm">{r.present ? r.name : ""}</td>
+                    <td class="cpd-ver mono">{r.version}</td>
+                    <td class="mono"
+                      >{r.present && r.codepoint != null
+                        ? uhex(r.codepoint)
+                        : "—"}</td
+                    >
+                    <td class="cpd-nm mono">{r.present ? r.name : ""}</td>
                     {#each PROP_COLS as k}
                       <td class="mono">{(r as any)[k]}</td>
                     {/each}
@@ -528,7 +964,20 @@
   .cpd-props {
     flex: 1;
     overflow: auto;
+  }
+  .cpd-cols {
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
     padding: 4px 14px 14px;
+  }
+  .cpd-col {
+    flex: 1;
+    min-width: 0;
+  }
+  .cpd-wrap {
+    white-space: normal;
+    word-break: break-word;
   }
   .cpd-sec {
     margin-top: 10px;
@@ -551,7 +1000,8 @@
     flex-shrink: 0;
   }
   .cpd-glyph {
-    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+      sans-serif;
     font-size: 44px;
     line-height: 1;
     min-width: 56px;
@@ -646,6 +1096,83 @@
     white-space: nowrap;
     width: 1%;
     padding-right: 16px !important;
+  }
+  .cpd-ptable tr.empty td {
+    color: var(--fg3, #6e7191);
+    opacity: 0.6;
+  }
+  .cpd-ptable th.cpd-xh {
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg2, #999);
+    padding: 2px 12px 2px 0;
+    border-bottom: 1px solid var(--br, rgba(128, 128, 128, 0.3));
+  }
+  .cpd-x {
+    padding: 4px 14px 14px;
+  }
+  .cpd-x-alias {
+    margin-top: 18px;
+  }
+  .cpd-glyph-sm {
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+      "Segoe UI", sans-serif;
+    font-size: 26px;
+    line-height: 1.1;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  .cpd-cp2 {
+    color: var(--fg2, #999);
+    font-size: 11px;
+    vertical-align: middle;
+  }
+  .cpd-vs {
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+      "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 22px;
+    line-height: 1.2;
+    color: var(--fg, #e4e6f0);
+    white-space: nowrap;
+  }
+  .cpd-vs-t {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    white-space: nowrap;
+  }
+  .cpd-vs-n {
+    font-family: Consolas, Menlo, monospace;
+    font-weight: 600;
+    color: var(--fg, #e4e6f0);
+    font-size: 12px;
+  }
+  .cpd-vs-s {
+    color: var(--fg2, #999);
+    font-size: 11px;
+  }
+  .cpd-vs-b {
+    font-size: 11px;
+    color: var(--fg2, #999);
+    margin-top: 1px;
+  }
+  .cpd-vs-b2 {
+    display: flex;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--fg2, #999);
+    margin-top: 1px;
+  }
+  .cpd-vs-src {
+    color: var(--fg2, #999);
+    min-width: 120px;
+    white-space: nowrap;
+  }
+  .cpd-vs-id {
+    color: var(--fg2, #999);
   }
   .cpd-h {
     display: flex;

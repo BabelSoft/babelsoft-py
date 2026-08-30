@@ -17,7 +17,7 @@ import re
 from dataclasses import dataclass
 
 from src.utils_.dirs import Dirs
-from src.utils_.parser import TxtParser
+from src.utils_.parser import TsvParser, TxtParser
 
 
 @dataclass(frozen=True)
@@ -36,13 +36,24 @@ class Emoji:
         """The emoji as a display string (joined codepoints)."""
         return "".join(chr(cp) for cp in self.codepoints)
 
+    @property
+    def display_name(self) -> str:
+        """Name shown in pickers: country flags use the ISO 3166 registered
+        official name (e.g. "flag: Korea, Republic of"); otherwise the CLDR
+        short name."""
+        if self.subgroup == "country-flag":
+            iso = _iso3166_names().get(_flag_code(self.codepoints) or "")
+            if iso:
+                return f"flag: {iso}"
+        return self.name
+
     def to_dict(self) -> dict:
         return {
             "codepoints": list(self.codepoints),
             "string": self.text,
             "status": self.status,
             "version": self.version,
-            "name": self.name,
+            "name": self.display_name,
             "group": self.group,
             "subgroup": self.subgroup,
         }
@@ -106,8 +117,44 @@ def all_emoji() -> list[Emoji]:
 @functools.lru_cache(maxsize=1)
 def _display_entries() -> list[Emoji]:
     """RGI emoji shown in a picker/search: fully-qualified + components only
-    (Emojipedia shows these; minimally-qualified / unqualified are dupes)."""
-    return [e for e in _load() if e.status in ("fully-qualified", "component")]
+    (Emojipedia shows these; minimally-qualified / unqualified are dupes),
+    with country flags restricted to valid ISO 3166 codes plus EU/UN."""
+    iso = _iso3166_names()
+    out: list[Emoji] = []
+    for e in _load():
+        if e.status not in ("fully-qualified", "component"):
+            continue
+        if e.subgroup == "country-flag":
+            code = _flag_code(e.codepoints)
+            if not code or code not in iso:
+                continue  # drop non-ISO codes (e.g. AC, CQ, TA, XK)
+        out.append(e)
+    return out
+
+
+def _flag_code(cps: tuple[int, ...]) -> str | None:
+    """Two-letter code of a regional-indicator flag sequence, else None."""
+    if len(cps) != 2:
+        return None
+    letters: list[str] = []
+    for cp in cps:
+        if 0x1F1E6 <= cp <= 0x1F1FF:
+            letters.append(chr(ord("A") + cp - 0x1F1E6))
+        else:
+            return None
+    return "".join(letters)
+
+
+@functools.lru_cache(maxsize=1)
+def _iso3166_names() -> dict[str, str]:
+    """alpha-2 code -> ISO 3166-1 English short name (registered official
+    name), from data/scripts/iso3166.tsv. Includes EU/UN (not in ISO 3166-1
+    but valid flag codes per UTS #51 Annex B)."""
+    mapping: dict[str, str] = {}
+    for row in TsvParser.get_tsv(Dirs.DATA / "scripts" / "iso3166.tsv"):
+        if len(row) >= 2 and row[0] != "code":
+            mapping[row[0]] = row[1]
+    return mapping
 
 
 # ── Search ────────────────────────────────────────────────────────────
@@ -179,19 +226,22 @@ def search(query: str, limit: int = 80) -> list[Emoji]:
 
     scored: list[tuple[int, Emoji]] = []
     for e in _display_entries():
-        name = e.name.lower()
+        # Match against both the CLDR short name and the displayed name
+        # (country flags show the ISO 3166 official name).
+        names = {e.name.lower(), e.display_name.lower()}
         score = 0
-        if name == q:
-            score += 500
-        elif name.startswith(q):
-            score += 300
-        elif any(w.startswith(q) for w in name.split()):
-            score += 200
-        elif q in name:
-            score += 100
-        if tokens and all(_token_in(name, t) for t in tokens):
+        for n in names:
+            if n == q:
+                score = max(score, 500)
+            elif n.startswith(q):
+                score = max(score, 300)
+            elif any(w.startswith(q) for w in n.split()):
+                score = max(score, 200)
+            elif q in n:
+                score = max(score, 100)
+        if tokens and any(all(_token_in(n, t) for t in tokens) for n in names):
             score += 120
-        if syn_words and any(w in name for w in syn_words):
+        if syn_words and any(any(w in n for w in syn_words) for n in names):
             score += 60
         if score:
             scored.append((score, e))

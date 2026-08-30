@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from "../icons/Icon.svelte";
+
   // Unified Unicode data window.
   // Model: Unicode is a versioned dataset — "version" is the largest container.
   //   Top bar: version selector + view switcher + per-version statistics.
@@ -27,7 +29,14 @@
   interface NavItem {
     id: string;
     depth: number;
-    kind: "plane" | "block" | "script" | "script-block" | "diff-block" | "summary" | "group";
+    kind:
+      | "plane"
+      | "block"
+      | "script"
+      | "script-block"
+      | "diff-block"
+      | "summary"
+      | "group";
     label: string;
     count?: string;
     blockName?: string;
@@ -43,6 +52,26 @@
     ["scripts", "Scripts"],
     ["diff", "Compare"],
   ];
+
+  // UnicodeData table columns — mirrors the Character History UCD fields,
+  // with Unicode 1.0 Name added. Keys are the backend row fields.
+  const UDATA_COLS: [string, string][] = [
+    ["codepoint", "Code Point"],
+    ["name", "Character Name"],
+    ["uni1", "Unicode 1.0 Name"],
+    ["gc", "General Category"],
+    ["ccc", "Canonical Combining Class"],
+    ["bidi", "Bidi Class"],
+    ["decomp", "Decomposition"],
+    ["dec", "Numeric Value (1)"],
+    ["digit", "Numeric Value (2)"],
+    ["num", "Numeric Value (3)"],
+    ["mirrored", "Bidi Mirrored"],
+    ["iso", "ISO Comment"],
+    ["up", "Upper Case Mapping"],
+    ["lo", "Lower Case Mapping"],
+    ["ti", "Title Case Mapping"],
+  ];
   let versions = $state<{ version: string; date: string }[]>([]);
   let history = $state<Record<string, any>>({});
   let planeNames = $state<Record<number, { name: string; abbrev: string }>>({});
@@ -53,7 +82,9 @@
   let filter = $state("");
 
   let scripts = $state<any[]>([]);
-  let scriptBlocks = $state<Record<string, { name: string; chars: number; ranges: string[] }[]>>({});
+  let scriptBlocks = $state<
+    Record<string, { name: string; chars: number; ranges: string[] }[]>
+  >({});
 
   let diffFrom = $state("");
   let diffTo = $state("");
@@ -65,16 +96,30 @@
   let charsLabel = $state("");
   let charsVersion = $state("");
   let limit = $state(2000);
+  let udRows = $state<any[]>([]);
+  let udLoading = $state(false);
 
   let expandedIds = $state<Set<string>>(new Set());
   let autoExpandDone = $state(false);
-  const latestVersion = $derived(versions.length ? versions[versions.length - 1].version : "");
+  const latestVersion = $derived(
+    versions.length ? versions[versions.length - 1].version : "",
+  );
 
   // ── Drag / position state ──
   let x = $state(120);
   let y = $state(80);
-  let w = $state(Math.min(1180, (typeof window !== "undefined" ? window.innerWidth : 1180) - 32));
-  let h = $state(Math.min(720, (typeof window !== "undefined" ? window.innerHeight : 720) - 40));
+  let w = $state(
+    Math.min(
+      1180,
+      (typeof window !== "undefined" ? window.innerWidth : 1180) - 32,
+    ),
+  );
+  let h = $state(
+    Math.min(
+      720,
+      (typeof window !== "undefined" ? window.innerHeight : 720) - 40,
+    ),
+  );
   let dragging = $state(false);
   let dragStartX = $state(0);
   let dragStartY = $state(0);
@@ -159,7 +204,8 @@
         diffFrom = versions[Math.max(0, versions.length - 2)].version;
       }
       const p = await get<any>("/unicode/planes");
-      for (const row of p.planes ?? []) planeNames[row.plane] = { name: row.name, abbrev: row.abbreviation };
+      for (const row of p.planes ?? [])
+        planeNames[row.plane] = { name: row.name, abbrev: row.abbreviation };
       const sc = await get<any>("/unicode/scripts");
       scripts = sc.scripts ?? [];
       loaded = true;
@@ -170,15 +216,19 @@
 
   // ── per-version blocks ──
   $effect(() => {
-    if (loaded && (view === "blocks" || view === "planes") && version) loadBlocks();
+    if (loaded && (view === "blocks" || view === "planes") && version)
+      loadBlocks();
   });
   async function loadBlocks() {
     sel = null;
     chars = [];
     charsLabel = "";
     charsVersion = "";
+    udRows = [];
     try {
-      const r = await fetch(API + "/unicode/blocks?version=" + encodeURIComponent(version));
+      const r = await fetch(
+        API + "/unicode/blocks?version=" + encodeURIComponent(version),
+      );
       if (!r.ok) throw Error(String(r.status));
       const d = await r.json();
       blocks = d.blocks ?? [];
@@ -202,8 +252,12 @@
     chars = [];
     charsLabel = "";
     charsVersion = "";
+    udRows = [];
     try {
-      const r = await fetch(API + `/unicode/diff?from=${encodeURIComponent(diffFrom)}&to=${encodeURIComponent(diffTo)}`);
+      const r = await fetch(
+        API +
+          `/unicode/diff?from=${encodeURIComponent(diffFrom)}&to=${encodeURIComponent(diffTo)}`,
+      );
       if (!r.ok) throw Error(String(r.status));
       diff = await r.json();
     } catch {
@@ -212,7 +266,13 @@
   }
 
   // ── navigator ──
-  const filteredBlocks = $derived(filter ? blocks.filter((b) => b.name.toLowerCase().includes(filter.toLowerCase())) : blocks);
+  const filteredBlocks = $derived(
+    filter
+      ? blocks.filter((b) =>
+          b.name.toLowerCase().includes(filter.toLowerCase()),
+        )
+      : blocks,
+  );
 
   const nav = $derived(buildNav());
 
@@ -338,13 +398,38 @@
         ["Removed blocks", fmt(diff.removed_blocks.length)],
       ],
     });
-    pushDiffGroup(items, "g-add", `Added blocks (${diff.added_blocks.length})`, diff.added_blocks, diff.to);
-    pushDiffGroup(items, "g-rem", `Removed blocks (${diff.removed_blocks.length})`, diff.removed_blocks, diff.from);
+    pushDiffGroup(
+      items,
+      "g-add",
+      `Added blocks (${diff.added_blocks.length})`,
+      diff.added_blocks,
+      diff.to,
+    );
+    pushDiffGroup(
+      items,
+      "g-rem",
+      `Removed blocks (${diff.removed_blocks.length})`,
+      diff.removed_blocks,
+      diff.from,
+    );
     return items;
   }
 
-  function pushDiffGroup(items: NavItem[], gid: string, label: string, list: any[], ver: string) {
-    const grp: NavItem = { id: gid, depth: 0, kind: "group", label, expandable: true, detail: [] };
+  function pushDiffGroup(
+    items: NavItem[],
+    gid: string,
+    label: string,
+    list: any[],
+    ver: string,
+  ) {
+    const grp: NavItem = {
+      id: gid,
+      depth: 0,
+      kind: "group",
+      label,
+      expandable: true,
+      detail: [],
+    };
     items.push(grp);
     if (!expandedIds.has(gid)) return;
     for (const b of list) {
@@ -377,7 +462,9 @@
   async function loadScriptBlocks(code: string) {
     if (scriptBlocks[code]) return;
     try {
-      const r = await fetch(API + "/unicode/scripts/blocks?code=" + encodeURIComponent(code));
+      const r = await fetch(
+        API + "/unicode/scripts/blocks?code=" + encodeURIComponent(code),
+      );
       if (!r.ok) throw Error(String(r.status));
       const d = await r.json();
       scriptBlocks = { ...scriptBlocks, [code]: d.blocks ?? [] };
@@ -389,11 +476,17 @@
   async function select(item: NavItem) {
     sel = item;
     limit = 2000;
-    if (item.kind === "block" || item.kind === "script-block" || item.kind === "diff-block") {
+    if (
+      item.kind === "block" ||
+      item.kind === "script-block" ||
+      item.kind === "diff-block"
+    ) {
       await loadChars(item);
+      await loadUnicodeData(item);
     } else {
       chars = [];
       charsLabel = "";
+      udRows = [];
     }
   }
 
@@ -402,7 +495,13 @@
     charsVersion = item.version ?? version;
     charsLabel = item.label;
     try {
-      const r = await fetch(API + "/unicode/blocks/" + encodeURIComponent(item.blockName!) + "/characters?version=" + encodeURIComponent(charsVersion));
+      const r = await fetch(
+        API +
+          "/unicode/blocks/" +
+          encodeURIComponent(item.blockName!) +
+          "/characters?version=" +
+          encodeURIComponent(charsVersion),
+      );
       if (!r.ok) throw Error(String(r.status));
       const d = await r.json();
       chars = d.characters ?? [];
@@ -410,6 +509,28 @@
       chars = [];
     }
     charsLoading = false;
+  }
+
+  async function loadUnicodeData(item: NavItem) {
+    udLoading = true;
+    udRows = [];
+    const v = item.version ?? version;
+    try {
+      const r = await fetch(
+        API +
+          "/unicode/blocks/" +
+          encodeURIComponent(item.blockName!) +
+          "/unicodedata?version=" +
+          encodeURIComponent(v),
+      );
+      if (r.ok) {
+        const d = await r.json();
+        udRows = d.rows ?? [];
+      }
+    } catch {
+      udRows = [];
+    }
+    udLoading = false;
   }
 
   function isGroup(item: NavItem): boolean {
@@ -420,6 +541,7 @@
     filter = "";
     charsLabel = "";
     charsVersion = "";
+    udRows = [];
     if (v === "blocks" || v === "planes") {
       const next = new Set(expandedIds);
       for (const k of [...next]) if (k.startsWith("p")) next.delete(k);
@@ -432,7 +554,12 @@
 </script>
 
 {#if show}
-  <div class="ud" class:dragging class:resizing style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;">
+  <div
+    class="ud"
+    class:dragging
+    class:resizing
+    style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;"
+  >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="ud-header" onmousedown={onDragStart}>
       <span class="ud-title">Unicode</span>
@@ -442,39 +569,52 @@
         onchange={() => {
           sel = null;
           chars = [];
+          udRows = [];
         }}
         style:display={view === "scripts" || view === "diff" ? "none" : ""}
       >
         {#each versions as v}
-          <option value={v.version}>{v.version}{v.date ? " · " + v.date : ""}</option>
+          <option value={v.version}
+            >{v.version}{v.date ? " · " + v.date : ""}</option
+          >
         {/each}
       </select>
       <div class="ud-views">
         {#each VIEWS as v}
-          <button class:on={view === v[0]} onclick={() => viewChange(v[0])}>{v[1]}</button>
+          <button class:on={view === v[0]} onclick={() => viewChange(v[0])}
+            >{v[1]}</button
+          >
         {/each}
       </div>
       <span class="ud-stats">
         {#if history[view === "scripts" ? latestVersion : version]}
-          {fmt(history[view === "scripts" ? latestVersion : version].assigned ?? 0)} assigned · {fmt(history[view === "scripts" ? latestVersion : version].blocks ?? 0)} blocks · {fmt(
+          {fmt(
+            history[view === "scripts" ? latestVersion : version].assigned ?? 0,
+          )} assigned · {fmt(
+            history[view === "scripts" ? latestVersion : version].blocks ?? 0,
+          )} blocks · {fmt(
             history[view === "scripts" ? latestVersion : version].scripts ?? 0,
           )} scripts
         {/if}
       </span>
-      <button class="ud-close" onclick={onClose} title="Close">✕</button>
+      <button class="ud-close" onclick={onClose} title="Close"
+        ><Icon name="close" size={14} /></button
+      >
     </div>
 
     {#if view === "diff"}
       <div class="ud-diffbar">
         <label
           >From <select bind:value={diffFrom} onchange={() => loadDiff()}>
-            {#each versions as v}<option value={v.version}>{v.version}</option>{/each}
+            {#each versions as v}<option value={v.version}>{v.version}</option
+              >{/each}
           </select></label
         >
-        <span>→</span>
+        <span><Icon name="arrow-right" size={14} /></span>
         <label
           >To <select bind:value={diffTo} onchange={() => loadDiff()}>
-            {#each versions as v}<option value={v.version}>{v.version}</option>{/each}
+            {#each versions as v}<option value={v.version}>{v.version}</option
+              >{/each}
           </select></label
         >
       </div>
@@ -483,23 +623,46 @@
     <div class="ud-body">
       <div class="ud-nav">
         {#if view === "blocks" || view === "planes"}
-          <input class="ud-filter" placeholder="Filter blocks…" bind:value={filter} />
+          <input
+            class="ud-filter"
+            placeholder="Filter blocks…"
+            bind:value={filter}
+          />
         {/if}
         <div class="ud-navlist">
           {#if view === "blocks" || view === "planes"}
-            {#if blocks.length === 0}<div class="ud-empty">Loading blocks…</div>{/if}
+            {#if blocks.length === 0}<div class="ud-empty">
+                Loading blocks…
+              </div>{/if}
           {:else if view === "scripts"}
-            {#if scripts.length === 0}<div class="ud-empty">Loading scripts…</div>{/if}
-          {:else if view === "diff" && !diff}<div class="ud-empty">Loading diff…</div>{/if}
+            {#if scripts.length === 0}<div class="ud-empty">
+                Loading scripts…
+              </div>{/if}
+          {:else if view === "diff" && !diff}<div class="ud-empty">
+              Loading diff…
+            </div>{/if}
 
           {#each nav as item (item.id)}
-            <div class="ud-item" class:sel={sel?.id === item.id} class:grp={isGroup(item)}>
+            <div
+              class="ud-item"
+              class:sel={sel?.id === item.id}
+              class:grp={isGroup(item)}
+            >
               {#if isGroup(item)}
-                <button class="ud-toggle" onclick={() => toggle(item.id)}>{expandedIds.has(item.id) ? "▾" : "▸"}</button>
+                <button class="ud-toggle" onclick={() => toggle(item.id)}>
+                  {#if expandedIds.has(item.id)}<Icon
+                      name="chevron-down"
+                      size={12}
+                    />{:else}<Icon name="chevron-right" size={12} />{/if}
+                </button>
               {:else}
                 <span class="ud-tsp"></span>
               {/if}
-              <button class="ud-main" style:padding-left={item.depth === 0 ? "6px" : "26px"} onclick={() => select(item)}>
+              <button
+                class="ud-main"
+                style:padding-left={item.depth === 0 ? "6px" : "26px"}
+                onclick={() => select(item)}
+              >
                 <span class="ud-label">{item.label}</span>
                 {#if item.count}<span class="ud-count">{item.count}</span>{/if}
               </button>
@@ -515,41 +678,105 @@
             <table class="ud-dtable">
               <tbody>
                 {#each sel.detail as row}
-                  <tr><td class="ud-dk">{row[0]}</td><td class="ud-dv">{row[1]}</td></tr>
+                  <tr
+                    ><td class="ud-dk">{row[0]}</td><td class="ud-dv"
+                      >{row[1]}</td
+                    ></tr
+                  >
                 {/each}
               </tbody>
             </table>
           {:else}
             <div class="ud-dtitle">Select an item</div>
-            <div class="ud-empty">Choose a block, script or version change in the left panel.</div>
+            <div class="ud-empty">
+              Choose a block, script or version change in the left panel.
+            </div>
           {/if}
         </div>
 
         <div class="ud-chars">
           <div class="ud-chars-head">
-            <span class="ud-chars-label">{charsLabel}{charsVersion && charsLabel ? ` · v${charsVersion}` : ""}</span>
+            <span class="ud-chars-label"
+              >{charsLabel}{charsVersion && charsLabel
+                ? ` · v${charsVersion}`
+                : ""}</span
+            >
             {#if charsLabel}
               <span class="ud-chars-count">{fmt(chars.length)} assigned</span>
             {/if}
             {#if chars.length > limit}
-              <button class="ud-more" onclick={() => (limit += 2000)}>Show more (+{fmt(Math.min(2000, chars.length - limit))})</button>
+              <button class="ud-more" onclick={() => (limit += 2000)}
+                >Show more (+{fmt(
+                  Math.min(2000, chars.length - limit),
+                )})</button
+              >
             {/if}
           </div>
           <div class="ud-chars-body">
             {#if charsLoading}
               <div class="ud-empty">Loading characters…</div>
             {:else if chars.length === 0}
-              <div class="ud-empty">{charsLabel ? "No assigned characters." : "Select a block to view its characters."}</div>
+              <div class="ud-empty">
+                {charsLabel
+                  ? "No assigned characters."
+                  : "Select a block to view its characters."}
+              </div>
             {:else}
               <div class="ud-grid">
                 {#each chars.slice(0, limit) as c}
                   <!-- svelte-ignore a11y_no_static_element_interactions -->
-                  <button class="ud-cg" title="{uhex(c.codepoint)}  {c.name}" onclick={() => onGotoCP(c.codepoint)}>{c.char}</button>
+                  <button
+                    class="ud-cg"
+                    title="{uhex(c.codepoint)}  {c.name}"
+                    onclick={() => onGotoCP(c.codepoint)}>{c.char}</button
+                  >
                 {/each}
               </div>
             {/if}
           </div>
         </div>
+
+        {#if charsLabel}
+          <div class="ud-udata">
+            <div class="ud-udata-head">
+              <span class="ud-udata-label"
+                >UnicodeData{charsLabel ? ` · ${charsLabel}` : ""}{charsVersion
+                  ? ` · v${charsVersion}`
+                  : ""}</span
+              >
+              {#if udRows.length}
+                <span class="ud-udata-count">{fmt(udRows.length)} rows</span>
+              {/if}
+            </div>
+            <div class="ud-udata-body">
+              {#if udLoading}
+                <div class="ud-empty">Loading UnicodeData…</div>
+              {:else if udRows.length === 0}
+                <div class="ud-empty">No UnicodeData rows.</div>
+              {:else}
+                <table class="ud-utable">
+                  <thead>
+                    <tr>
+                      {#each UDATA_COLS as [k, h]}<th class="mono">{h}</th
+                        >{/each}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each udRows as r}
+                      <tr>
+                        {#each UDATA_COLS as [k]}
+                          <td class="mono"
+                            >{k === "codepoint" ? uhex(r[k]) : r[k]}</td
+                          >
+                        {/each}
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              {/if}
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
 
@@ -785,7 +1012,7 @@
     word-break: break-all;
   }
   .ud-chars {
-    flex: 1;
+    flex: 3;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -839,11 +1066,62 @@
     cursor: pointer;
     color: var(--fg, #eee);
     padding: 0;
-    font-family: "Segoe UI Symbol", "Noto Sans Symbols", "Arial Unicode MS", serif;
+    font-family: "Segoe UI Symbol", "Noto Sans Symbols", "Arial Unicode MS",
+      serif;
   }
   .ud-cg:hover {
     background: var(--ac);
     color: #fff;
+  }
+  .ud-udata {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-top: 1px solid var(--br, rgba(128, 128, 128, 0.3));
+  }
+  .ud-udata-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--br, rgba(128, 128, 128, 0.3));
+    flex-shrink: 0;
+  }
+  .ud-udata-label {
+    font-weight: 600;
+  }
+  .ud-udata-count {
+    opacity: 0.75;
+  }
+  .ud-udata-body {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+  }
+  .ud-utable {
+    border-collapse: collapse;
+    font-size: 11px;
+    width: max-content;
+    min-width: 100%;
+    white-space: nowrap;
+  }
+  .ud-utable th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg3, #26272b);
+    color: var(--fg2, #999);
+    font-weight: 600;
+    text-align: left;
+    padding: 3px 10px 3px 0;
+    border-bottom: 1px solid var(--br, rgba(128, 128, 128, 0.3));
+  }
+  .ud-utable td {
+    padding: 2px 10px 2px 0;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.08);
+    vertical-align: top;
   }
   .ud-resize {
     position: absolute;

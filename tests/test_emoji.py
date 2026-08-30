@@ -87,3 +87,38 @@ class TestEmojiSearch:
     def test_search_ranking_exact_first(self):
         hits = search("grinning face")
         assert hits[0].name == "grinning face"
+
+
+def _flag_code(cps: tuple[int, ...]) -> str:
+    """Two-letter code of a regional-indicator flag sequence."""
+    return "".join(chr(ord("A") + c - 0x1F1E6) for c in cps)
+
+
+class TestFlagIso3166:
+    """Country flags are restricted to valid ISO 3166 two-letter codes + EU/UN,
+    and displayed with the ISO 3166 registered official name."""
+
+    def test_country_flags_only_iso_plus_eu_un(self):
+        flags = [e for e in all_emoji() if e.subgroup == "country-flag"]
+        # 249 ISO 3166-1 officially assigned + EU + UN
+        assert len(flags) == 251
+        codes = {_flag_code(e.codepoints) for e in flags}
+        for c in ("CN", "KR", "TW", "HK", "MO", "EU", "UN"):
+            assert c in codes
+        # exceptionally reserved / user-assigned codes are dropped
+        for c in ("AC", "CQ", "XK", "TA"):
+            assert c not in codes
+
+    def test_flag_display_name_is_iso_official(self):
+        kr = next(e for e in all_emoji() if e.subgroup == "country-flag" and _flag_code(e.codepoints) == "KR")
+        assert kr.name == "flag: South Korea"  # CLDR kept internally
+        assert kr.display_name == "flag: Korea, Republic of"  # ISO shown
+        assert kr.to_dict()["name"] == "flag: Korea, Republic of"
+
+    def test_search_matches_iso_name(self):
+        hits = search("republic of korea")
+        assert any(e.display_name == "flag: Korea, Republic of" for e in hits)
+
+    def test_search_still_matches_cldr_name(self):
+        hits = search("south korea")
+        assert any(e.display_name == "flag: Korea, Republic of" for e in hits)

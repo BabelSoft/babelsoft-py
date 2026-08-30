@@ -3,6 +3,7 @@ data/unicode/
 data/babelstone/
 data/ivd/
 tools/
+vendor/
 
 # Svelte build output
 package-lock.json

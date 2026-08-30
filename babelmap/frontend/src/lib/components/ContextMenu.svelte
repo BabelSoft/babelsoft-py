@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "../icons/Icon.svelte";
   import { t } from "../i18n.svelte";
 
   let {
@@ -106,7 +107,12 @@
     applyCaseTransform((s) => s.toLocaleLowerCase());
   }
   function ctxTitle() {
-    applyCaseTransform((s) => s.replace(/\S+/g, (w) => w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase()));
+    applyCaseTransform((s) =>
+      s.replace(
+        /\S+/g,
+        (w) => w.charAt(0).toLocaleUpperCase() + w.slice(1).toLocaleLowerCase(),
+      ),
+    );
   }
 
   function applyNormalize(form: "NFD" | "NFC" | "NFKD" | "NFKC") {
@@ -133,52 +139,96 @@
 
 {#if show}
   <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-  <div class="ctx-mask" onclick={close} onkeydown={(e) => e.key === "Escape" && close()}>
+  <div
+    class="ctx-mask"
+    onclick={close}
+    onkeydown={(e) => e.key === "Escape" && close()}
+  >
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="ctx-menu" style="left:{x}px;top:{adjustedY}px" onclick={(e) => e.stopPropagation()}>
-      <div class="cmi" onclick={ctxUndo}>{t("ctx.undo")}<span class="sk">Ctrl+Z</span></div>
+    <div
+      class="ctx-menu"
+      style="left:{x}px;top:{adjustedY}px"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="cmi" onclick={ctxUndo}>
+        {t("ctx.undo")}<span class="sk">Ctrl+Z</span>
+      </div>
       <div class="msep"></div>
-      <div class="cmi" onclick={ctxCut}>{t("ctx.cut")}<span class="sk">Ctrl+X</span></div>
-      <div class="cmi" onclick={ctxCopy}>{t("ctx.copy")}<span class="sk">Ctrl+C</span></div>
-      <div class="cmi" onclick={ctxPaste}>{t("ctx.paste")}<span class="sk">Ctrl+V</span></div>
-      <div class="cmi" onclick={ctxDelete}>{t("ctx.delete")}<span class="sk">Del</span></div>
+      <div class="cmi" onclick={ctxCut}>
+        {t("ctx.cut")}<span class="sk">Ctrl+X</span>
+      </div>
+      <div class="cmi" onclick={ctxCopy}>
+        {t("ctx.copy")}<span class="sk">Ctrl+C</span>
+      </div>
+      <div class="cmi" onclick={ctxPaste}>
+        {t("ctx.paste")}<span class="sk">Ctrl+V</span>
+      </div>
+      <div class="cmi" onclick={ctxDelete}>
+        {t("ctx.delete")}<span class="sk">Del</span>
+      </div>
       <div class="msep"></div>
-      <div class="cmi" onclick={ctxSelectAll}>{t("ctx.select_all")}<span class="sk">Ctrl+A</span></div>
+      <div class="cmi" onclick={ctxSelectAll}>
+        {t("ctx.select_all")}<span class="sk">Ctrl+A</span>
+      </div>
       <div class="msep"></div>
       <div class="cmi" onclick={() => ctxSetDir("ltr")}>{t("ctx.ltr")}</div>
       <div class="cmi" onclick={() => ctxSetDir("rtl")}>{t("ctx.rtl")}</div>
       <div class="msep"></div>
       <div class="msw">
-        <div class="cmi cst">{t("ctx.line_spacing")}<span class="ar">▶</span></div>
+        <div class="cmi cst">
+          {t("ctx.line_spacing")}<span class="ar"
+            ><Icon name="chevron-right" size={10} /></span
+          >
+        </div>
         <div class="csub">
           {#each [1.0, 1.5, 2.0, 2.5, 3.0] as ls}
-            <div class="cmi" onclick={() => ctxSetLineSp(ls)}>{ls.toFixed(1)}</div>
+            <div class="cmi" onclick={() => ctxSetLineSp(ls)}>
+              {ls.toFixed(1)}
+            </div>
           {/each}
         </div>
       </div>
       <div class="msep"></div>
       <div class="msw">
         <div class="cmi cst" class:cmi-disabled={!hasSel}>
-          {t("ctx.case_convert")}{#if hasSel}<span class="ar">▶</span>{/if}
+          {t("ctx.case_convert")}{#if hasSel}<span class="ar"
+              ><Icon name="chevron-right" size={10} /></span
+            >{/if}
         </div>
         {#if hasSel}
           <div class="csub">
-            <div class="cmi" onclick={ctxUpper}>{t("ctx.upper_case")}<span class="sk">Ctrl+U</span></div>
-            <div class="cmi" onclick={ctxLower}>{t("ctx.lower_case")}<span class="sk">Ctrl+L</span></div>
-            <div class="cmi" onclick={ctxTitle}>{t("ctx.title_case")}<span class="sk">Ctrl+T</span></div>
+            <div class="cmi" onclick={ctxUpper}>
+              {t("ctx.upper_case")}<span class="sk">Ctrl+U</span>
+            </div>
+            <div class="cmi" onclick={ctxLower}>
+              {t("ctx.lower_case")}<span class="sk">Ctrl+L</span>
+            </div>
+            <div class="cmi" onclick={ctxTitle}>
+              {t("ctx.title_case")}<span class="sk">Ctrl+T</span>
+            </div>
           </div>
         {/if}
       </div>
       <div class="msw">
         <div class="cmi cst" class:cmi-disabled={!hasSel}>
-          {t("ctx.normalize")}{#if hasSel}<span class="ar">▶</span>{/if}
+          {t("ctx.normalize")}{#if hasSel}<span class="ar"
+              ><Icon name="chevron-right" size={10} /></span
+            >{/if}
         </div>
         {#if hasSel}
           <div class="csub">
-            <div class="cmi" onclick={() => applyNormalize("NFD")}>{t("ctx.nfd")}</div>
-            <div class="cmi" onclick={() => applyNormalize("NFC")}>{t("ctx.nfc")}</div>
-            <div class="cmi" onclick={() => applyNormalize("NFKD")}>{t("ctx.nfkd")}</div>
-            <div class="cmi" onclick={() => applyNormalize("NFKC")}>{t("ctx.nfkc")}</div>
+            <div class="cmi" onclick={() => applyNormalize("NFD")}>
+              {t("ctx.nfd")}
+            </div>
+            <div class="cmi" onclick={() => applyNormalize("NFC")}>
+              {t("ctx.nfc")}
+            </div>
+            <div class="cmi" onclick={() => applyNormalize("NFKD")}>
+              {t("ctx.nfkd")}
+            </div>
+            <div class="cmi" onclick={() => applyNormalize("NFKC")}>
+              {t("ctx.nfkc")}
+            </div>
           </div>
         {/if}
       </div>

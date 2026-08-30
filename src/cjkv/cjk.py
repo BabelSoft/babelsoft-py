@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from enum import Enum
@@ -12,6 +13,9 @@ from src.utils_.parser import TxtParser, line_has_content
 DISCRIMINATED_CJK = frozenset(
     (0xFA0E, 0xFA0F, 0xFA11, 0xFA13, 0xFA14, 0xFA1F, 0xFA21, 0xFA23, 0xFA24, 0xFA27, 0xFA28, 0xFA29)
 )
+
+# IDS.TXT entries look like:  ^⿰右回$(T)
+_IDS_WRAPPER = re.compile(r"^\^(.+)\$\([^)]*\)\s*$")
 
 # CJK Unified block shortcuts → (start, end), derived from the current release's
 # Blocks.txt (via src.unicode.Unicode) so boundaries always match the UCD.
@@ -147,10 +151,11 @@ class _Src:
     """Metadata for a single IRG submitter source."""
 
     name: str
-    label: str
+    label: str  # XML tag / C++ GetXmlData element, e.g. "HongKong"
     bit: int
     pattern: str
     field: str
+    display: str = ""  # UI display name; falls back to `label`
 
 
 @dataclass
@@ -161,17 +166,18 @@ class SrcRef:
         """Central registry of IRG submitter sources."""
 
         G = _Src("CHINA_SINGAPORE", "China", 0x0001, " G", "kIRG_GSource")
-        H = _Src("HONG_KONG_SAR", "HongKong", 0x0002, " H", "kIRG_HSource")
+        H = _Src("HONG_KONG_SAR", "HongKong", 0x0002, " H", "kIRG_HSource", "Hong Kong SAR")
         J = _Src("JAPAN", "Japan", 0x0004, " J", "kIRG_JSource")
         KP = _Src("DPRK", "DPRK", 0x0008, " KP", "kIRG_KPSource")
         K = _Src("ROK", "ROK", 0x0010, " K", "kIRG_KSource")
-        M = _Src("MACAO_SAR", "Macau", 0x0020, " M", "kIRG_MSource")
+        M = _Src("MACAO_SAR", "Macau", 0x0020, " M", "kIRG_MSource", "Macao SAR")
         SG = _Src("SINGAPORE", "Singapore", 0x0800, " GS", "kIRG_GSource")
         S = _Src("SAT", "SAT", 0x0040, " S", "kIRG_SSource")
         T = _Src("TCA", "TCA", 0x0080, " T", "kIRG_TSource")
         UK = _Src("UK", "UK", 0x0100, " UK", "kIRG_UKSource")
-        U = _Src("US_UTC", "UTC", 0x0200, " UTC", "kIRG_USource")
+        U = _Src("US_UTC", "UTC", 0x0200, " UTC", "kIRG_USource", "US & UTC")
         V = _Src("VIETNAM", "Vietnam", 0x0400, " V", "kIRG_VSource")
+        MY = _Src("MALAYSIA", "Malaysia", 0x1000, " MY", "kIRG_MYSource", "Malaysia")
 
         _BY_CODE: ClassVar[dict[str, _Src]] = {
             "G": G,
@@ -186,7 +192,25 @@ class SrcRef:
             "UK": UK,
             "U": U,
             "V": V,
+            "MY": MY,
         }
+
+        # Display order — matches the CDialogCJKV / GetXmlData source list.
+        _ORDER: ClassVar[list[str]] = [
+            "G",
+            "H",
+            "M",
+            "T",
+            "J",
+            "S",
+            "K",
+            "KP",
+            "MY",
+            "SG",
+            "UK",
+            "U",
+            "V",
+        ]
 
         _REF_PREFIX: ClassVar[dict[str, str | None]] = {
             "G": "G",
@@ -212,6 +236,11 @@ class SrcRef:
         @classmethod
         def all(cls) -> dict[str, _Src]:
             return cls._BY_CODE
+
+        @classmethod
+        def display_order(cls) -> list[tuple[str, _Src]]:
+            """(code, source) pairs in display order."""
+            return [(c, cls._BY_CODE[c]) for c in cls._ORDER if c in cls._BY_CODE]
 
         @classmethod
         def source_codes(cls) -> dict[str, str | None]:
@@ -456,11 +485,30 @@ class CJK(CodePoint):
         return CJKLoader.load_cjk_irg_sources().get(int(self))
 
     def get_source_ref(self, source: str) -> str:
+        """One IRG source reference ("" when absent); mirrors C++ CJK::GetSourceRef.
+
+        Disambiguates K from KP the way the C++ does (replace " KP" with " XP"
+        before searching for " K"), handles Singapore (GS- / SG- refs share the
+        kIRG_GSource column with China), and returns "" for Malaysia (not yet a
+        separate Unihan source).
+        """
+        if source == "MY":
+            return ""
+        if source == "SG":
+            g = CJKLoader.load_unihan_IRGSources().get(self, {}).get("kIRG_GSource", [])
+            return next((r for r in g if r.startswith(("GS-", "SG-"))), "")
         irg = self._irg_data()
         if not irg or source not in irg[0]:
             return ""
-        pattern = SRC_PATTERN_MAP.get(source, f" {source}")
-        ref_str = f" {irg[1]},"
+        refs = irg[1]
+        if source == "KP":
+            pattern = " KP"
+        elif source == "K":
+            refs = refs.replace(" KP", " XP")
+            pattern = " K"
+        else:
+            pattern = SRC_PATTERN_MAP.get(source, f" {source}")
+        ref_str = f" {refs},"
         idx = ref_str.find(pattern)
         if idx == -1:
             return ""
@@ -570,6 +618,68 @@ class CJK(CodePoint):
             if t:
                 ct, cs = t, t.to_simplified()
         return ct, cs, cj
+
+    @staticmethod
+    def _glyph(cjk: CJK | None) -> dict | None:
+        """{cp, char} for a related character, or None."""
+        if cjk is None:
+            return None
+        cp = int(cjk)
+        return {"cp": cp, "char": chr(cp)}
+
+    def _primary_ids(self) -> str:
+        """Primary IDS sequence ("" when none)."""
+        info = self.ids_babelsoft()
+        if not info or not info.ids_list:
+            return ""
+        m = _IDS_WRAPPER.match(info.ids_list[0].ids)
+        return m.group(1) if m else info.ids_list[0].ids.strip()
+
+    def ideographic_properties(self) -> dict:
+        """Ideographic (CJKV) properties — mirrors the C++ CDialogCJKV dialog.
+
+        Returns {} when this is not a CJK ideograph. Source order/labels come
+        from :class:`SrcRef.IRGSrc` (display_order / display).
+        """
+        if not self.is_cjk_ideograph():
+            return {}
+
+        radical_glyph = None
+        radical_strokes = ""
+        radical_type = ""
+        rs_list = self.radical_strokes()
+        if rs_list:
+            rs = rs_list[0]
+            radical_strokes = rs.to_unihan()
+            radical_type = (
+                ["Traditional", "Simplified", "Japanese", "Vietnamese"][rs.variant] if rs.variant <= 3 else ""
+            )
+            try:
+                radical_glyph = self._glyph(rs.radical_char_normalized())
+            except ValueError:
+                radical_glyph = None
+
+        ct, cs, cj = self.get_mappings()
+        readings = self.readings()
+
+        return {
+            "radical": {"glyph": radical_glyph, "strokes": radical_strokes, "type": radical_type},
+            "ids": self._primary_ids(),
+            "related": {
+                "traditional": self._glyph(ct),
+                "simplified_chinese": self._glyph(cs),
+                "simplified_japanese": self._glyph(cj),
+            },
+            "readings": {
+                "mandarin": readings.get("kMandarin", ""),
+                "cantonese": readings.get("kCantonese", ""),
+                "korean": readings.get("kKorean", ""),
+                "vietnamese": readings.get("kVietnamese", ""),
+            },
+            "sources": [
+                [src.display or src.label, self.get_source_ref(code)] for code, src in SrcRef.IRGSrc.display_order()
+            ],
+        }
 
     @staticmethod
     def get_codepoint(block: int, ch16: int) -> int:

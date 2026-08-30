@@ -253,7 +253,7 @@ class Unicode:
                     "iso": p[11],
                     "up": p[12],
                     "lo": p[13],
-                    "ti": p[14],
+                    "ti": p[14].rstrip(),
                 }
             )
         return entries
@@ -519,10 +519,14 @@ class Unicode:
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
-    def _formal_alias_map() -> dict[int, list[str]]:
-        """Load NameAliases.txt -> {codepoint: [alias, ...]}. Only 'correction'
-        type aliases are formal aliases; we keep the full list for search."""
-        m: dict[int, list[str]] = {}
+    def _name_alias_map_by_type() -> dict[int, list[tuple[str, str]]]:
+        """NameAliases.txt -> {codepoint: [(alias, type), ...]}.
+
+        Alias types: correction (formal alias), control, alternate, figment,
+        abbreviation. The C++ build shows correction aliases under "Formal
+        Alias" and abbreviation aliases under "Abbreviation".
+        """
+        m: dict[int, list[tuple[str, str]]] = {}
         for line in filter(line_has_content, TxtParser.get_txt(UCD / "NameAliases.txt")):
             parts = line.split(";")
             if len(parts) < 3:
@@ -531,11 +535,14 @@ class Unicode:
                 cp = int(parts[0].strip(), 16)
             except ValueError:
                 continue
-            alias = parts[1].strip()
-            # Only formal aliases (type "correction") are true formal aliases,
-            # but include all for broader search coverage.
-            m.setdefault(cp, []).append(alias)
+            m.setdefault(cp, []).append((parts[1].strip(), parts[2].strip()))
         return m
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _formal_alias_map() -> dict[int, list[str]]:
+        """All name aliases (any type) per codepoint — kept broad for search."""
+        return {cp: [alias for alias, _t in aliases] for cp, aliases in Unicode._name_alias_map_by_type().items()}
 
     @staticmethod
     def get_formal_alias(cp: int) -> str:

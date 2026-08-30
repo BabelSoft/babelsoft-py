@@ -401,6 +401,7 @@ def codepoint_info(cp: int):
         except Exception:
             return ""
 
+    _aliases = Unicode._name_alias_map_by_type().get(cp, [])
     info = {
         "codepoint": cp,
         "name": _s(Unicode.get_character_name),
@@ -418,7 +419,8 @@ def codepoint_info(cp: int):
         "numeric_type": _enum(Unicode.get_numeric_type),
         "numeric_value": _s(Unicode.get_numeric_value),
         "unicode1_name": _s(Unicode.get_unicode1_name),
-        "formal_aliases": Unicode._formal_alias_map().get(cp, []),
+        "formal_aliases": [a for a, _t in _aliases if _t == "correction"],
+        "abbreviation": ", ".join(a for a, _t in _aliases if _t == "abbreviation"),
         "joining_type": _enum(Unicode.get_joining_type),
         "joining_group": _s(Unicode.get_joining_group),
         "utf8": " ".join(f"{b:02X}" for b in chr(cp).encode("utf-8")),
@@ -463,6 +465,22 @@ def codepoint_info(cp: int):
         info["standardized_variants"] = []
         info["emoji_variants"] = []
         info["named_sequences"] = []
+    # Extended (XML-style) character properties + name aliases.
+    try:
+        from src.unicode.extended import extended_properties, name_aliases
+
+        info["extended"] = extended_properties(cp)
+        info["name_aliases"] = name_aliases(cp)
+    except Exception:
+        info["extended"] = []
+        info["name_aliases"] = []
+    # Ideographic Variation Sequences (VS17..VS256) from IVD_Sequences.txt.
+    try:
+        from src.cjkv.cjk import CJK
+
+        info["ideographic_variants"] = [[vs, collection, ref] for vs, collection, ref in CJK(cp).ivs_sequences()]
+    except Exception:
+        info["ideographic_variants"] = []
     # CJK readings / radical-stroke (kept from before).
     try:
         from src.cjkv.cjk import CJK
@@ -481,6 +499,13 @@ def codepoint_info(cp: int):
                 pass
     except Exception:
         pass
+    # Ideographic (CJKV) properties — mirrors the C++ CDialogCJKV dialog.
+    try:
+        from src.cjkv.cjk import CJK
+
+        info["ideographic"] = CJK(cp).ideographic_properties()
+    except Exception:
+        info["ideographic"] = {}
     return info
 
 
@@ -723,6 +748,245 @@ def unicode_block_characters(name: str, version: str = Query(None, min_length=1)
     hi = bisect.bisect_right(cps, block["end"])
     characters = [{"codepoint": cp, "char": chr(cp), "name": _safe_name(Unicode, cp) or ""} for cp in cps[lo:hi]]
     return {"version": version, "block": name, "characters": characters}
+
+
+@app.get("/api/unicode/blocks/{name:path}/unicodedata")
+def unicode_block_unicodedata(name: str, version: str = Query(None, min_length=1)):
+    """UnicodeData rows (codepoint + name + all UCD fields) for every assigned
+    character in one block of a Unicode version (defaults to latest)."""
+    from babelmap.backend.history import block_unicodedata
+    from babelmap.backend.version import all_versions
+
+    if not version:
+        version = all_versions()[-1]["version"]
+    rows = block_unicodedata(version, name)
+    if rows is None:
+        return JSONResponse({"error": "Block not found"}, 404)
+    return {"version": version, "block": name, "rows": rows}
+
+
+# ── OpenType Test Framework (HarfBuzz shaping) ────────────────────────
+
+
+@app.get("/api/opentype/fonts")
+def opentype_fonts():
+    """System fonts for the OpenType Test Framework."""
+    from babelmap.backend.opentype import list_system_fonts
+
+    return {"fonts": list_system_fonts()}
+
+
+@app.get("/api/opentype/meta")
+def opentype_meta():
+    """Full ISO 15924 script list + common OpenType language tags."""
+    from babelmap.backend.opentype import languages_list, scripts_list
+
+    return {"scripts": scripts_list(), "languages": languages_list()}
+
+
+@app.post("/api/opentype/shape")
+def opentype_shape(payload: dict):
+    """Shape text with a font (HarfBuzz via uharfbuzz) and return the shaping
+    trace (Crowbar-style stages), final glyph run, GSUB/GPOS feature tags and
+    optionally a rendered SVG.
+
+    Body: {font_b64?, font_path?, text, direction?, script?, language?,
+    cluster?, flags?: [..], features? (dict or string), variations?,
+    show_all_lookups?, glyph_mode?, render?: bool, size?: int,
+    font_index?: int, color?}
+    """
+    from babelmap.backend.opentype import (
+        feature_tags,
+        font_bytes,
+        font_bytes_from_b64,
+        font_info,
+        render_svg,
+        shape_flat,
+        shape_trace,
+    )
+
+    data = None
+    b64 = payload.get("font_b64")
+    fpath = payload.get("font_path")
+    try:
+        if b64:
+            data = font_bytes_from_b64(b64)
+        elif fpath:
+            data = font_bytes(fpath)
+    except Exception:
+        return JSONResponse({"error": "Font could not be loaded"}, 400)
+    if not data:
+        return JSONResponse({"error": "No font provided (font_b64 or font_path)"}, 400)
+
+    try:
+        engine = payload.get("engine", "harfbuzz")
+        if engine in ("uniscribe", "directwrite") and os.name != "nt":
+            # These are Windows-native shaping APIs; on other platforms the
+            # engine is simply not available (the app itself stays cross-platform).
+            return JSONResponse({"error": f"'{engine}' engine is Windows-only"}, 400)
+        if engine == "uniscribe":
+            from babelmap.backend.uniscribe_shaper import shape_with_uniscribe
+
+            result = shape_with_uniscribe(
+                b64 or fpath,
+                payload.get("text", ""),
+                is_b64=bool(b64),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+            )
+        elif engine == "freetype":
+            from babelmap.backend.freetype_shaper import shape_with_freetype
+
+            result = shape_with_freetype(
+                b64 or fpath,
+                payload.get("text", ""),
+                is_b64=bool(b64),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+            )
+        elif engine == "directwrite":
+            from babelmap.backend.dwriteshape_shaper import shape_with_dwrite
+
+            result = shape_with_dwrite(
+                data,
+                payload.get("text", ""),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+            )
+        elif engine == "graphite":
+            from babelmap.backend.graphite_shaper import shape_with_graphite
+
+            result = shape_with_graphite(
+                data,
+                payload.get("text", ""),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+            )
+        elif engine == "icu":
+            from babelmap.backend.icu_shaper import shape_with_icu
+
+            result = shape_with_icu(
+                data,
+                payload.get("text", ""),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+            )
+        elif engine == "babelscript":
+            from babelmap.backend.babelscript_shaper import shape_with_babelscript
+
+            result = shape_with_babelscript(
+                data,
+                payload.get("text", ""),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+            )
+        elif engine == "harfbuzz_fallback":
+            result = shape_flat(
+                data,
+                payload.get("text", ""),
+                shapers=["fallback"],
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", "auto"),
+                language=payload.get("language", ""),
+                cluster_level=payload.get("cluster", "monotone_graphemes"),
+                flags=payload.get("flags") or [],
+                features=payload.get("features"),
+                font_index=int(payload.get("font_index", 0)),
+            )
+        else:
+            result = shape_trace(
+                data,
+                payload.get("text", ""),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", "auto"),
+                language=payload.get("language", ""),
+                cluster_level=payload.get("cluster", "monotone_graphemes"),
+                flags=payload.get("flags") or [],
+                features=payload.get("features"),
+                variations=payload.get("variations"),
+                show_all_lookups=bool(payload.get("show_all_lookups")),
+                glyph_mode=bool(payload.get("glyph_mode")),
+                font_index=int(payload.get("font_index", 0)),
+            )
+    except Exception as e:
+        return JSONResponse({"error": f"Shaping failed: {e}"}, 400)
+
+    result["features"] = feature_tags(data)
+    result["font_info"] = font_info(data)
+
+    # Glyph names (shape_trace already provides them; Uniscribe path needs them)
+    if "glyph_names" not in result:
+        from babelmap.backend.opentype import _glyph_names
+
+        used: set[int] = set()
+        for st in result.get("stages", []):
+            for g in st.get("glyphs", []):
+                used.add(g["g"])
+        for g in result.get("final", []):
+            used.add(g["g"])
+        result["glyph_names"] = _glyph_names(data, used)
+
+    if payload.get("render"):
+        try:
+            result["svg"] = render_svg(
+                data,
+                result["final"],
+                result["upem"],
+                size=int(payload.get("size", 128)),
+                color=payload.get("color", "#1f2937"),
+                variations=payload.get("variations"),
+            )
+        except Exception as e:
+            result["svg_error"] = str(e)
+    return result
+
+
+@app.post("/api/opentype/render")
+def opentype_render(payload: dict):
+    """Render an arbitrary glyph run as SVG (for hover / partial-trace views).
+
+    Body: {font_b64?|font_path?, glyphs: [{g, ax, dx, dy, cl}], upem,
+    size?, color?, highlight_cl?, variations?}
+    """
+    from babelmap.backend.opentype import font_bytes, font_bytes_from_b64, render_svg
+
+    data = None
+    b64 = payload.get("font_b64")
+    fpath = payload.get("font_path")
+    try:
+        if b64:
+            data = font_bytes_from_b64(b64)
+        elif fpath:
+            data = font_bytes(fpath)
+    except Exception:
+        return JSONResponse({"error": "Font could not be loaded"}, 400)
+    if not data:
+        return JSONResponse({"error": "No font provided"}, 400)
+    try:
+        svg = render_svg(
+            data,
+            payload.get("glyphs") or [],
+            int(payload.get("upem", 2048)),
+            size=int(payload.get("size", 128)),
+            color=payload.get("color", "#1f2937"),
+            highlight_cl=int(payload.get("highlight_cl", -1)),
+            variations=payload.get("variations"),
+        )
+    except Exception as e:
+        return JSONResponse({"error": f"Render failed: {e}"}, 400)
+    return {"svg": svg}
 
 
 @app.get("/api/unicode/diff")
