@@ -23,7 +23,11 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":18081" ^| findstr "LISTENIN
 echo [1/2] Starting Python backend...
 cd /d "%PROJ%"
 set PYTHONPATH=%PROJ%
-start "" /B python babelmap/backend/server.py 2>&1
+if not exist ".venv\Scripts\python.exe" (
+    echo        Setting up uv environment (first run)...
+    call uv sync
+)
+start "" /B uv run python babelmap/backend/server.py 2>&1
 echo        Backend: http://127.0.0.1:18080
 
 echo [2/2] Starting Svelte frontend...

@@ -958,7 +958,7 @@ def opentype_render(payload: dict):
     """Render an arbitrary glyph run as SVG (for hover / partial-trace views).
 
     Body: {font_b64?|font_path?, glyphs: [{g, ax, dx, dy, cl}], upem,
-    size?, color?, highlight_cl?, variations?}
+    size?, color?, highlight_cl?, highlight_color?, variations?}
     """
     from babelmap.backend.opentype import font_bytes, font_bytes_from_b64, render_svg
 
@@ -982,6 +982,7 @@ def opentype_render(payload: dict):
             size=int(payload.get("size", 128)),
             color=payload.get("color", "#1f2937"),
             highlight_cl=int(payload.get("highlight_cl", -1)),
+            highlight_color=payload.get("highlight_color", "#e23d3d"),
             variations=payload.get("variations"),
         )
     except Exception as e:

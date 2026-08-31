@@ -909,5 +909,5 @@ reconstructed repertoire at load time.
 ## 10. Running Tests
 
 ```bash
-python -m pytest tests/ -x -q
+uv run python -m pytest tests/ -x -q
 ```

@@ -1,0 +1,27 @@
+[project]
+name = "babelsoft-py"
+version = "1.0.0"
+description = "Python port of the BabelSoft CJK/Unicode data processing tools"
+requires-python = ">=3.10"
+# Single source of truth for Python libraries (previously split across
+# requirements.txt + babelmap/backend/requirements.txt).
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "Pillow>=10.0.0",
+    "uharfbuzz>=0.40.0",
+    "fonttools>=4.50.0",
+    "freetype-py>=2.5.0",
+    "arabic-reshaper>=3.0.0",
+    "dwriteshapepy; platform_system == 'Windows'",
+    "requests",
+    "rich",
+    "pygraphite2>=0.4.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.uv]
+# This is an application, not an installable package — uv just manages the venv.
+package = false

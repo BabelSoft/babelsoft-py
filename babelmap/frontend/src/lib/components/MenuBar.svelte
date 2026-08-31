@@ -21,15 +21,7 @@
     onCloseLang: () => void;
   }
 
-  let {
-    dark,
-    showLang,
-    filterNoBlock,
-    onMenuAction,
-    onDarkToggle,
-    onToggleLang,
-    onCloseLang,
-  }: Props = $props();
+  let { dark, showLang, filterNoBlock, onMenuAction, onDarkToggle, onToggleLang, onCloseLang }: Props = $props();
 
   let _menus = $derived(localizedMenus(filterNoBlock));
   let om = $state(-1);
@@ -54,9 +46,7 @@
 <nav class="mb">
   {#each _menus as m, i}
     <div class="mw">
-      <button class="mbtn" class:on={om === i} onclick={() => mc(i)}
-        >{m.label}</button
-      >
+      <button class="mbtn" class:on={om === i} onclick={() => mc(i)}>{m.label}</button>
       {#if om === i}
         <div class="mdrop" role="menu">
           {#each m.items as it}
@@ -65,35 +55,24 @@
             {:else if it.sub}
               <div class="msw">
                 <div class="mi mst">
-                  {it.l}<span class="ar"
-                    ><Icon name="chevron-right" size={10} /></span
-                  >
+                  {it.l}<span class="ar"><Icon name="chevron-right" size={10} /></span>
                 </div>
                 <div class="msub">
                   {#each it.sub as s}
-                    <div
-                      class="mi"
-                      role="menuitem"
-                      onclick={() => ma(s)}
-                      onkeydown={(e) => e.key === "Enter" && ma(s)}
-                      tabindex="0"
-                    >
-                      {s.l}
-                    </div>
+                    {#if s.sep}
+                      <div class="msep"></div>
+                    {:else}
+                      <div class="mi" role="menuitem" onclick={() => ma(s)} onkeydown={(e) => e.key === "Enter" && ma(s)} tabindex="0">
+                        {s.l}
+                      </div>
+                    {/if}
                   {/each}
                 </div>
               </div>
             {:else}
-              <div
-                class="mi"
-                role="menuitem"
-                onclick={() => ma(it)}
-                onkeydown={(e) => e.key === "Enter" && ma(it)}
-                tabindex="0"
-              >
+              <div class="mi" role="menuitem" onclick={() => ma(it)} onkeydown={(e) => e.key === "Enter" && ma(it)} tabindex="0">
                 {it.l}<span class="sk" class:checked={it.checked}>
-                  {#if it.checked}<Icon name="check" size={11} />{:else}{it.k ||
-                      ""}{/if}
+                  {#if it.checked}<Icon name="check" size={11} />{:else}{it.k || ""}{/if}
                 </span>
               </div>
             {/if}
@@ -104,9 +83,7 @@
   {/each}
   <span class="msp"></span>
   <LangSwitcher {showLang} {onToggleLang} {onCloseLang} />
-  <button class="tbtn" onclick={onDarkToggle}
-    ><Icon name={dark ? "sun" : "moon"} size={16} /></button
-  >
+  <button class="tbtn" onclick={onDarkToggle}><Icon name={dark ? "sun" : "moon"} size={16} /></button>
 </nav>
 
 <style>

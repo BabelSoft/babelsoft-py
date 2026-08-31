@@ -95,9 +95,7 @@
       err = "";
     }
     try {
-      grid = await get<GridPage>(
-        `/grid/${plane}?scroll=${scroll}&filter_no_block=${_filterNoBlock}`,
-      );
+      grid = await get<GridPage>(`/grid/${plane}?scroll=${scroll}&filter_no_block=${_filterNoBlock}`);
     } catch (e: any) {
       err = e.message;
     } finally {
@@ -147,10 +145,7 @@
   }
   async function doGo() {
     if (!gv.trim()) return;
-    let cp = parseInt(
-      gv.replace(/^(0x|U\+|\$|#)/i, ""),
-      gv.startsWith("#") ? 10 : 16,
-    );
+    let cp = parseInt(gv.replace(/^(0x|U\+|\$|#)/i, ""), gv.startsWith("#") ? 10 : 16);
     if (isNaN(cp) || cp < 0 || cp > 0x10ffff) return;
     gv = "";
     await gotoCP(cp);
@@ -309,11 +304,7 @@
               name: string;
             };
             // Avoid duplicates from wrap-around
-            if (
-              _sresults.length > 0 &&
-              item.codepoint <= _sresults[_sresults.length - 1].codepoint
-            )
-              continue;
+            if (_sresults.length > 0 && item.codepoint <= _sresults[_sresults.length - 1].codepoint) continue;
             _sresults = [..._sresults, item];
           } catch {
             /* skip */
@@ -353,9 +344,7 @@
   }
   async function gotoCP(cp: number) {
     const np = Math.floor(cp / 0x10000);
-    const g = await get<GridPage>(
-      `/grid/${np}/goto/${cp}?filter_no_block=${_filterNoBlock}`,
-    );
+    const g = await get<GridPage>(`/grid/${np}/goto/${cp}?filter_no_block=${_filterNoBlock}`);
     if (g.not_found) {
       alert(`U+${cp.toString(16).toUpperCase()} ${t("general.not_assigned")}`);
       return;
@@ -369,16 +358,10 @@
 
   // ── Go to Han Ideograph ──────────────────────────────────────────
   async function doGotoHan() {
-    const ref = prompt(
-      t("find.goto_han") +
-        " — " +
-        (lang.v === "zh" ? "输入源引用" : "Enter Source Reference"),
-    );
+    const ref = prompt(t("find.goto_han") + " — " + (lang.v === "zh" ? "输入源引用" : "Enter Source Reference"));
     if (!ref?.trim()) return;
     try {
-      const r = await get<any[]>(
-        `/search/han_source?q=${encodeURIComponent(ref.trim())}&limit=50`,
-      );
+      const r = await get<any[]>(`/search/han_source?q=${encodeURIComponent(ref.trim())}&limit=50`);
       if (r.length > 0) {
         sv = "";
         _sresults = r.map((x: any) => ({
@@ -421,34 +404,18 @@
   function addToBuf(r: number, c: number) {
     if (grid) {
       const cell = grid.cells[r]?.[c];
-      if (cell && cell.codepoint > 0)
-        buf += String.fromCodePoint(cell.codepoint);
+      if (cell && cell.codepoint > 0) buf += String.fromCodePoint(cell.codepoint);
     }
   }
   function conv(): string {
     if (!buf) return "";
     const a = [...buf];
-    if (mode === "ncr_hex")
-      return a
-        .map((c) => `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`)
-        .join("");
-    if (mode === "ncr_dec")
-      return a.map((c) => `&#${c.codePointAt(0)!};`).join("");
-    if (mode === "html")
-      return a
-        .map((c) =>
-          c.codePointAt(0)! > 127
-            ? `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`
-            : c,
-        )
-        .join("");
+    if (mode === "ncr_hex") return a.map((c) => `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`).join("");
+    if (mode === "ncr_dec") return a.map((c) => `&#${c.codePointAt(0)!};`).join("");
+    if (mode === "html") return a.map((c) => (c.codePointAt(0)! > 127 ? `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};` : c)).join("");
     if (mode === "ucn")
       return a
-        .map((c) =>
-          c.codePointAt(0)! <= 0xffff
-            ? `\\u${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`
-            : `\\U${c.codePointAt(0)!.toString(16).toUpperCase().padStart(8, "0")}`,
-        )
+        .map((c) => (c.codePointAt(0)! <= 0xffff ? `\\u${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}` : `\\U${c.codePointAt(0)!.toString(16).toUpperCase().padStart(8, "0")}`))
         .join("");
     return buf;
   }
@@ -582,12 +549,7 @@
 
   /** Build a minimal RTF string wrapping the given text with current font settings */
   function buildRtf(text: string): string {
-    const escaped = text
-      .replace(/\\/g, "\\\\")
-      .replace(/\{/g, "\\{")
-      .replace(/\}/g, "\\}")
-      .replace(/\n/g, "\\par\n")
-      .replace(/\r/g, "");
+    const escaped = text.replace(/\\/g, "\\\\").replace(/\{/g, "\\{").replace(/\}/g, "\\}").replace(/\n/g, "\\par\n").replace(/\r/g, "");
     let body = "";
     for (const ch of escaped) {
       const cp = ch.codePointAt(0) ?? 63;
@@ -621,9 +583,7 @@
     if (cp != null && cp >= 0) {
       const cell = grid!.cells[sr]?.[sc];
       const reserved = cell?.reserved;
-      const nm = reserved
-        ? "<reserved>"
-        : selName() || `U+${cp.toString(16).toUpperCase()}`;
+      const nm = reserved ? "<reserved>" : selName() || `U+${cp.toString(16).toUpperCase()}`;
       return {
         hex: cp
           .toString(16)
@@ -638,12 +598,7 @@
   });
 
   function onKey(e: KeyboardEvent) {
-    if (
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement ||
-      e.target instanceof HTMLSelectElement
-    )
-      return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
     if (e.key === "ArrowUp") {
       if (sr > 0) sr--;
       else if (scroll > 0) {
@@ -718,8 +673,7 @@
   }
 
   function onMenuAction(label: string) {
-    if (label === t("view.toggle_theme")) dark = !dark;
-    else if (label === t("edit.clear")) doClear();
+    if (label === t("edit.clear")) doClear();
     else if (label === t("edit.copy_plain")) copyPlain();
     else if (label === t("edit.copy_rtf")) copyRtf();
     else if (label === t("edit.cut_plain")) cutPlain();
@@ -748,11 +702,7 @@
     // View menu
     else if (label === t("view.filter_no_block")) {
       _filterNoBlock = !_filterNoBlock;
-      showStatus(
-        _filterNoBlock
-          ? "Filter ON: unassigned blocks hidden"
-          : "Filter OFF: showing full planes",
-      );
+      showStatus(_filterNoBlock ? "Filter ON: unassigned blocks hidden" : "Filter OFF: showing full planes");
       load();
     }
   }
@@ -773,31 +723,14 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="app" class:dark>
-  <MenuBar
-    {dark}
-    {showLang}
-    filterNoBlock={_filterNoBlock}
-    {onMenuAction}
-    onDarkToggle={() => (dark = !dark)}
-    onToggleLang={() => (showLang = !showLang)}
-    onCloseLang={() => (showLang = false)}
-  />
+  <MenuBar {dark} {showLang} filterNoBlock={_filterNoBlock} {onMenuAction} onDarkToggle={() => (dark = !dark)} onToggleLang={() => (showLang = !showLang)} onCloseLang={() => (showLang = false)} />
 
   <PlaneTabs {plane} planes={PLANES} onChange={goPlane} />
 
   <div class="main">
     <div class="gw">
       <GridHeader {loading} {err} {grid} />
-      <CharacterGrid
-        {grid}
-        {plane}
-        {sr}
-        {sc}
-        onSelect={selectCell}
-        onAddToBuffer={addToBuf}
-        onDblClick={openCharProps}
-        onWheel={(deltaY: number) => nav(deltaY > 0 ? 1 : -1)}
-      />
+      <CharacterGrid {grid} {plane} {sr} {sc} onSelect={selectCell} onAddToBuffer={addToBuf} onDblClick={openCharProps} onWheel={(deltaY: number) => nav(deltaY > 0 ? 1 : -1)} />
     </div>
 
     <NavPanel
@@ -870,8 +803,7 @@
     onClear={doClear}
     onSave={openSaveDlg}
     onHideToggle={() => {}}
-    onContextMenu={(e: MouseEvent) =>
-      openCtxMenu(e, e.currentTarget as HTMLTextAreaElement)}
+    onContextMenu={(e: MouseEvent) => openCtxMenu(e, e.currentTarget as HTMLTextAreaElement)}
   />
 
   <StatusBar
@@ -905,11 +837,7 @@
     }}
   />
 
-  <CharacterPropertiesDialog
-    show={showCharProps}
-    cp={charPropsCp}
-    onClose={() => (showCharProps = false)}
-  />
+  <CharacterPropertiesDialog show={showCharProps} cp={charPropsCp} onClose={() => (showCharProps = false)} />
 
   <EmojiLookupDialog
     show={showEmojiLookup}
@@ -920,10 +848,7 @@
     }}
   />
 
-  <OpenTypeTestDialog
-    show={showOpenTypeTest}
-    onClose={() => (showOpenTypeTest = false)}
-  />
+  <OpenTypeTestDialog show={showOpenTypeTest} onClose={() => (showOpenTypeTest = false)} />
 
   <ContextMenu
     show={ctxShow}

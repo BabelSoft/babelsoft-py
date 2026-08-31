@@ -314,17 +314,19 @@ cd babelmap/frontend
 npm install
 ```
 
-### 2. Install backend dependencies
+### 2. Install backend dependencies (uv)
+
+Python libraries are managed in a single place with [uv](https://docs.astral.sh/uv/)
+(`pyproject.toml` at the repo root — this supersedes the old `requirements.txt` files).
 
 ```bash
-cd babelmap/backend
-pip install -r requirements.txt
+uv sync          # creates .venv + uv.lock, installs all deps (incl. dev/pytest)
 ```
 
 ### 3. Start the backend (terminal 1)
 
 ```bash
-python babelmap/backend/server.py
+uv run python babelmap/backend/server.py
 # → http://127.0.0.1:18080
 ```
 
@@ -339,7 +341,7 @@ npm run dev
 ### 5. Run tests for backend
 
 ```bash
-python -m pytest babelsoft-py/tests/ -x -q
+uv run python -m pytest tests/ -q
 ```
 
 ---
@@ -347,7 +349,7 @@ python -m pytest babelsoft-py/tests/ -x -q
 ## Tauri Build (Windows/macOS/Linux)
 
 ```bash
-# Prerequisites: Rust, Node.js, Python 3
+# Prerequisites: Rust, Node.js, Python 3, uv
 cd babelmap
 npm run tauri dev    # Development with hot-reload
 npm run tauri build  # Production installer

@@ -103,18 +103,8 @@
   // ── drag / position state ──
   let x = $state(180);
   let y = $state(90);
-  let w = $state(
-    Math.min(
-      1280,
-      (typeof window !== "undefined" ? window.innerWidth : 1280) - 32,
-    ),
-  );
-  let h = $state(
-    Math.min(
-      780,
-      (typeof window !== "undefined" ? window.innerHeight : 780) - 40,
-    ),
-  );
+  let w = $state(Math.min(1280, (typeof window !== "undefined" ? window.innerWidth : 1280) - 32));
+  let h = $state(Math.min(780, (typeof window !== "undefined" ? window.innerHeight : 780) - 40));
   let dragging = $state(false);
   let dragStartX = $state(0);
   let dragStartY = $state(0);
@@ -216,10 +206,7 @@
   });
   async function init() {
     try {
-      const [fr, mr] = await Promise.all([
-        fetch(API + "/opentype/fonts"),
-        fetch(API + "/opentype/meta"),
-      ]);
+      const [fr, mr] = await Promise.all([fetch(API + "/opentype/fonts"), fetch(API + "/opentype/meta")]);
       const fd = await fr.json();
       fonts = fd.fonts ?? [];
       if (mr.ok) meta = (await mr.json()) ?? meta;
@@ -309,8 +296,7 @@
       fontInfo = d.font_info ?? null;
       hbVersion = d.font_info?.hb_version ?? "";
       const next = { ...features };
-      for (const t of [...featureTags.gsub, ...featureTags.gpos])
-        if (!(t in next)) next[t] = "default";
+      for (const t of [...featureTags.gsub, ...featureTags.gpos]) if (!(t in next)) next[t] = "default";
       features = next;
       shownGlyphs = d.final ?? [];
       shownUpem = d.upem ?? 2048;
@@ -334,6 +320,7 @@
           size,
           color: fgColor(),
           highlight_cl: cl,
+          highlight_color: cl >= 0 ? paletteFor(cl) : undefined,
         };
         if (Object.keys(variations).length) body.variations = variations;
         if (fontB64) body.font_b64 = fontB64;
@@ -390,8 +377,7 @@
     return cur.map((g, i) => {
       const p = prev[i];
       if (!p) return "added";
-      if (p.g !== g.g || p.ax !== g.ax || p.dx !== g.dx || p.dy !== g.dy)
-        return "modified";
+      if (p.g !== g.g || p.ax !== g.ax || p.dx !== g.dx || p.dy !== g.dy) return "modified";
       return null;
     });
   }
@@ -404,21 +390,11 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && onClose()} />
 
 {#if show}
-  <div
-    class="otd"
-    class:dragging
-    class:resizing
-    style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;"
-  >
+  <div class="otd" class:dragging class:resizing style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;">
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="otd-header" onmousedown={onDragStart}>
       <span class="otd-title">OpenType Test</span>
-      <select
-        class="otd-font"
-        bind:value={fontPath}
-        onchange={onFontSelect}
-        disabled={!!fontB64}
-      >
+      <select class="otd-font" bind:value={fontPath} onchange={onFontSelect} disabled={!!fontB64}>
         {#each fonts as f}
           <option value={f.path}>{f.name}</option>
         {/each}
@@ -428,20 +404,12 @@
         <span>{fontName || "Upload font"}</span>
         <input type="file" accept=".ttf,.otf,.ttc" onchange={onUpload} />
       </label>
-      <button class="otd-close" onclick={onClose} title="Close"
-        ><Icon name="close" size={14} /></button
-      >
+      <button class="otd-close" onclick={onClose} title="Close"><Icon name="close" size={14} /></button>
     </div>
 
     <div class="otd-body">
       <div class="otd-options">
-        <textarea
-          class="otd-text"
-          bind:value={text}
-          oninput={onOptionChange}
-          placeholder="Enter text to shape…"
-          spellcheck="false"
-          style:font-family={fontName ? `"${fontName}"` : undefined}
+        <textarea class="otd-text" bind:value={text} oninput={onOptionChange} placeholder="Enter text to shape…" spellcheck="false" style:font-family={fontName ? `"${fontName}"` : undefined}
         ></textarea>
 
         <label class="otd-opt"
@@ -455,9 +423,7 @@
             }}
           >
             <option value="harfbuzz">HarfBuzz (OT · full trace)</option>
-            <option value="babelscript"
-              >BabelScript (OT reimplementation)</option
-            >
+            <option value="babelscript">BabelScript (OT reimplementation)</option>
             <option value="harfbuzz_fallback">HarfBuzz fallback (cmap)</option>
             <option value="graphite">Graphite (SIL)</option>
             <option value="uniscribe">Uniscribe</option>
@@ -476,36 +442,22 @@
 
         <label class="otd-opt"
           >Script
-          <input
-            list="otd-scripts"
-            bind:value={script}
-            oninput={onOptionChange}
-            placeholder="auto / e.g. latn, arab"
-          /></label
+          <input list="otd-scripts" bind:value={script} oninput={onOptionChange} placeholder="auto / e.g. latn, arab" /></label
         >
         <datalist id="otd-scripts">
           <option value="auto">Auto</option>
           {#each meta.scripts as s}
-            <option value={s.tag}
-              >{s.label}{isSupportedScript(s.tag) ? " ✅" : ""}</option
-            >
+            <option value={s.tag}>{s.label}{isSupportedScript(s.tag) ? " ✅" : ""}</option>
           {/each}
         </datalist>
 
         <label class="otd-opt"
           >Language
-          <input
-            list="otd-langs"
-            bind:value={language}
-            oninput={onOptionChange}
-            placeholder="e.g. ENG, ARA"
-          /></label
+          <input list="otd-langs" bind:value={language} oninput={onOptionChange} placeholder="e.g. ENG, ARA" /></label
         >
         <datalist id="otd-langs">
           {#each meta.languages as l}
-            <option value={l.tag}
-              >{l.label}{isSupportedLang(l.tag) ? " ✅" : ""}</option
-            >
+            <option value={l.tag}>{l.label}{isSupportedLang(l.tag) ? " ✅" : ""}</option>
           {/each}
         </datalist>
 
@@ -516,15 +468,7 @@
           </select></label
         >
 
-        <label class="otd-opt"
-          >Size <input
-            type="range"
-            min="24"
-            max="240"
-            bind:value={size}
-            onchange={onOptionChange}
-          /><span class="otd-sizev">{size}</span></label
-        >
+        <label class="otd-opt">Size <input type="range" min="24" max="240" bind:value={size} onchange={onOptionChange} /><span class="otd-sizev">{size}</span></label>
 
         <div class="otd-axes">
           <div class="otd-sub">Variation Axes</div>
@@ -541,15 +485,11 @@
                   oninput={(e) => {
                     variations = {
                       ...variations,
-                      [ax.tag]: Number(
-                        (e.currentTarget as HTMLInputElement).value,
-                      ),
+                      [ax.tag]: Number((e.currentTarget as HTMLInputElement).value),
                     };
                     shape();
                   }}
-                /><span class="otd-sizev"
-                  >{variations[ax.tag] ?? ax.default}</span
-                ></label
+                /><span class="otd-sizev">{variations[ax.tag] ?? ax.default}</span></label
               >
             {/each}
           {:else}
@@ -559,12 +499,7 @@
 
         <div class="otd-features">
           <div class="otd-sub">Features</div>
-          <input
-            class="otd-fstr"
-            bind:value={featureString}
-            oninput={onOptionChange}
-            placeholder="Feature string, e.g. +liga,-kern (overrides chips)"
-          />
+          <input class="otd-fstr" bind:value={featureString} oninput={onOptionChange} placeholder="Feature string, e.g. +liga,-kern (overrides chips)" />
           {#if !featureString.trim()}
             <div class="otd-flist">
               {#if featureTags.gsub.length || featureTags.gpos.length}
@@ -573,11 +508,7 @@
                     class="otd-feat"
                     class:on={features[tag] === "on"}
                     class:off={features[tag] === "off"}
-                    title={features[tag] === "on"
-                      ? "Forced on — click to force off"
-                      : features[tag] === "off"
-                        ? "Forced off — click to restore default"
-                        : "Default — click to force on"}
+                    title={features[tag] === "on" ? "Forced on — click to force off" : features[tag] === "off" ? "Forced off — click to restore default" : "Default — click to force on"}
                     onclick={() => toggleFeature(tag)}>{tag}</button
                   >
                 {/each}
@@ -588,20 +519,8 @@
           {/if}
         </div>
 
-        <label class="otd-check"
-          ><input
-            type="checkbox"
-            bind:checked={showAllLookups}
-            onchange={onOptionChange}
-          />Show All Lookups</label
-        >
-        <label class="otd-check"
-          ><input
-            type="checkbox"
-            bind:checked={glyphMode}
-            onchange={onOptionChange}
-          />Glyph Mode (ids)</label
-        >
+        <label class="otd-check"><input type="checkbox" bind:checked={showAllLookups} onchange={onOptionChange} />Show All Lookups</label>
+        <label class="otd-check"><input type="checkbox" bind:checked={glyphMode} onchange={onOptionChange} />Glyph Mode (ids)</label>
 
         <div class="otd-bflg">
           <div class="otd-sub">Buffer Flags</div>
@@ -612,9 +531,7 @@
                 checked={bufferFlags.includes(v)}
                 onchange={(e) => {
                   const on = (e.target as HTMLInputElement).checked;
-                  bufferFlags = on
-                    ? [...bufferFlags, v]
-                    : bufferFlags.filter((f) => f !== v);
+                  bufferFlags = on ? [...bufferFlags, v] : bufferFlags.filter((f) => f !== v);
                   shape();
                 }}
               /><span class="otd-flag" title={l}>{v}</span></label
@@ -669,16 +586,8 @@
                       </tr>
                     {:else if !(stage.m === "Start of shaping" && cluster !== "characters")}
                       {@const feat = featureOf(stage.m)}
-                      {@const dbg = debugFor(
-                        stage.m,
-                        stageTag(stage.m) || "GSUB",
-                      )}
-                      <tr
-                        class:lookup={!!feat}
-                        style:padding-left={stage.depth * 14 + "px"}
-                        onmouseenter={() => onStageEnter(stage)}
-                        onmouseleave={onStageLeave}
-                      >
+                      {@const dbg = debugFor(stage.m, stageTag(stage.m) || "GSUB")}
+                      <tr class:lookup={!!feat} style:padding-left={stage.depth * 14 + "px"} onmouseenter={() => onStageEnter(stage)} onmouseleave={onStageLeave}>
                         <td class="otd-msg">
                           {#if feat}
                             <span class="otd-featname">{feat}</span>
@@ -1074,14 +983,10 @@
     box-shadow: inset 0 0 0 2px currentColor;
   }
   .otd-glyph.modified {
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent 0 4px,
-      rgba(128, 128, 128, 0.15) 4px 6px
-    );
+    background: repeating-linear-gradient(-45deg, transparent 0 4px, rgba(128, 128, 128, 0.15) 4px 6px);
   }
   .otd-glyph.hl {
-    outline: 2px solid #e23d3d;
+    outline: 2px solid currentColor;
     outline-offset: 1px;
   }
   .otd-resize {

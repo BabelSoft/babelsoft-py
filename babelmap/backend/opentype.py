@@ -607,12 +607,14 @@ def render_svg(
     size: int = 128,
     color: str = "#1f2937",
     highlight_cl: int = -1,
+    highlight_color: str = "#e23d3d",
     variations: dict | None = None,
 ) -> str:
     """Compose a shaped glyph run into an SVG string (glyph outlines via fontTools).
 
-    Glyphs whose ``cl`` equals ``highlight_cl`` are drawn highlighted (red fill
-    + outline), matching Crowbar's hover behaviour.
+    Glyphs whose ``cl`` equals ``highlight_cl`` are drawn highlighted (fill +
+    outline in ``highlight_color``, which the caller normally derives from the
+    cluster palette so it matches the trace-table chip borders).
 
     Advances: use the HarfBuzz ``ax`` when present; for intermediate shaping
     stages (GSUB, no positions) fall back to the font's own advance so the
@@ -650,21 +652,22 @@ def render_svg(
         tx = x + g.get("dx", 0) * scale
         ty = g.get("dy", 0) * scale
         hl = g.get("cl") == highlight_cl
-        fill = "#e23d3d" if hl else color
+        fill = highlight_color if hl else color
         if not d:
             # Empty glyph (e.g. Mongolian FVS variation selector): draw a
             # placeholder rule so it stays visible in the trace.
             parts.append(
                 f'<g transform="translate({tx:.2f} {baseline + ty:.2f})" '
-                f'stroke="{color}" stroke-width="{max(1, upem / 200):.2f}" '
-                f'fill="none" opacity="0.55"><path d="M0 {upem * 0.75} '
+                f'stroke="{highlight_color if hl else color}" '
+                f'stroke-width="{max(1, upem / 200):.2f}" '
+                f'fill="none" opacity="{0.9 if hl else 0.55}"><path d="M0 {upem * 0.75} '
                 f'H {max(adv, 1)}"/></g>'
             )
             x += adv * scale
             continue
         box = (
             f'<rect x="-40" y="-1450" width="{max(adv, 1) + 80}" height="1600" '
-            f'fill="none" stroke="#e23d3d" stroke-width="30"/>'
+            f'fill="none" stroke="{highlight_color}" stroke-width="30"/>'
             if hl
             else ""
         )

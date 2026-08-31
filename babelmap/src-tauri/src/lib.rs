@@ -15,20 +15,29 @@ fn start_backend(state: State<PythonBackend>) -> Result<String, String> {
     if guard.is_some() {
         return Ok("Backend already running".into());
     }
-    let python_cmd = if cfg!(target_os = "windows") { "python" } else { "python3" };
-    let mut cmd = Command::new(python_cmd);
-    cmd.args(["backend/server.py"])
-        .current_dir(
-            std::env::current_dir()
-                .unwrap()
-                .parent()
-                .map(|p| p.to_path_buf())
-                .unwrap_or_else(|| std::env::current_dir().unwrap()),
-        );
+    let py = if cfg!(target_os = "windows") { "python" } else { "python3" };
+    let dir = std::env::current_dir()
+        .unwrap()
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::env::current_dir().unwrap());
+    // Prefer `uv run` so the packaged app uses the uv-managed venv when uv is on
+    // PATH (auto-creating .venv on first run). Fall back to system python.
+    let mut cmd = Command::new("uv");
+    cmd.args(["run", "python", "backend/server.py"]).current_dir(&dir);
     #[cfg(target_os = "windows")]
     { cmd.creation_flags(0x08000000); }
-    let child = cmd.spawn()
-        .map_err(|e| format!("Failed to start Python backend: {}", e))?;
+    let child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(_) => {
+            let mut cmd2 = Command::new(py);
+            cmd2.arg("backend/server.py").current_dir(&dir);
+            #[cfg(target_os = "windows")]
+            { cmd2.creation_flags(0x08000000); }
+            cmd2.spawn()
+                .map_err(|e| format!("Failed to start Python backend: {}", e))?
+        }
+    };
     *guard = Some(child);
     Ok("Backend started".into())
 }
