@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from src.unicode.core import Unicode
-from src.cjkv.cjk import CJK_BLOCK_SHORTCUTS, SrcRef
+from babelsoft.unicode.core import Unicode
+from babelsoft.cjkv.cjk import CJK_BLOCK_SHORTCUTS, SrcRef
 
 # ── Property definitions ───────────────────────────────────────────
 
@@ -713,7 +713,7 @@ _TANGUT_FIELDS = {
 
 def _tangut_ref(key: str, cp: int) -> str:
     """Return the Tangut source reference string for a codepoint, or "" if none."""
-    from src.scripts.tangut import Tangut
+    from babelsoft.scripts.tangut import Tangut
 
     if key == "lifanwen2008":
         return Tangut.get_li_fanwen_number(cp)
@@ -884,7 +884,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             return not m if negate else m
 
         if key == "submitter":
-            from src.cjkv.cjk import CJKLoader
+            from babelsoft.cjkv.cjk import CJKLoader
 
             irg = CJKLoader.load_cjk_irg_sources().get(cp)
             if not irg:
@@ -895,7 +895,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             return not m if negate else m
 
         if key == "ref":
-            from src.cjkv.cjk import CJKLoader
+            from babelsoft.cjkv.cjk import CJKLoader
 
             irg = CJKLoader.load_cjk_irg_sources().get(cp)
             if not irg:
@@ -991,14 +991,14 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
 
         # ── Readings ──
         if key == "pinyin":
-            from src.cjkv.pinyin import Pinyin
+            from babelsoft.cjkv.pinyin import Pinyin
 
             syllable, tone = _parse_syllable(val, 5)
             m = _match_readings(Pinyin.get_readings(cp), syllable, tone)
             return not m if negate else m
 
         if key == "cantonese":
-            from src.cjkv.jyutping import Jyutping
+            from babelsoft.cjkv.jyutping import Jyutping
 
             syllable, tone = _parse_syllable(val, 6)
             m = _match_readings(Jyutping.get_readings(cp), syllable, tone)
@@ -1006,7 +1006,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
 
         # ── Radicals / strokes ──
         if key == "cjkradical":
-            from src.cjkv.cjk import CJK
+            from babelsoft.cjkv.cjk import CJK
 
             try:
                 rad = int(val)
@@ -1027,14 +1027,14 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
                 return negate
             strokes: list[int] | None = None
             try:
-                from src.cjkv.cjk import CJK
+                from babelsoft.cjkv.cjk import CJK
 
                 rs = CJK(cp).primary_radical_stroke()
                 strokes = [rs.residual_stroke] if rs else None
             except Exception:
                 strokes = None
             if not strokes:
-                from src.scripts.yi import YiRadical
+                from babelsoft.scripts.yi import YiRadical
 
                 strokes = [s for (_, s) in YiRadical.get_radical_stroke(cp)]
             if not strokes:
@@ -1043,7 +1043,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             return not m if negate else m
 
         if key == "yiradical":
-            from src.scripts.yi import YiRadical
+            from babelsoft.scripts.yi import YiRadical
 
             if len(val) == 1:
                 rn = YiRadical.radical_number_for_glyph(ord(val))

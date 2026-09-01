@@ -12,7 +12,7 @@ codepoints for whole scripts (Tibetan U+1000-104F, Hangul syllables U+3400-4DFF)
 and assorted single characters (Greek, Arabic presentation forms, CJK symbols,
 ...).  Those moves/removals are hand-maintained in BabelMap's C++ (NOT in any
 UCD file); the data now lives in ``data/scripts/unicode_1_0_mappings.tsv`` and
-is parsed by ``src.unicode.core.Unicode``.
+is parsed by ``babelsoft.unicode.core.Unicode``.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from __future__ import annotations
 import bisect
 import functools
 
-from src.unicode.core import Unicode
+from babelsoft.unicode.core import Unicode
 
 from babelmap.backend.version import (
     all_versions,

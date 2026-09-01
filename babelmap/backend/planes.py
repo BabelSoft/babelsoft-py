@@ -1,6 +1,6 @@
 """Unicode Planes dialog data — per-plane stats + per-plane block lists.
 
-Everything is reused from ``src.unicode.core.Unicode`` (the dedicated
+Everything is reused from ``babelsoft.unicode.core.Unicode`` (the dedicated
 data-parsing library) — nothing is hardcoded:
 
 * Plane names / abbreviations / reserved status: ``Unicode.get_plane_name``,
@@ -20,7 +20,7 @@ from __future__ import annotations
 import bisect
 import functools
 
-from src.unicode.core import Unicode
+from babelsoft.unicode.core import Unicode
 
 
 @functools.lru_cache(maxsize=1)

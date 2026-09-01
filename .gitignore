@@ -1,8 +1,8 @@
-c/
-data/unicode/
-data/babelstone/
-data/ivd/
-tools/
+cpp-reference/
+babellib/data/unicode/
+babellib/data/babelstone/
+babellib/data/ivd/
+babellib/tools/
 
 # Svelte build output
 package-lock.json

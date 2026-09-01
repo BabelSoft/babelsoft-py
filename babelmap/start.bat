@@ -22,7 +22,7 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":18081" ^| findstr "LISTENIN
 
 echo [1/2] Starting Python backend...
 cd /d "%PROJ%"
-set PYTHONPATH=%PROJ%
+set PYTHONPATH=%PROJ%\babellib
 if not exist ".venv\Scripts\python.exe" (
     echo        Setting up uv environment (first run)...
     call uv sync

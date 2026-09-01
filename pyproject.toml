@@ -22,6 +22,12 @@ dependencies = [
 [dependency-groups]
 dev = ["pytest>=8.0"]
 
+[tool.pytest.ini_options]
+# Make the shared library importable as `babelsoft.*` and the apps
+# (`babelmap.*`) importable from the repo root.
+pythonpath = ["babellib", "."]
+testpaths = ["babellib/tests"]
+
 [tool.uv]
 # This is an application, not an installable package — uv just manages the venv.
 package = false

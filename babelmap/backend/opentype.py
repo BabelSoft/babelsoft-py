@@ -486,8 +486,8 @@ def font_info(data: bytes) -> dict:
 
 def scripts_list() -> list[dict]:
     """Full ISO 15924 script list from data/scripts/iso15924.tsv."""
-    from src.utils_.dirs import Dirs
-    from src.utils_.parser import TsvParser
+    from babelsoft.utils_.dirs import Dirs
+    from babelsoft.utils_.parser import TsvParser
 
     out: list[dict] = []
     for row in TsvParser.get_tsv(Dirs.DATA / "scripts" / "iso15924.tsv"):

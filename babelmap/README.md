@@ -2,12 +2,12 @@
 
 Modern rebuild of the BabelSoft BabelMap tool using:
 
-| Layer    | Technology            | Purpose                       |
-| -------- | --------------------- | ----------------------------- |
-| Shell    | Tauri 2 (Rust)        | Native window, lifecycle      |
-| Frontend | Svelte 5 + TypeScript | UI components                 |
-| Backend  | Python FastAPI        | Unicode data, glyph rendering |
-| Data     | `src/` (existing)     | CJK, Unicode, Mappings, etc.  |
+| Layer    | Technology                       | Purpose                       |
+| -------- | -------------------------------- | ----------------------------- |
+| Shell    | Tauri 2 (Rust)                   | Native window, lifecycle      |
+| Frontend | Svelte 5 + TypeScript            | UI components                 |
+| Backend  | Python FastAPI                   | Unicode data, glyph rendering |
+| Data     | `babellib/babelsoft/` (existing) | CJK, Unicode, Mappings, etc.  |
 
 > This document inventories every feature currently exposed by the `babelmap/`
 > frontend + backend, and marks whether it is actually implemented (✅), only

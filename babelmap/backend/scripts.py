@@ -1,6 +1,6 @@
 """Unicode Scripts dialog data — ISO 15924 codes + per-block character stats.
 
-All UCD parsing is reused from ``src.unicode.core.Unicode`` (the dedicated
+All UCD parsing is reused from ``babelsoft.unicode.core.Unicode`` (the dedicated
 data-parsing library): script ranges from ``Scripts.txt``
 (``Unicode._script_data``), ages from ``DerivedAge.txt``
 (``Unicode._age_table``), ISO codes from ``PropertyValueAliases.txt``
@@ -15,8 +15,8 @@ import bisect
 import functools
 from pathlib import Path
 
-from src.unicode.core import Unicode
-from src.utils_.dirs import Dirs
+from babelsoft.unicode.core import Unicode
+from babelsoft.utils_.dirs import Dirs
 
 _ISO_FILE = Dirs.DATA / "scripts" / "iso15924.tsv"
 

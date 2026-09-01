@@ -14,8 +14,8 @@ import bisect
 import functools
 from pathlib import Path
 
-from src.unicode.core import Unicode
-from src.utils_.dirs import Dirs
+from babelsoft.unicode.core import Unicode
+from babelsoft.utils_.dirs import Dirs
 
 # ---------------------------------------------------------------------------
 # Data-driven block tables for Unicode 1.0.0 / 1.0.1.
@@ -23,7 +23,7 @@ from src.utils_.dirs import Dirs
 # These two early versions predate DerivedAge.txt.  Their per-character
 # repertoire is reconstructed by Ken Whistler at
 #   https://www.unicode.org/Public/reconstructed/{1.0.0,1.0.1}/UnicodeData.txt
-# (downloaded into data/unicode/reconstructed/ by src/utils_/sync.py via
+# (downloaded into data/unicode/reconstructed/ by babelsoft/utils_/sync.py via
 # ``sync_unicode``).  That data carries NO block information, so the historical
 # block *boundaries* are kept as data in data/scripts/unicode_1_0_blocks.tsv
 # (not hardcoded).  Character counts are always computed from the reconstructed
@@ -300,7 +300,7 @@ _parse_blocks_file = Unicode._parse_blocks_file
 
 
 def _assigned_codepoints(path: Path) -> list[int]:
-    """Sorted assigned codepoints (ranges expanded) — reused from src.unicode.core."""
+    """Sorted assigned codepoints (ranges expanded) — reused from babelsoft.unicode.core."""
     return Unicode._assigned_codepoints(path)
 
 

@@ -1,4 +1,4 @@
-﻿"""BabelMap Python Backend — FastAPI server. Start: python backend/server.py"""
+"""BabelMap Python Backend — FastAPI server. Start: python backend/server.py"""
 
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent / "babellib"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from fastapi import FastAPI, Query  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
-from src.unicode.core import Unicode  # noqa: E402
+from babelsoft.unicode.core import Unicode  # noqa: E402
 
 app = FastAPI(title="BabelMap Backend", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -24,7 +24,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 GRID_ROWS, GRID_COLS = 8, 16
 VALID_PLANES = list(range(17))  # 0–16, all Unicode planes
 
-# ── Blocks + assigned code points (reused from src/unicode/core.py) ──
+# ── Blocks + assigned code points (reused from babelsoft/unicode/core.py) ──
 _ASSIGNED_CPS = Unicode._assigned_codepoints()
 _BLOCK_TABLE, _BLOCK_NAMES = Unicode._block_data()
 
@@ -203,7 +203,7 @@ def _build_plane_rows(plane: int, filter_no_block: bool = True):
     key = (plane, filter_no_block)
     if key in _plane_rows:
         return
-    from src.unicode.core import Unicode
+    from babelsoft.unicode.core import Unicode
 
     ps = plane * 0x10000
     pe = min(ps + 0xFFFF, 0x10FFFF)
@@ -383,7 +383,7 @@ def grid_nav(plane: int, scroll: int = 0, direction: str = "page_next", filter_n
 
 @app.get("/api/codepoint/{cp}")
 def codepoint_info(cp: int):
-    from src.unicode.core import Unicode
+    from babelsoft.unicode.core import Unicode
 
     if not Unicode.is_valid_code_point(cp) or Unicode.is_surrogate(cp):
         return JSONResponse({"error": "Invalid"}, 400)
@@ -445,7 +445,7 @@ def codepoint_info(cp: int):
     info["utf32"] = f"{cp:08X}"
     # Extra property areas: binary properties, NamesList, variants, named sequences.
     try:
-        from src.unicode.extras import (
+        from babelsoft.unicode.extras import (
             binary_properties,
             emoji_variation_sequences,
             named_sequences_for,
@@ -467,7 +467,7 @@ def codepoint_info(cp: int):
         info["named_sequences"] = []
     # Extended (XML-style) character properties + name aliases.
     try:
-        from src.unicode.extended import extended_properties, name_aliases
+        from babelsoft.unicode.extended import extended_properties, name_aliases
 
         info["extended"] = extended_properties(cp)
         info["name_aliases"] = name_aliases(cp)
@@ -476,14 +476,14 @@ def codepoint_info(cp: int):
         info["name_aliases"] = []
     # Ideographic Variation Sequences (VS17..VS256) from IVD_Sequences.txt.
     try:
-        from src.cjkv.cjk import CJK
+        from babelsoft.cjkv.cjk import CJK
 
         info["ideographic_variants"] = [[vs, collection, ref] for vs, collection, ref in CJK(cp).ivs_sequences()]
     except Exception:
         info["ideographic_variants"] = []
     # CJK readings / radical-stroke (kept from before).
     try:
-        from src.cjkv.cjk import CJK
+        from babelsoft.cjkv.cjk import CJK
 
         cjk = CJK(cp)
         if cjk.is_cjk_ideograph():
@@ -501,7 +501,7 @@ def codepoint_info(cp: int):
         pass
     # Ideographic (CJKV) properties — mirrors the C++ CDialogCJKV dialog.
     try:
-        from src.cjkv.cjk import CJK
+        from babelsoft.cjkv.cjk import CJK
 
         info["ideographic"] = CJK(cp).ideographic_properties()
     except Exception:
@@ -578,7 +578,7 @@ def search_by_han_source(q: str = Query(..., min_length=1), limit: int = Query(5
     results = []
     qu = q.upper().strip()
     try:
-        from src.cjkv.cjk import CJKLoader
+        from babelsoft.cjkv.cjk import CJKLoader
 
         reverse = CJKLoader.load_cjk_irg_reverse()
         for ref, cp in reverse.items():
@@ -602,7 +602,7 @@ def search_properties(q: str = Query("", min_length=0)):
 @app.get("/api/emoji/search")
 def emoji_search(q: str = Query("", max_length=80), limit: int = Query(80, ge=1, le=500)):
     """Emojipedia-style emoji search by name, keyword or codepoint."""
-    from src.unicode.emoji import search as search_emoji
+    from babelsoft.unicode.emoji import search as search_emoji
 
     try:
         results = [e.to_dict() for e in search_emoji(q, limit)]
@@ -614,7 +614,7 @@ def emoji_search(q: str = Query("", max_length=80), limit: int = Query(80, ge=1,
 @app.get("/api/emoji/list")
 def emoji_list(limit: int = Query(0, ge=0, le=6000)):
     """All RGI emoji in CLDR order (browse mode). limit=0 → all."""
-    from src.unicode.emoji import all_emoji
+    from babelsoft.unicode.emoji import all_emoji
 
     try:
         entries = all_emoji()
@@ -741,7 +741,7 @@ def unicode_block_characters(name: str, version: str = Query(None, min_length=1)
     block = next((b for b in blocks_for_version(version) if b["name"] == name), None)
     if block is None:
         return JSONResponse({"error": "Block not found"}, 404)
-    from src.unicode.core import Unicode
+    from babelsoft.unicode.core import Unicode
 
     cps = assigned_codepoints_for(version)
     lo = bisect.bisect_left(cps, block["start"])
@@ -1055,5 +1055,5 @@ if __name__ == "__main__":
         port=18080,
         log_level="warning",
         reload=True,
-        reload_dirs=[str(PROJECT_ROOT / "src"), str(PROJECT_ROOT / "babelmap")],
+        reload_dirs=[str(PROJECT_ROOT / "babelsoft"), str(PROJECT_ROOT.parent / "babelmap")],
     )
