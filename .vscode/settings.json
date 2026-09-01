@@ -7,6 +7,10 @@
     "[jsonc]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/babellib",
+        "${workspaceFolder}"
+    ],
     "python.testing.pytestArgs": [
         "--doctest-modules",
         "-v"

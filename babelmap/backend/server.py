@@ -10,8 +10,12 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent / "babellib"
-sys.path.insert(0, str(PROJECT_ROOT))
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+BABELLIB = REPO_ROOT / "babellib"
+# Both roots must be on sys.path: the repo root (for `babelmap.*`, incl. the
+# uvicorn reloader's `babelmap.backend.server:app`) and babellib/ (for `babelsoft.*`).
+sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(BABELLIB))
 
 from fastapi import FastAPI, Query  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
@@ -828,7 +832,7 @@ def opentype_shape(payload: dict):
             from babelmap.backend.uniscribe_shaper import shape_with_uniscribe
 
             result = shape_with_uniscribe(
-                b64 or fpath,
+                b64 or fpath or "",
                 payload.get("text", ""),
                 is_b64=bool(b64),
                 direction=payload.get("direction", "auto"),
@@ -840,7 +844,7 @@ def opentype_shape(payload: dict):
             from babelmap.backend.freetype_shaper import shape_with_freetype
 
             result = shape_with_freetype(
-                b64 or fpath,
+                b64 or fpath or "",
                 payload.get("text", ""),
                 is_b64=bool(b64),
                 direction=payload.get("direction", "auto"),
@@ -891,6 +895,20 @@ def opentype_shape(payload: dict):
                 script=payload.get("script", ""),
                 language=payload.get("language", ""),
                 features=payload.get("features"),
+            )
+        elif engine == "harfrust":
+            from babelmap.backend.harfrust_shaper import shape_with_harfrust
+
+            result = shape_with_harfrust(
+                data,
+                payload.get("text", ""),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+                variations=payload.get("variations"),
+                show_all_lookups=bool(payload.get("show_all_lookups")),
+                font_index=int(payload.get("font_index", 0)),
             )
         elif engine == "harfbuzz_fallback":
             result = shape_flat(
@@ -1055,5 +1073,5 @@ if __name__ == "__main__":
         port=18080,
         log_level="warning",
         reload=True,
-        reload_dirs=[str(PROJECT_ROOT / "babelsoft"), str(PROJECT_ROOT.parent / "babelmap")],
+        reload_dirs=[str(BABELLIB / "babelsoft"), str(REPO_ROOT / "babelmap")],
     )

@@ -2,7 +2,7 @@
 name = "babelsoft-py"
 version = "1.0.0"
 description = "Python port of the BabelSoft CJK/Unicode data processing tools"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # Single source of truth for Python libraries (previously split across
 # requirements.txt + babelmap/backend/requirements.txt).
 dependencies = [
@@ -10,6 +10,7 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "Pillow>=10.0.0",
     "uharfbuzz>=0.40.0",
+    "pyharfrust2>=0.1.0",
     "fonttools>=4.50.0",
     "freetype-py>=2.5.0",
     "arabic-reshaper>=3.0.0",

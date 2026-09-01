@@ -201,6 +201,59 @@ def _remap_clusters(stages: list[dict], clustermap: list[int] | None = None) -> 
     return clustermap
 
 
+def _build_trace_stages(rows: list[dict], show_all_lookups: bool = False) -> tuple[list[dict], list[dict]]:
+    """Crowbar-style assembly of raw (message, buffer snapshot) rows into trace stages.
+
+    Shared by the HarfBuzz (uharfbuzz) and HarfRust-trace (pyharfrust2) engines so
+    the frontend renders both identically:
+
+    1. compute per-lookup ``depth`` and ``effective`` (buffer changed inside a lookup);
+    2. apply the default filtering (skip glyph-op noise, blank ``start table`` rows);
+    3. remap clusters to a 0-based index for colouring.
+
+    Returns ``(stages, final_glyphs)``.
+    """
+    import json as _json
+
+    # ── Depths + effective (buffer changed inside a lookup) — Crowbar logic ──
+    depth = 0
+    start_ids: list[int] = []
+    start_bufs: list[str] = []
+    for ix, r in enumerate(rows):
+        m = r["m"]
+        if m.startswith("start lookup") or m.startswith("recursing to lookup"):
+            depth += 1
+            start_ids.append(ix)
+            start_bufs.append(_json.dumps(r["glyphs"]))
+        r["depth"] = depth
+        if m.startswith("end lookup") or m.startswith("recursed to lookup"):
+            depth -= 1
+            if start_ids:
+                sid = start_ids.pop()
+                if start_bufs.pop() != _json.dumps(r["glyphs"]):
+                    for i in range(sid, ix + 1):
+                        rows[i]["effective"] = True
+
+    # ── Filter (unless show_all_lookups) — Crowbar logic ──
+    filtered: list[dict] = []
+    last_buf = ""
+    for r in rows:
+        m = r["m"]
+        if "start table" in m:
+            r["glyphs"] = []
+            filtered.append(r)
+            continue
+        if not show_all_lookups and any(w in m for w in ("attaching", "replacing", "multiplying", "kerning")):
+            continue
+        if show_all_lookups or _json.dumps(r["glyphs"]) != last_buf or r["effective"]:
+            last_buf = _json.dumps(r["glyphs"])
+            filtered.append(r)
+
+    _remap_clusters(filtered)
+    final = filtered[-1]["glyphs"] if filtered else (rows[-1]["glyphs"] if rows else [])
+    return filtered, final
+
+
 def shape_trace(
     data: bytes,
     text: str,
@@ -276,44 +329,7 @@ def shape_trace(
         rows.append({"m": msg, "glyphs": snap, "depth": 0, "effective": False})
     rows.append({"m": "End of shaping", "glyphs": _snapshot(buf), "depth": 0, "effective": True})
 
-    # ── Depths + effective (buffer changed inside a lookup) — Crowbar logic ──
-    depth = 0
-    start_ids: list[int] = []
-    start_bufs: list[str] = []
-    import json as _json
-
-    for ix, r in enumerate(rows):
-        m = r["m"]
-        if m.startswith("start lookup") or m.startswith("recursing to lookup"):
-            depth += 1
-            start_ids.append(ix)
-            start_bufs.append(_json.dumps(r["glyphs"]))
-        r["depth"] = depth
-        if m.startswith("end lookup") or m.startswith("recursed to lookup"):
-            depth -= 1
-            if start_ids:
-                sid = start_ids.pop()
-                if start_bufs.pop() != _json.dumps(r["glyphs"]):
-                    for i in range(sid, ix + 1):
-                        rows[i]["effective"] = True
-
-    # ── Filter (unless show_all_lookups) — Crowbar logic ──
-    filtered: list[dict] = []
-    last_buf = ""
-    for r in rows:
-        m = r["m"]
-        if "start table" in m:
-            r["glyphs"] = []
-            filtered.append(r)
-            continue
-        if not show_all_lookups and any(w in m for w in ("attaching", "replacing", "multiplying", "kerning")):
-            continue
-        if show_all_lookups or _json.dumps(r["glyphs"]) != last_buf or r["effective"]:
-            last_buf = _json.dumps(r["glyphs"])
-            filtered.append(r)
-
-    _remap_clusters(filtered)
-    final = filtered[-1]["glyphs"] if filtered else _snapshot(buf)
+    filtered, final = _build_trace_stages(rows, show_all_lookups)
 
     used: set[int] = set()
     for st in filtered:

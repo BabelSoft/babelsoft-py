@@ -423,6 +423,7 @@
             }}
           >
             <option value="harfbuzz">HarfBuzz (OT · full trace)</option>
+            <option value="harfrust">HarfRust (Rust HarfBuzz port)</option>
             <option value="babelscript">BabelScript (OT reimplementation)</option>
             <option value="harfbuzz_fallback">HarfBuzz fallback (cmap)</option>
             <option value="graphite">Graphite (SIL)</option>
