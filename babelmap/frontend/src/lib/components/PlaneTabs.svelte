@@ -9,16 +9,21 @@
 </script>
 
 <div class="tabs">
-  {#each planes as p}
-    <button class:on={plane === p.id} onclick={() => onChange(p.id)}>
-      {p.l}
-    </button>
-  {/each}
+  {#if planes.length}
+    {#each planes as p}
+      <button class:on={plane === p.id} onclick={() => onChange(p.id)}>
+        {p.l}
+      </button>
+    {/each}
+  {:else}
+    <span class="tabs-loading">…</span>
+  {/if}
 </div>
 
 <style>
   .tabs {
     display: flex;
+    flex-wrap: wrap;
     background: var(--bg2);
     border-bottom: 1px solid var(--bd);
     padding: 0 8px;
@@ -38,6 +43,14 @@
     color: var(--fg3);
     padding: 6px 16px;
     letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .tabs-loading {
+    color: var(--fg3);
+    font-size: 11px;
+    padding: 6px 8px;
+    letter-spacing: 2px;
+    user-select: none;
   }
   .tabs button:hover {
     color: var(--fg);

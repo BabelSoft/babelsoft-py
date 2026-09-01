@@ -648,6 +648,48 @@ def list_fonts():
     ]
 
 
+@app.get("/api/fonts/overview")
+def fonts_overview(dirs: str = ""):
+    """Full font overview: every font face across multiple font directories,
+    with metadata, family and primary-writing-system (script) classification.
+
+    ``dirs`` may be a ``|``-separated list of extra directories to scan in
+    addition to the system + per-user font folders.
+    """
+    from babelmap.backend.font_overview import CHAPTERS, scan_fonts
+
+    extra = [d.strip() for d in dirs.split("|") if d.strip()]
+    return {
+        "fonts": scan_fonts(extra_dirs=extra),
+        "chapters": [CHAPTERS[num] for num in sorted(CHAPTERS)],
+    }
+
+
+@app.get("/api/fonts/raw")
+def fonts_raw(path: str = ""):
+    """Serve a font file for @font-face (the variable-font preview needs a
+    real web font so the browser interpolates its axes).  Only files inside
+    the known font directories are served."""
+    from fastapi.responses import FileResponse
+
+    from babelmap.backend.font_overview import DEFAULT_DIRS
+
+    if not path:
+        return JSONResponse({"error": "missing path"}, status_code=400)
+    if not os.path.isfile(path):
+        return JSONResponse({"error": "no such file"}, status_code=404)
+    norm = os.path.normcase(os.path.normpath(path))
+    if not any(norm.startswith(os.path.normcase(os.path.normpath(d))) for d in DEFAULT_DIRS):
+        return JSONResponse({"error": "not allowed"}, status_code=403)
+    ext = os.path.splitext(path)[1].lower()
+    media = "font/ttf" if ext in (".ttf", ".ttc") else "font/otf"
+    return FileResponse(
+        path,
+        media_type=media,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/convert/edit")
 def convert_edit(text: str = "", mode: str = "char"):
     if not text:

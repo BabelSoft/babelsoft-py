@@ -1,0 +1,334 @@
+# Name-table language IDs: (platform, langID) → language, for the localized
+# metadata shown in the Font Overview dialog.
+#
+# Authoritative sources (both are the references the OpenType 'name' table
+# spec itself points to):
+#   platform 1 (Macintosh): Apple TrueType Reference Manual — 'name' table,
+#     "The language identifier (Macintosh platform)",
+#     https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6name.html
+#   platform 3 (Windows):   [MS-LCID] Windows Language Code Identifier (LCID)
+#     Reference (Microsoft Open Specifications),
+#     https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/
+#     — as referenced by the OpenType 'name' table spec,
+#     https://learn.microsoft.com/en-us/typography/opentype/spec/name
+#
+# lang_id is the numeric language ID used in OpenType name records (given in
+# hex; the loader accepts 0x… or decimal).  For Windows this is the low 16
+# bits of the LCID.
+# name    = the language name exactly as published by the source above.
+# display = canonical short label used for grouping/display in the UI.
+#           Sublanguage variants of one language collapse onto the same
+#           display label (e.g. US/UK/AU English → "English"; zh-Hant /
+#           zh-Hans → "Chinese (Traditional)" / "Chinese (Simplified)") so a
+#           font that carries several sublanguage records still shows one
+#           block per language.
+#
+# Columns: platform<TAB>lang_id<TAB>name<TAB>display
+#
+1	0x0000	English	English
+1	0x0001	French	French
+1	0x0002	German	German
+1	0x0003	Italian	Italian
+1	0x0004	Dutch	Dutch
+1	0x0005	Swedish	Swedish
+1	0x0006	Spanish	Spanish
+1	0x0007	Danish	Danish
+1	0x0008	Portuguese	Portuguese
+1	0x0009	Norwegian	Norwegian
+1	0x000A	Hebrew	Hebrew
+1	0x000B	Japanese	Japanese
+1	0x000C	Arabic	Arabic
+1	0x000D	Finnish	Finnish
+1	0x000E	Greek	Greek
+1	0x000F	Icelandic	Icelandic
+1	0x0010	Maltese	Maltese
+1	0x0011	Turkish	Turkish
+1	0x0012	Croatian	Croatian
+1	0x0013	Chinese (traditional)	Chinese (Traditional)
+1	0x0014	Urdu	Urdu
+1	0x0015	Hindi	Hindi
+1	0x0016	Thai	Thai
+1	0x0017	Korean	Korean
+1	0x0018	Lithuanian	Lithuanian
+1	0x0019	Polish	Polish
+1	0x001A	Hungarian	Hungarian
+1	0x001B	Estonian	Estonian
+1	0x001C	Latvian	Latvian
+1	0x001D	Sami	Sami
+1	0x001E	Faroese	Faroese
+1	0x001F	Farsi/Persian	Persian
+1	0x0020	Russian	Russian
+1	0x0021	Chinese (simplified)	Chinese (Simplified)
+1	0x0022	Flemish	Flemish
+1	0x0023	Irish Gaelic	Irish Gaelic
+1	0x0024	Albanian	Albanian
+1	0x0025	Romanian	Romanian
+1	0x0026	Czech	Czech
+1	0x0027	Slovak	Slovak
+1	0x0028	Slovenian	Slovenian
+1	0x0029	Yiddish	Yiddish
+1	0x002A	Serbian	Serbian
+1	0x002B	Macedonian	Macedonian
+1	0x002C	Bulgarian	Bulgarian
+1	0x002D	Ukrainian	Ukrainian
+1	0x002E	Byelorussian	Belarusian
+1	0x002F	Uzbek	Uzbek
+1	0x0030	Kazakh	Kazakh
+1	0x0031	Azerbaijani (Cyrillic script)	Azerbaijani (Cyrillic)
+1	0x0032	Azerbaijani (Arabic script)	Azerbaijani (Arabic)
+1	0x0033	Armenian	Armenian
+1	0x0034	Georgian	Georgian
+1	0x0035	Moldavian	Moldavian
+1	0x0036	Kirghiz	Kyrgyz
+1	0x0037	Tajiki	Tajik
+1	0x0038	Turkmen	Turkmen
+1	0x0039	Mongolian (Mongolian script)	Mongolian
+1	0x003A	Mongolian (Cyrillic script)	Mongolian (Cyrillic)
+1	0x003B	Pashto	Pashto
+1	0x003C	Kurdish	Kurdish
+1	0x003D	Kashmiri	Kashmiri
+1	0x003E	Sindhi	Sindhi
+1	0x003F	Tibetan	Tibetan
+1	0x0040	Nepali	Nepali
+1	0x0041	Sanskrit	Sanskrit
+1	0x0042	Marathi	Marathi
+1	0x0043	Bengali	Bengali
+1	0x0044	Assamese	Assamese
+1	0x0045	Gujarati	Gujarati
+1	0x0046	Punjabi	Punjabi
+1	0x0047	Oriya	Oriya
+1	0x0048	Malayalam	Malayalam
+1	0x0049	Kannada	Kannada
+1	0x004A	Tamil	Tamil
+1	0x004B	Telugu	Telugu
+1	0x004C	Sinhalese	Sinhala
+1	0x004D	Burmese	Burmese
+1	0x004E	Khmer	Khmer
+1	0x004F	Lao	Lao
+1	0x0050	Vietnamese	Vietnamese
+1	0x0051	Indonesian	Indonesian
+1	0x0052	Tagalog	Tagalog
+1	0x0053	Malay (Roman script)	Malay (Roman)
+1	0x0054	Malay (Arabic script)	Malay (Arabic)
+1	0x0055	Amharic	Amharic
+1	0x0056	Tigrinya	Tigrinya
+1	0x0057	Galla	Galla (Oromo)
+1	0x0058	Somali	Somali
+1	0x0059	Swahili	Swahili
+1	0x005A	Kinyarwanda/Ruanda	Kinyarwanda
+1	0x005B	Rundi	Rundi
+1	0x005C	Nyanja/Chewa	Nyanja (Chewa)
+1	0x005D	Malagasy	Malagasy
+1	0x005E	Esperanto	Esperanto
+1	0x0080	Welsh	Welsh
+1	0x0081	Basque	Basque
+1	0x0082	Catalan	Catalan
+1	0x0083	Latin	Latin
+1	0x0084	Quechua	Quechua
+1	0x0085	Guarani	Guarani
+1	0x0086	Aymara	Aymara
+1	0x0087	Tatar	Tatar
+1	0x0088	Uighur	Uighur
+1	0x0089	Dzongkha	Dzongkha
+1	0x008A	Javanese (Roman script)	Javanese (Roman)
+1	0x008B	Sundanese (Roman script)	Sundanese (Roman)
+1	0x008C	Galician	Galician
+1	0x008D	Afrikaans	Afrikaans
+1	0x008E	Breton	Breton
+1	0x008F	Inuktitut	Inuktitut
+1	0x0090	Scottish Gaelic	Scottish Gaelic
+1	0x0091	Manx Gaelic	Manx Gaelic
+1	0x0092	Irish Gaelic (with dot above)	Irish Gaelic (with dot)
+1	0x0093	Tongan	Tongan
+1	0x0094	Greek (polytonic)	Greek (Polytonic)
+1	0x0095	Greenlandic	Greenlandic
+1	0x0096	Azerbaijani (Roman script)	Azerbaijani (Roman)
+#
+# platform 3 (Windows) — language IDs from [MS-LCID] (the low 16 bits of the
+# LCID, as used in OpenType name records).
+3	0x0401	Arabic (Saudi Arabia)	Arabic
+3	0x0402	Bulgarian	Bulgarian
+3	0x0403	Catalan	Catalan
+3	0x0404	Chinese (Traditional, Taiwan)	Chinese (Traditional)
+3	0x0405	Czech	Czech
+3	0x0406	Danish	Danish
+3	0x0407	German (Germany)	German
+3	0x0408	Greek	Greek
+3	0x0409	English (United States)	English
+3	0x040A	Spanish (Spain)	Spanish
+3	0x040B	Finnish	Finnish
+3	0x040C	French (France)	French
+3	0x040D	Hebrew	Hebrew
+3	0x040E	Hungarian	Hungarian
+3	0x040F	Icelandic	Icelandic
+3	0x0410	Italian (Italy)	Italian
+3	0x0411	Japanese	Japanese
+3	0x0412	Korean	Korean
+3	0x0413	Dutch (Netherlands)	Dutch
+3	0x0414	Norwegian (Bokmål)	Norwegian
+3	0x0415	Polish	Polish
+3	0x0416	Portuguese (Brazil)	Portuguese
+3	0x0417	Romansh	Romansh
+3	0x0418	Romanian	Romanian
+3	0x0419	Russian	Russian
+3	0x041A	Croatian	Croatian
+3	0x041B	Slovak	Slovak
+3	0x041C	Albanian	Albanian
+3	0x041D	Swedish	Swedish
+3	0x041E	Thai	Thai
+3	0x041F	Turkish	Turkish
+3	0x0420	Urdu	Urdu
+3	0x0421	Indonesian	Indonesian
+3	0x0422	Ukrainian	Ukrainian
+3	0x0423	Belarusian	Belarusian
+3	0x0424	Slovenian	Slovenian
+3	0x0425	Estonian	Estonian
+3	0x0426	Latvian	Latvian
+3	0x0427	Lithuanian	Lithuanian
+3	0x0428	Tajik	Tajik
+3	0x0429	Persian	Persian
+3	0x042A	Vietnamese	Vietnamese
+3	0x042B	Armenian	Armenian
+3	0x042C	Azerbaijani (Latin)	Azerbaijani (Latin)
+3	0x042D	Basque	Basque
+3	0x042E	Upper Sorbian	Upper Sorbian
+3	0x042F	Macedonian	Macedonian
+3	0x0430	Southern Sotho	Southern Sotho
+3	0x0431	Tsonga	Tsonga
+3	0x0432	Tswana	Tswana
+3	0x0433	Venda	Venda
+3	0x0434	Xhosa	Xhosa
+3	0x0435	Zulu	Zulu
+3	0x0436	Afrikaans	Afrikaans
+3	0x0437	Georgian	Georgian
+3	0x0438	Faroese	Faroese
+3	0x0439	Hindi	Hindi
+3	0x043A	Maltese	Maltese
+3	0x043B	Sami (Northern)	Sami (Northern)
+3	0x043C	Scottish Gaelic	Scottish Gaelic
+3	0x043D	Yiddish	Yiddish
+3	0x043E	Malay (Malaysia)	Malay
+3	0x043F	Kazakh	Kazakh
+3	0x0440	Kyrgyz	Kyrgyz
+3	0x0441	Swahili	Swahili
+3	0x0442	Turkmen	Turkmen
+3	0x0443	Uzbek (Latin)	Uzbek (Latin)
+3	0x0444	Tatar	Tatar
+3	0x0445	Bengali (India)	Bengali
+3	0x0446	Punjabi (India)	Punjabi
+3	0x0447	Gujarati	Gujarati
+3	0x0448	Oriya	Oriya
+3	0x0449	Tamil	Tamil
+3	0x044A	Telugu	Telugu
+3	0x044B	Kannada	Kannada
+3	0x044C	Malayalam	Malayalam
+3	0x044D	Assamese	Assamese
+3	0x044E	Marathi	Marathi
+3	0x044F	Sanskrit	Sanskrit
+3	0x0450	Mongolian (Cyrillic)	Mongolian
+3	0x0451	Tibetan	Tibetan
+3	0x0452	Welsh	Welsh
+3	0x0453	Khmer	Khmer
+3	0x0454	Lao	Lao
+3	0x0455	Burmese	Burmese
+3	0x0456	Galician	Galician
+3	0x0457	Konkani	Konkani
+3	0x0458	Manipuri	Manipuri
+3	0x0459	Sindhi (Arabic)	Sindhi
+3	0x045A	Syriac	Syriac
+3	0x045B	Sinhala	Sinhala
+3	0x045C	Cherokee	Cherokee
+3	0x045D	Amharic	Amharic
+3	0x045E	Tamil (India)	Tamil
+3	0x045F	Tigrinya	Tigrinya
+3	0x0460	Nepali (India)	Nepali
+3	0x0461	Dzongkha	Dzongkha
+3	0x0462	Frisian	Frisian
+3	0x0463	Pashto	Pashto
+3	0x0464	Filipino	Filipino
+3	0x0465	Dhivehi	Dhivehi
+3	0x0468	Hausa (Latin)	Hausa
+3	0x046A	Yoruba	Yoruba
+3	0x046B	Quechua (Bolivia)	Quechua
+3	0x046C	Northern Sotho	Northern Sotho
+3	0x046D	Bashkir	Bashkir
+3	0x046E	Luxembourgish	Luxembourgish
+3	0x046F	Greenlandic	Greenlandic
+3	0x0470	Igbo	Igbo
+3	0x0471	K'iche	K'iche
+3	0x0472	Maori	Maori
+3	0x0478	Yi	Yi
+3	0x047A	Mapudungun	Mapudungun
+3	0x047C	Wolof	Wolof
+3	0x0480	Uyghur	Uyghur
+3	0x0485	Sami (Inari)	Sami (Inari)
+3	0x0487	Sami (Lule)	Sami (Lule)
+3	0x0489	Sami (Southern)	Sami (Southern)
+3	0x048B	Sami (Skolt)	Sami (Skolt)
+3	0x0801	Arabic (Iraq)	Arabic
+3	0x0804	Chinese (Simplified, PRC)	Chinese (Simplified)
+3	0x0807	German (Switzerland)	German
+3	0x0809	English (United Kingdom)	English
+3	0x080A	Spanish (Mexico)	Spanish
+3	0x080C	French (Belgium)	French
+3	0x0810	Italian (Switzerland)	Italian
+3	0x0813	Dutch (Belgium)	Dutch
+3	0x0814	Norwegian (Nynorsk)	Norwegian
+3	0x0816	Portuguese (Portugal)	Portuguese
+3	0x0818	Romanian (Moldova)	Romanian
+3	0x0819	Russian (Moldova)	Russian
+3	0x081A	Serbian (Latin)	Serbian
+3	0x081D	Swedish (Finland)	Swedish
+3	0x0820	Urdu (India)	Urdu
+3	0x082C	Azerbaijani (Cyrillic)	Azerbaijani (Cyrillic)
+3	0x083C	Irish	Irish
+3	0x083E	Malay (Brunei Darussalam)	Malay
+3	0x0843	Uzbek (Cyrillic)	Uzbek (Cyrillic)
+3	0x0845	Bengali (Bangladesh)	Bengali
+3	0x0846	Punjabi (Arabic, Pakistan)	Punjabi
+3	0x0849	Tamil (Sri Lanka)	Tamil
+3	0x0850	Mongolian (Mongolian script)	Mongolian (Mongolian)
+3	0x085D	Tigrinya (Eritrea)	Tigrinya
+3	0x085F	Nepali (Nepal)	Nepali
+3	0x086B	Quechua (Ecuador)	Quechua
+3	0x0C01	Arabic (Egypt)	Arabic
+3	0x0C04	Chinese (Traditional, Hong Kong SAR)	Chinese (Traditional)
+3	0x0C07	German (Austria)	German
+3	0x0C09	English (Australia)	English
+3	0x0C0A	Spanish (Spain, International Sort)	Spanish
+3	0x0C0C	French (Canada)	French
+3	0x0C1A	Serbian (Cyrillic)	Serbian
+3	0x0C3B	Sami (Northern, Norway)	Sami (Northern)
+3	0x1004	Chinese (Simplified, Singapore)	Chinese (Simplified)
+3	0x1007	German (Luxembourg)	German
+3	0x1009	English (Canada)	English
+3	0x100A	Spanish (Guatemala)	Spanish
+3	0x100C	French (Switzerland)	French
+3	0x1404	Chinese (Traditional, Macao SAR)	Chinese (Traditional)
+3	0x1409	English (New Zealand)	English
+3	0x140A	Spanish (Costa Rica)	Spanish
+3	0x140C	French (Luxembourg)	French
+3	0x1809	English (Ireland)	English
+3	0x180A	Spanish (Panama)	Spanish
+3	0x1C09	English (South Africa)	English
+3	0x1C0A	Spanish (Dominican Republic)	Spanish
+3	0x2009	English (Jamaica)	English
+3	0x200A	Spanish (Venezuela)	Spanish
+3	0x2409	English (Caribbean)	English
+3	0x240A	Spanish (Colombia)	Spanish
+3	0x2809	English (Belize)	English
+3	0x280A	Spanish (Peru)	Spanish
+3	0x2C09	English (Trinidad and Tobago)	English
+3	0x2C0A	Spanish (Argentina)	Spanish
+3	0x3009	English (Zimbabwe)	English
+3	0x300A	Spanish (Ecuador)	Spanish
+3	0x3409	English (Philippines)	English
+3	0x340A	Spanish (Chile)	Spanish
+3	0x380A	Spanish (Uruguay)	Spanish
+3	0x3C0A	Spanish (Paraguay)	Spanish
+3	0x400A	Spanish (Bolivia)	Spanish
+3	0x440A	Spanish (El Salvador)	Spanish
+3	0x480A	Spanish (Honduras)	Spanish
+3	0x4C0A	Spanish (Nicaragua)	Spanish
+3	0x500A	Spanish (Puerto Rico)	Spanish
+3	0x540A	Spanish (United States)	Spanish

@@ -15,6 +15,7 @@
   import CharacterPropertiesDialog from "./lib/components/CharacterPropertiesDialog.svelte";
   import EmojiLookupDialog from "./lib/components/EmojiLookupDialog.svelte";
   import OpenTypeTestDialog from "./lib/components/OpenTypeTestDialog.svelte";
+  import FontOverviewDialog from "./lib/components/FontOverviewDialog.svelte";
 
   let dark = $state(false);
   let grid = $state<GridPage | null>(null);
@@ -51,6 +52,7 @@
   let showCharProps = $state(false);
   let showEmojiLookup = $state(false);
   let showOpenTypeTest = $state(false);
+  let showFontOverview = $state(false);
   let charPropsCp = $state(-1);
   let ctxShow = $state(false);
   let ctxX = $state(0);
@@ -63,19 +65,22 @@
     statusMsg = msg;
   }
 
-  let PLANES = $derived(
-    _filterNoBlock
-      ? [
-          { id: 0, l: "BMP" },
-          { id: 1, l: "SMP" },
-          { id: 2, l: "SIP" },
-          { id: 3, l: "TIP" },
-          { id: 14, l: "SSP" },
-          { id: 15, l: "PUA-A" },
-          { id: 16, l: "PUA-B" },
-        ]
-      : Array.from({ length: 17 }, (_, i) => ({ id: i, l: `Plane ${i}` })),
-  );
+  // ── Plane tabs ──────────────────────────────────────────────────────
+  // Labels are sourced ENTIRELY from the backend's authoritative plane-name
+  // data (babelsoft.unicode.core → Unicode.get_plane_abbreviation), fetched
+  // from /api/unicode/planes.  Nothing is hardcoded: the tab bar shows a
+  // loading placeholder (in PlaneTabs) until the data arrives.
+  let planeMeta = $state<{ plane: number; name: string; abbreviation: string; reserved: boolean }[]>([]);
+  let PLANES = $derived.by(() => {
+    if (planeMeta.length === 0) return [];
+    if (_filterNoBlock) {
+      return planeMeta.filter((m) => !m.reserved && m.abbreviation).map((m) => ({ id: m.plane, l: m.abbreviation }));
+    }
+    return Array.from({ length: 17 }, (_, i) => {
+      const m = planeMeta.find((x) => x.plane === i);
+      return { id: i, l: m && m.abbreviation ? m.abbreviation : `Plane ${i}` };
+    });
+  });
   const planAbbr: Record<number, string> = {};
   $effect(() => {
     PLANES.forEach((p) => (planAbbr[p.id] = p.l));
@@ -108,6 +113,12 @@
         const data = await get<BlockInfo[]>("/blocks");
         blocks = data.sort((a, b) => a.name.localeCompare(b.name));
       } catch {}
+  }
+  async function loadPlanes() {
+    try {
+      const data = await get<{ planes: { plane: number; name: string; abbreviation: string; reserved: boolean }[] }>("/unicode/planes");
+      planeMeta = data.planes ?? [];
+    } catch {}
   }
   async function goPlane(p: number) {
     sr = -1;
@@ -699,6 +710,8 @@
     else if (label === t("tools.properties")) openCharProps();
     else if (label === t("tools.emoji_lookup")) showEmojiLookup = true;
     else if (label === t("tools.opentype_test")) showOpenTypeTest = true;
+    // Fonts menu
+    else if (label === t("fonts.overview")) showFontOverview = true;
     // View menu
     else if (label === t("view.filter_no_block")) {
       _filterNoBlock = !_filterNoBlock;
@@ -717,6 +730,7 @@
 
   load();
   loadBlocks();
+  loadPlanes();
   startBackend();
 </script>
 
@@ -849,6 +863,8 @@
   />
 
   <OpenTypeTestDialog show={showOpenTypeTest} onClose={() => (showOpenTypeTest = false)} />
+
+  <FontOverviewDialog show={showFontOverview} onClose={() => (showFontOverview = false)} />
 
   <ContextMenu
     show={ctxShow}

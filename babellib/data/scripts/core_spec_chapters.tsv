@@ -1,0 +1,230 @@
+# BabelSoft Data: Unicode Core Specification chapter for each ISO 15924 script
+# Source: https://www.unicode.org/versions/Unicode17.0.0/core-spec/
+# Fields: chapter	chapter_label	script_name	iso_code
+# One color per chapter is assigned by the consumer (Font Overview backend).
+6	Writing Systems & Punctuation	Code for undetermined script	Zyyy
+6	Writing Systems & Punctuation	Code for unwritten documents	Zxxx
+6	Writing Systems & Punctuation	Code for uncoded script	Zzzz
+6	Writing Systems & Punctuation	Reserved for private use (start)	Qaaa
+6	Writing Systems & Punctuation	Reserved for private use (end)	Qabx
+7	Europe-I	Latin	Latn
+7	Europe-I	Latin (Fraktur variant)	Latf
+7	Europe-I	Latin (Gaelic variant)	Latg
+7	Europe-I	Greek	Grek
+7	Europe-I	Coptic	Copt
+7	Europe-I	Cyrillic	Cyrl
+7	Europe-I	Cyrillic (Old Church Slavonic variant)	Cyrs
+7	Europe-I	Glagolitic	Glag
+7	Europe-I	Armenian	Armn
+7	Europe-I	Georgian (Mkhedruli and Mtavruli)	Geor
+7	Europe-I	Khutsuri (Asomtavruli and Nuskhuri)	Geok
+7	Europe-I	Code for inherited script (combining marks)	Zinh
+8	Europe-II	Linear A	Lina
+8	Europe-II	Linear B	Linb
+8	Europe-II	Cypriot syllabary	Cprt
+8	Europe-II	Cypro-Minoan	Cpmn
+8	Europe-II	Lycian	Lyci
+8	Europe-II	Carian	Cari
+8	Europe-II	Lydian	Lydi
+8	Europe-II	Sidetic	Sidt
+8	Europe-II	Old Italic (Etruscan, Oscan, etc.)	Ital
+8	Europe-II	Runic	Runr
+8	Europe-II	Old Hungarian (Hungarian Runic)	Hung
+8	Europe-II	Gothic	Goth
+8	Europe-II	Elbasan	Elba
+8	Europe-II	Caucasian Albanian	Aghb
+8	Europe-II	Vithkuqi	Vith
+8	Europe-II	Todhri	Todr
+8	Europe-II	Old Permic	Perm
+8	Europe-II	Ogham	Ogam
+8	Europe-II	Shavian (Shaw)	Shaw
+8	Europe-II	Cirth	Cirt
+8	Europe-II	Tengwar	Teng
+8	Europe-II	Sarati	Sara
+8	Europe-II	Klingon (KLI pIqaD)	Piqd
+9	Middle East-I	Hebrew	Hebr
+9	Middle East-I	Arabic	Arab
+9	Middle East-I	Arabic (Nastaliq variant)	Aran
+9	Middle East-I	Syriac	Syrc
+9	Middle East-I	Syriac (Estrangelo variant)	Syre
+9	Middle East-I	Syriac (Western variant)	Syrj
+9	Middle East-I	Syriac (Eastern variant)	Syrn
+9	Middle East-I	Samaritan	Samr
+9	Middle East-I	Mandaic, Mandaean	Mand
+9	Middle East-I	Yezidi	Yezi
+10	Middle East-II	Old North Arabian	Narb
+10	Middle East-II	Old South Arabian	Sarb
+10	Middle East-II	Phoenician	Phnx
+10	Middle East-II	Imperial Aramaic	Armi
+10	Middle East-II	Manichaean	Mani
+10	Middle East-II	Inscriptional Parthian	Prti
+10	Middle East-II	Inscriptional Pahlavi	Phli
+10	Middle East-II	Psalter Pahlavi	Phlp
+10	Middle East-II	Book Pahlavi	Phlv
+10	Middle East-II	Avestan	Avst
+10	Middle East-II	Chorasmian	Chrs
+10	Middle East-II	Elymaic	Elym
+10	Middle East-II	Nabataean	Nbat
+10	Middle East-II	Palmyrene	Palm
+10	Middle East-II	Hatran	Hatr
+10	Middle East-II	Proto-Sinaitic	Psin
+11	Cuneiform & Hieroglyphs	Sumero-Akkadian Cuneiform	Xsux
+11	Cuneiform & Hieroglyphs	Ugaritic	Ugar
+11	Cuneiform & Hieroglyphs	Old Persian	Xpeo
+11	Cuneiform & Hieroglyphs	Egyptian Hieroglyphs	Egyp
+11	Cuneiform & Hieroglyphs	Egyptian hieratic	Egyh
+11	Cuneiform & Hieroglyphs	Egyptian demotic	Egyd
+11	Cuneiform & Hieroglyphs	Meroitic Hieroglyphs	Mero
+11	Cuneiform & Hieroglyphs	Meroitic Cursive	Merc
+11	Cuneiform & Hieroglyphs	Anatolian Hieroglyphs	Hluw
+11	Cuneiform & Hieroglyphs	Proto-Cuneiform	Pcun
+11	Cuneiform & Hieroglyphs	Proto-Elamite	Pelm
+12	South & Central Asia-I	Devanagari (Nagari)	Deva
+12	South & Central Asia-I	Bengali (Bangla)	Beng
+12	South & Central Asia-I	Gurmukhi	Guru
+12	South & Central Asia-I	Gujarati	Gujr
+12	South & Central Asia-I	Oriya (Odia)	Orya
+12	South & Central Asia-I	Tamil	Taml
+12	South & Central Asia-I	Telugu	Telu
+12	South & Central Asia-I	Kannada	Knda
+12	South & Central Asia-I	Malayalam	Mlym
+13	South & Central Asia-II	Thaana	Thaa
+13	South & Central Asia-II	Sinhala	Sinh
+13	South & Central Asia-II	Newa, Newar, Newari	Newa
+13	South & Central Asia-II	Tibetan	Tibt
+13	South & Central Asia-II	Mongolian	Mong
+13	South & Central Asia-II	Limbu	Limb
+13	South & Central Asia-II	Meetei Mayek	Mtei
+13	South & Central Asia-II	Mro, Mru	Mroo
+13	South & Central Asia-II	Warang Citi	Wara
+13	South & Central Asia-II	Ol Chiki	Olck
+13	South & Central Asia-II	Ol Onal	Onao
+13	South & Central Asia-II	Nag Mundari	Nagm
+13	South & Central Asia-II	Chakma	Cakm
+13	South & Central Asia-II	Lepcha (Róng)	Lepc
+13	South & Central Asia-II	Saurashtra	Saur
+13	South & Central Asia-II	Masaram Gondi	Gonm
+13	South & Central Asia-II	Gunjala Gondi	Gong
+13	South & Central Asia-II	Wancho	Wcho
+13	South & Central Asia-II	Toto	Toto
+13	South & Central Asia-II	Tangsa	Tnsa
+13	South & Central Asia-II	Sunuwar	Sunu
+13	South & Central Asia-II	Gurung Khema	Gukh
+13	South & Central Asia-II	Kirat Rai	Krai
+13	South & Central Asia-II	Tolong Siki	Tols
+13	South & Central Asia-II	Ranjana	Ranj
+14	South & Central Asia-III	Brahmi	Brah
+14	South & Central Asia-III	Kharoshthi	Khar
+14	South & Central Asia-III	Bhaiksuki	Bhks
+14	South & Central Asia-III	Phags-pa	Phag
+14	South & Central Asia-III	Marchen	Marc
+14	South & Central Asia-III	Zanabazar Square	Zanb
+14	South & Central Asia-III	Soyombo	Soyo
+14	South & Central Asia-III	Old Turkic, Orkhon Runic	Orkh
+14	South & Central Asia-III	Old Sogdian	Sogo
+14	South & Central Asia-III	Sogdian	Sogd
+14	South & Central Asia-III	Old Uyghur	Ougr
+14	South & Central Asia-III	Indus (Harappan)	Inds
+15	South & Central Asia-IV	Syloti Nagri	Sylo
+15	South & Central Asia-IV	Kaithi	Kthi
+15	South & Central Asia-IV	Sharada	Shrd
+15	South & Central Asia-IV	Takri	Takr
+15	South & Central Asia-IV	Siddham	Sidd
+15	South & Central Asia-IV	Mahajani	Mahj
+15	South & Central Asia-IV	Khojki	Khoj
+15	South & Central Asia-IV	Dogra	Dogr
+15	South & Central Asia-IV	Khudawadi, Sindhi	Sind
+15	South & Central Asia-IV	Multani	Mult
+15	South & Central Asia-IV	Tirhuta	Tirh
+15	South & Central Asia-IV	Modi	Modi
+15	South & Central Asia-IV	Nandinagari	Nand
+15	South & Central Asia-IV	Grantha	Gran
+15	South & Central Asia-IV	Dives Akuru	Diak
+15	South & Central Asia-IV	Ahom, Tai Ahom	Ahom
+15	South & Central Asia-IV	Sora Sompeng	Sora
+15	South & Central Asia-IV	Tulu-Tigalari	Tutg
+15	South & Central Asia-IV	Chisoi	Chis
+16	Southeast Asia-I	Thai	Thai
+16	Southeast Asia-I	Lao	Laoo
+16	Southeast Asia-I	Myanmar (Burmese)	Mymr
+16	Southeast Asia-I	Khmer	Khmr
+16	Southeast Asia-I	Tai Le	Tale
+16	Southeast Asia-I	New Tai Lue	Talu
+16	Southeast Asia-I	Tai Tham (Lanna)	Lana
+16	Southeast Asia-I	Tai Viet	Tavt
+16	Southeast Asia-I	Kayah Li	Kali
+16	Southeast Asia-I	Cham	Cham
+16	Southeast Asia-I	Pahawh Hmong	Hmng
+16	Southeast Asia-I	Nyiakeng Puachue Hmong	Hmnp
+16	Southeast Asia-I	Pau Cin Hau	Pauc
+16	Southeast Asia-I	Hanifi Rohingya	Rohg
+16	Southeast Asia-I	Tai Yo	Tayo
+16	Southeast Asia-I	Leke	Leke
+17	Southeast Asia-II	Tagalog (Baybayin)	Tglg
+17	Southeast Asia-II	Hanunoo (Hanunóo)	Hano
+17	Southeast Asia-II	Buhid	Buhd
+17	Southeast Asia-II	Tagbanwa	Tagb
+17	Southeast Asia-II	Buginese	Bugi
+17	Southeast Asia-II	Balinese	Bali
+17	Southeast Asia-II	Javanese	Java
+17	Southeast Asia-II	Rejang (Kaganga)	Rjng
+17	Southeast Asia-II	Batak	Batk
+17	Southeast Asia-II	Sundanese	Sund
+17	Southeast Asia-II	Makasar	Maka
+17	Southeast Asia-II	Kawi	Kawi
+18	East Asia	Han (Hanzi, Kanji, Hanja)	Hani
+18	East Asia	Han (Simplified variant)	Hans
+18	East Asia	Han (Traditional variant)	Hant
+18	East Asia	Han with Bopomofo	Hanb
+18	East Asia	Han (Traditional variant) with Latin	Hntl
+18	East Asia	Bopomofo	Bopo
+18	East Asia	Hiragana	Hira
+18	East Asia	Katakana	Kana
+18	East Asia	Japanese syllabaries (Hiragana + Katakana)	Hrkt
+18	East Asia	Japanese (Han + Hiragana + Katakana)	Jpan
+18	East Asia	Hangul	Hang
+18	East Asia	Jamo (subset of Hangul)	Jamo
+18	East Asia	Korean (Hangul + Han)	Kore
+18	East Asia	Yi	Yiii
+18	East Asia	Nüshu	Nshu
+18	East Asia	Lisu (Fraser)	Lisu
+18	East Asia	Miao (Pollard)	Plrd
+18	East Asia	Tangut	Tang
+18	East Asia	Khitan Small Script	Kits
+18	East Asia	Khitan Large Script	Kitl
+18	East Asia	Jurchen	Jurc
+18	East Asia	Naxi Dongba	Nkdb
+18	East Asia	Naxi Geba	Nkgb
+18	East Asia	Shuishu	Shui
+18	East Asia	(Small) Seal	Seal
+19	Africa	Ethiopic (Geʻez)	Ethi
+19	Africa	Osmanya	Osma
+19	Africa	Tifinagh (Berber)	Tfng
+19	Africa	N’Ko	Nkoo
+19	Africa	Vai	Vaii
+19	Africa	Bamum	Bamu
+19	Africa	Bassa Vah	Bass
+19	Africa	Mende Kikakui	Mend
+19	Africa	Adlam	Adlm
+19	Africa	Medefaidrin	Medf
+19	Africa	Garay	Gara
+19	Africa	Beria Erfe	Berf
+19	Africa	Kpelle	Kpel
+19	Africa	Loma	Loma
+20	Americas	Cherokee	Cher
+20	Americas	Unified Canadian Aboriginal Syllabics	Cans
+20	Americas	Osage	Osge
+20	Americas	Deseret (Mormon)	Dsrt
+20	Americas	Mayan hieroglyphs	Maya
+20	Americas	Afaka	Afak
+20	Americas	Woleai	Wole
+20	Americas	Rongorongo	Roro
+21	Notational Systems	Braille	Brai
+21	Notational Systems	Duployan shorthand	Dupl
+21	Notational Systems	SignWriting	Sgnw
+21	Notational Systems	Visible Speech	Visp
+21	Notational Systems	Moon (Moon code)	Moon
+21	Notational Systems	Blissymbols	Blis
+22	Symbols	Symbols	Zsym
+22	Symbols	Symbols (Emoji variant)	Zsye
+22	Symbols	Mathematical notation	Zmth
