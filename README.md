@@ -41,3 +41,19 @@ Tools live under `babellib/tools/` and are run from the repo root, e.g.:
 ```sh
 uv run python babellib/tools/export_blocks.py
 ```
+
+## Platform notes
+
+The backend is cross-platform, but BabelMap's OpenType Test Framework has two
+**Windows-only** shaping engines:
+
+- **DirectWrite** (`directwrite`) — backed by `pydwshape`, a Windows-only
+  package (bundled DWriteCore). It carries a `platform_system == 'Windows'`
+  marker in `pyproject.toml`, so it is simply skipped during install on
+  Linux/macOS.
+- **Uniscribe** (`uniscribe`) — drives the Windows `usp10.dll` directly.
+
+The `/api/opentype/shape` endpoint rejects those two engines on non-Windows;
+HarfBuzz, HarfRust, BabelScript, Graphite, ICU and FreeType engines remain
+available on every platform. See `babelmap/README.md` → _Platform support —
+OpenType shaping engines_ for the full table.

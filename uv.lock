@@ -48,11 +48,11 @@ version = "1.0.0"
 source = { virtual = "." }
 dependencies = [
     { name = "arabic-reshaper" },
-    { name = "dwriteshapepy", marker = "sys_platform == 'win32'" },
     { name = "fastapi" },
     { name = "fonttools" },
     { name = "freetype-py" },
     { name = "pillow" },
+    { name = "pydwshape", marker = "sys_platform == 'win32'" },
     { name = "pygraphite2" },
     { name = "pyharfrust2" },
     { name = "requests" },
@@ -69,11 +69,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "arabic-reshaper", specifier = ">=3.0.0" },
-    { name = "dwriteshapepy", marker = "sys_platform == 'win32'" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "fonttools", specifier = ">=4.50.0" },
     { name = "freetype-py", specifier = ">=2.5.0" },
     { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pydwshape", marker = "sys_platform == 'win32'" },
     { name = "pygraphite2", specifier = ">=0.4.0" },
     { name = "pyharfrust2", specifier = ">=0.1.0" },
     { name = "requests" },
@@ -257,17 +257,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
-]
-
-[[package]]
-name = "dwriteshapepy"
-version = "1.0.12"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fa/d6/5858f57a1a9756262ddc37b9d99643a15048973fdd00cc26a7ecb94f6f31/dwriteshapepy-1.0.12.tar.gz", hash = "sha256:05b44b1caa0d519e2bbb858a306fd9a8d0b65c5a1fd2af3d6ec6818cb743ba25", size = 115027, upload-time = "2025-01-16T21:05:01.103Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/f8/922ccdff382c4132835488d38c387960be021700d6dc8daa01578204a55c/dwriteshapepy-1.0.12-cp311-cp311-win_amd64.whl", hash = "sha256:e88c266d4401e22ca1febac9c8ff8a2d1613dd9b220e74c3582f0a36949fbb73", size = 103544, upload-time = "2025-01-16T21:04:50.913Z" },
-    { url = "https://files.pythonhosted.org/packages/b2/66/d4dede609a7a53b238a88ad73cbce323c250d5c89895f00e12f0d1be72a4/dwriteshapepy-1.0.12-cp312-cp312-win_amd64.whl", hash = "sha256:03f6eea96bdbfea14dcf53759076edf3323e25841bf552a5b8b158eebef71418", size = 104048, upload-time = "2025-01-16T21:04:52.453Z" },
-    { url = "https://files.pythonhosted.org/packages/e1/7c/a5e417c4a8af467f03910a0b2106e0dd2637c47bdb079670d30b0ae84734/dwriteshapepy-1.0.12-cp313-cp313-win_amd64.whl", hash = "sha256:5df7aebe98c6d777e65acbc44a3adfafda5ca8cf487322f21dfab1201b83a459", size = 103656, upload-time = "2025-01-16T21:04:55.666Z" },
 ]
 
 [[package]]
@@ -658,6 +647,14 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c2/d7/ad493864a7fb21c0c4df98f965e2db430cb25a9d7369b5778d5016c09fd9/pydantic_core-2.46.5-pp311-pypy311_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:2d330aaba8621b1edcec8ae2c4050f63b84ccf6d98723a8f212e9684713abf0e", size = 2294560, upload-time = "2026-08-28T10:01:23.495Z" },
     { url = "https://files.pythonhosted.org/packages/02/8e/b41c84c913f29973a268e6c2b5bbf13c95adb9956c126d10da11ba3b2bef/pydantic_core-2.46.5-pp311-pypy311_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:b6acfb46a814762367fb7ba0828b0a17d441b92ce249a0e007474c9072662dda", size = 2317531, upload-time = "2026-08-28T10:01:26.334Z" },
     { url = "https://files.pythonhosted.org/packages/db/1d/068464f23075f66a8f1b806935e9cd9363ee446636ea70d2c22ee8659dbf/pydantic_core-2.46.5-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:d0a24b40877af2de4950252be9d21eaf7fb07660f3c2cae1f56c6b599ada5266", size = 2140686, upload-time = "2026-08-28T10:01:28.947Z" },
+]
+
+[[package]]
+name = "pydwshape"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1d/fa/f2606a24662115ca2f7ea1e922ccccd5763158c8beaa604df25927b8aadd/pydwshape-0.1.0-cp39-abi3-win_amd64.whl", hash = "sha256:413ae534e4f6604dc0b1ad73d5a6d4880d6e19e5f4a986cabf578b09f7aa6067", size = 1567187, upload-time = "2026-09-05T01:48:08.567Z" },
 ]
 
 [[package]]

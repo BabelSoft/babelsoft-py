@@ -65,6 +65,27 @@ All endpoints implemented and working. Port **18080** (`http://127.0.0.1:18080`)
 
 ---
 
+## Platform support — OpenType shaping engines
+
+`POST /api/opentype/shape` (the OpenType Test Framework dialog) can shape with
+several engines. Most are **cross-platform** — HarfBuzz (`harfbuzz`),
+HarfRust (`harfrust`), BabelScript (`babelscript`), Graphite (`graphite`),
+ICU (`icu`), FreeType (`freetype`) and HarfBuzz fallback
+(`harfbuzz_fallback`).
+
+Two engines are **Windows-only** and will not run on Linux/macOS:
+
+| Engine        | Backend                          | Notes                                                                                                    |
+| ------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `directwrite` | `pydwshape` (bundled DWriteCore) | The Python dependency is marked `platform_system == 'Windows'`, so it is not even installed off-Windows. |
+| `uniscribe`   | ctypes → `usp10.dll` (GDI)       | Loads the Windows `usp10` library directly.                                                              |
+
+On non-Windows the API rejects these two with a `"… engine is Windows-only"`
+error (see `backend/server.py`); the app itself stays cross-platform — all the
+other engines keep working.
+
+---
+
 ## Frontend Components --- `frontend/src/lib/components/`
 
 | Component                    | Purpose                                       | Status       |

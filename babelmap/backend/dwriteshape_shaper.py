@@ -1,14 +1,17 @@
 """DirectWrite text shaping for the OpenType Test Framework.
 
-Uses the official microsoft/DWriteShapePy package (``pip install
-dwriteshapepy``) — a Cython wrapper over DirectWrite's IDWriteTextAnalyzer,
-modeled after uharfbuzz.  This works on systems where hand-rolled comtypes
-DirectWrite bindings fail (e.g. factory/face quirks), because the extension is
-compiled against the real DirectWrite headers and uses the correct factory
-path.
+Uses the ``pydwshape`` package (``pip install pydwshape``) — a Windows-only
+PyO3/abi3 extension (``cp39-abi3-win_amd64``) that shapes entirely with a
+bundled, app-local **DWriteCore** (version-pinned; no system ``dwrite.dll`` /
+``TextShaping.dll`` is loaded, so there is no DLL-hijack surface, and no
+subprocess is spawned).
 
-Like Uniscribe, DirectWrite has no buffer-message callback → we only produce
-the *final* glyph run (no step-by-step trace).
+Unlike hand-rolled COM/ctypes DirectWrite bindings — and unlike the old
+``dwriteshapepy`` Cython wrapper, which had no buffer-message callback — the
+extension installs a process-local per-lookup hook and returns the *full*
+babelsoft ``/api/opentype/shape`` trace (the DirectWrite analogue of the
+HarfRust engine).  DirectWrite therefore now reports per-stage glyph
+mutations instead of only the final run.
 """
 
 from __future__ import annotations
@@ -22,81 +25,31 @@ def shape_with_dwrite(
     script: str = "",
     language: str = "",
     features: dict | None = None,
+    show_all_lookups: bool = False,
 ) -> dict:
-    """Shape text with DirectWrite (via dwriteshapepy). Returns the final glyph
-    run in a shape_trace-compatible structure."""
+    """Shape text with DirectWrite (via pydwshape / bundled DWriteCore).
+
+    Returns the full per-lookup trace dict in the babelsoft
+    ``/api/opentype/shape`` schema (``upem``, ``glyph_count``, ``stages``,
+    ``final``, ``messages``, ``engine``).  ``features`` uses the same
+    ``{tag: bool}`` convention as the HarfBuzz/HarfRust engines; DWriteCore
+    applies script-required features unconditionally, so toggles only affect
+    *optional* features.  Glyph names are appended by the server.
+    """
     try:
-        import dwriteshapepy as dw
+        import pydwshape
     except ImportError:
         raise ImportError(
-            "The DirectWrite engine requires the 'dwriteshapepy' package "
-            "(a Cython wrapper over IDWriteTextAnalyzer). Install it with: "
-            "pip install dwriteshapepy"
+            "The DirectWrite engine requires the 'pydwshape' package "
+            "(a Windows-only DWriteCore per-lookup shaper). Install it with: "
+            "pip install pydwshape"
         )
-
-    face = dw.Face(data)
-    font = dw.Font(face)
-    upem = int(font.upem) or 2048
-
-    buf = dw.Buffer()
-    buf.add_str(text)
-    if language:
-        try:
-            buf.language = language
-        except Exception:
-            pass
-
-    feat = {}
-    if features:
-        for tag, val in features.items():
-            if isinstance(val, bool):
-                feat[str(tag)] = val
-            elif val in (1, 0):
-                feat[str(tag)] = bool(val)
-
-    dw.shape(font, buf, feat)
-
-    infos = list(buf.glyph_infos)
-    poss = list(buf.glyph_positions)
-    glyphs: list[dict] = []
-    used: set[int] = set()
-    for gi, po in zip(infos, poss):
-        gid = int(gi.codepoint)
-        used.add(gid)
-        glyphs.append(
-            {
-                "g": gid,
-                "cl": int(gi.cluster),
-                "dx": int(round(getattr(po, "x_offset", 0) or 0)),
-                "dy": int(round(getattr(po, "y_offset", 0) or 0)),
-                "ax": int(round(getattr(po, "x_advance", 0) or 0)),
-                "ay": int(round(getattr(po, "y_advance", 0) or 0)),
-                "flags": 0,
-            }
-        )
-
-    # Glyph names (font.glyph_to_string)
-    names = {}
-    for gid in used:
-        try:
-            n = font.glyph_to_string(gid)
-            if n:
-                names[gid] = n
-        except Exception:
-            pass
-
-    stage = {
-        "m": "DirectWrite shaping",
-        "glyphs": glyphs,
-        "depth": 0,
-        "effective": True,
-    }
-    return {
-        "upem": upem,
-        "glyph_count": len(glyphs),
-        "stages": [stage],
-        "final": glyphs,
-        "messages": ["DirectWrite shaping"],
-        "glyph_names": names,
-        "engine": "directwrite",
-    }
+    return pydwshape.shape_with_dwrite(
+        data,
+        text,
+        direction=direction,
+        script=script,
+        language=language,
+        features=features,
+        show_all_lookups=bool(show_all_lookups),
+    )

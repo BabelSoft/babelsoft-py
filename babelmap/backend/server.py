@@ -904,6 +904,7 @@ def opentype_shape(payload: dict):
                 script=payload.get("script", ""),
                 language=payload.get("language", ""),
                 features=payload.get("features"),
+                show_all_lookups=bool(payload.get("show_all_lookups")),
             )
         elif engine == "graphite":
             from babelmap.backend.graphite_shaper import shape_with_graphite
