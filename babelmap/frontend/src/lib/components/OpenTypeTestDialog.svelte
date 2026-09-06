@@ -455,9 +455,11 @@
               shape();
             }}
           >
-            <!-- NB: "directwrite" (pydwshape/DWriteCore) and "uniscribe" are
-                 Windows-only — on Linux/macOS the server rejects them with a
-                 "Windows-only" error (see babelmap/README.md). -->
+            <!-- NB: "uniscribe" (pyusp/usp10) and "directwrite"
+                 (pydwshape/DWriteCore) are Windows-native — on Linux/macOS the
+                 server rejects them with a "Windows-only" error.  The "(Wine)"
+                 variants (pyusp/wineusp, pydwshape/winedwrite) run on every
+                 platform; see babelmap/README.md. -->
             <option value="harfbuzz">HarfBuzz</option>
             <option value="harfrust">HarfRust (Rust HarfBuzz port)</option>
             <option value="babelscript"
@@ -466,7 +468,9 @@
             <option value="harfbuzz_fallback">HarfBuzz fallback (cmap)</option>
             <option value="graphite">Graphite (SIL)</option>
             <option value="uniscribe">Uniscribe</option>
+            <option value="uniscribe_wine">Uniscribe (Wine)</option>
             <option value="directwrite">DirectWrite (DWriteCore)</option>
+            <option value="directwrite_wine">DirectWrite (Wine)</option>
             <option value="icu">ICU (Arabic reshape)</option>
             <option value="freetype">FreeType (cmap · no shaping)</option>
           </select></label

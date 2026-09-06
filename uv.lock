@@ -55,6 +55,7 @@ dependencies = [
     { name = "pydwshape", marker = "sys_platform == 'win32'" },
     { name = "pygraphite2" },
     { name = "pyharfrust2" },
+    { name = "pyusp" },
     { name = "requests" },
     { name = "rich" },
     { name = "uharfbuzz" },
@@ -73,9 +74,10 @@ requires-dist = [
     { name = "fonttools", specifier = ">=4.50.0" },
     { name = "freetype-py", specifier = ">=2.5.0" },
     { name = "pillow", specifier = ">=10.0.0" },
-    { name = "pydwshape", marker = "sys_platform == 'win32'" },
+    { name = "pydwshape", marker = "sys_platform == 'win32'", specifier = ">=0.4.0" },
     { name = "pygraphite2", specifier = ">=0.4.0" },
     { name = "pyharfrust2", specifier = ">=0.1.0" },
+    { name = "pyusp", specifier = ">=0.5.0" },
     { name = "requests" },
     { name = "rich" },
     { name = "uharfbuzz", specifier = ">=0.40.0" },
@@ -651,10 +653,10 @@ wheels = [
 
 [[package]]
 name = "pydwshape"
-version = "0.1.0"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/fa/f2606a24662115ca2f7ea1e922ccccd5763158c8beaa604df25927b8aadd/pydwshape-0.1.0-cp39-abi3-win_amd64.whl", hash = "sha256:413ae534e4f6604dc0b1ad73d5a6d4880d6e19e5f4a986cabf578b09f7aa6067", size = 1567187, upload-time = "2026-09-05T01:48:08.567Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/10/482eccf850b3c985eab8766baf850d29a698bd4f971b0167bc7981516114/pydwshape-0.4.0-cp39-abi3-win_amd64.whl", hash = "sha256:2ab16250329d651a28d7805c842ce579b40459cafa67f623867a60e33c92f8f2", size = 1822721, upload-time = "2026-09-06T12:06:29.696Z" },
 ]
 
 [[package]]
@@ -711,6 +713,16 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz", hash = "sha256:a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35", size = 58945, upload-time = "2026-08-16T16:54:54.067Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0d/17/c5c6b53ddc18f297992099b3d9ec16c855c0ccc83263a21fe4d1c625ec6c/python_dotenv-1.2.3-py3-none-any.whl", hash = "sha256:904552145e8bfed22162c09dab1c2b9b54fefa7b23ba780f4f26ca0316b0f0d9", size = 22780, upload-time = "2026-08-16T16:54:52.473Z" },
+]
+
+[[package]]
+name = "pyusp"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/11/f8/288d1091253d670e270e86337b16d26e81975fea01a810cf6e26b8a7421a/pyusp-0.5.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:fc161e51d8a7ca080425dea01275d8a68ebccae21bac3c59b123beb93bc3b86e", size = 470898, upload-time = "2026-09-06T10:38:01.287Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/5a/a5d383bda1aa3765c24cf53b29d32dcf95d0375aa8651109c8e19c16976c/pyusp-0.5.0-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:dda6c478d5d22ad6f94fe7254c4976aa36209ef1fd8abe02f5e6a6195c82a993", size = 520731, upload-time = "2026-09-06T10:38:02.994Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/7c/c5d8c87cc64d948c81e6e081b2dcab0c1930d9c5cec89438783965e6fd33/pyusp-0.5.0-cp39-abi3-win_amd64.whl", hash = "sha256:182921e30556df948a12b7d52ce26024a1830e1332a36490b85601ad8c455e2c", size = 338486, upload-time = "2026-09-06T10:38:04.445Z" },
 ]
 
 [[package]]

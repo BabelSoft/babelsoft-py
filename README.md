@@ -44,16 +44,27 @@ uv run python babellib/tools/export_blocks.py
 
 ## Platform notes
 
-The backend is cross-platform, but BabelMap's OpenType Test Framework has two
-**Windows-only** shaping engines:
+The backend is cross-platform. The OpenType Test Framework shapes with the
+two Windows shaping APIs through a pair of purpose-built packages, each in a
+**native** and a **Wine** flavour:
 
-- **DirectWrite** (`directwrite`) — backed by `pydwshape`, a Windows-only
-  package (bundled DWriteCore). It carries a `platform_system == 'Windows'`
-  marker in `pyproject.toml`, so it is simply skipped during install on
-  Linux/macOS.
-- **Uniscribe** (`uniscribe`) — drives the Windows `usp10.dll` directly.
+- **Uniscribe** (`uniscribe`) — native Microsoft `usp10`, via `pyusp`
+  (`backend="usp10"`), Windows-only.
+- **Uniscribe (Wine)** (`uniscribe_wine`) — Wine's open-source Uniscribe
+  reimplementation, via `pyusp` (`backend="wineusp"`), **cross-platform** and
+  with a real per-lookup trace.
+- **DirectWrite (DWriteCore)** (`directwrite`) — native DWriteCore via
+  `pydwshape` (`backend="dwcore"`), Windows-only (pydwshape is only shipped
+  as a Windows wheel, marked `platform_system == 'Windows'` in
+  `pyproject.toml`).
+- **DirectWrite (Wine)** (`directwrite_wine`) — the Wine DWrite port via
+  `pydwshape` (`backend="winedwrite"`). Bundled in every wheel since
+  pydwshape 0.4.0 (so it runs on Windows too); `WDWRITE_LIB` overrides for
+  manual builds.
 
-The `/api/opentype/shape` endpoint rejects those two engines on non-Windows;
-HarfBuzz, HarfRust, BabelScript, Graphite, ICU and FreeType engines remain
-available on every platform. See `babelmap/README.md` → _Platform support —
-OpenType shaping engines_ for the full table.
+`pyusp` has win/manylinux/macOS wheels so it installs everywhere; the
+`/api/opentype/shape` endpoint rejects the two native (`uniscribe`,
+`directwrite`) engines on non-Windows. HarfBuzz, HarfRust, BabelScript,
+Graphite, ICU, FreeType and the two Wine engines run on every platform. See
+`babelmap/README.md` → _Platform support — OpenType shaping engines_ for the
+full table.

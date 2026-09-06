@@ -867,20 +867,26 @@ def opentype_shape(payload: dict):
     try:
         engine = payload.get("engine", "harfbuzz")
         if engine in ("uniscribe", "directwrite") and os.name != "nt":
-            # These are Windows-native shaping APIs; on other platforms the
-            # engine is simply not available (the app itself stays cross-platform).
+            # These are the Windows-native shaping APIs (usp10 / DWriteCore);
+            # on other platforms the engine is simply not available (the app
+            # itself stays cross-platform).  The Wine variants
+            # (uniscribe_wine / directwrite_wine) run everywhere and are not
+            # gated here — see babelmap/README.md.
             return JSONResponse({"error": f"'{engine}' engine is Windows-only"}, 400)
-        if engine == "uniscribe":
+        if engine in ("uniscribe", "uniscribe_wine"):
             from babelmap.backend.uniscribe_shaper import shape_with_uniscribe
 
             result = shape_with_uniscribe(
-                b64 or fpath or "",
+                data,
                 payload.get("text", ""),
-                is_b64=bool(b64),
                 direction=payload.get("direction", "auto"),
                 script=payload.get("script", ""),
                 language=payload.get("language", ""),
                 features=payload.get("features"),
+                # usp10 = native Microsoft Uniscribe (single run); wineusp =
+                # Wine's Uniscribe reimplementation with a real per-lookup trace.
+                backend="usp10" if engine == "uniscribe" else "wineusp",
+                trace=engine == "uniscribe_wine",
             )
         elif engine == "freetype":
             from babelmap.backend.freetype_shaper import shape_with_freetype
@@ -894,7 +900,7 @@ def opentype_shape(payload: dict):
                 language=payload.get("language", ""),
                 features=payload.get("features"),
             )
-        elif engine == "directwrite":
+        elif engine in ("directwrite", "directwrite_wine"):
             from babelmap.backend.dwriteshape_shaper import shape_with_dwrite
 
             result = shape_with_dwrite(
@@ -905,6 +911,9 @@ def opentype_shape(payload: dict):
                 language=payload.get("language", ""),
                 features=payload.get("features"),
                 show_all_lookups=bool(payload.get("show_all_lookups")),
+                # dwcore = native DWriteCore (full trace); winedwrite = Wine
+                # DWrite port (cross-platform, full trace).
+                backend="dwcore" if engine == "directwrite" else "winedwrite",
             )
         elif engine == "graphite":
             from babelmap.backend.graphite_shaper import shape_with_graphite

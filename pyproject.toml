@@ -14,7 +14,19 @@ dependencies = [
     "fonttools>=4.50.0",
     "freetype-py>=2.5.0",
     "arabic-reshaper>=3.0.0",
-    "pydwshape; platform_system == 'Windows'",
+    # pyusp >= 0.5.0 (cross-platform wheels) provides the Uniscribe engines:
+    #   backend="usp10"  → native Microsoft Uniscribe (Windows-only)
+    #   backend="wineusp"→ Wine's Uniscribe reimplementation (everywhere, and
+    #                       gives a real per-lookup trace when trace=True).
+    # pydwshape >= 0.4.0 (Windows wheels only) provides the DirectWrite
+    #   engines: backend="dwcore" → native DWriteCore; backend="winedwrite" →
+    #   the Wine DWrite port, bundled in every wheel since 0.4.0 (the Windows
+    #   wheel ships winedwrite.dll, so directwrite_wine works on Windows too;
+    #   WDWRITE_LIB still overrides for manual builds).  Both auto-detect the
+    #   script from the text in native code (0.1.0 left an empty script at id
+    #   0, so complex scripts like Devanagari were not shaped).
+    "pyusp>=0.5.0",
+    "pydwshape>=0.4.0; platform_system == 'Windows'",
     "requests",
     "rich",
     "pygraphite2>=0.4.0",

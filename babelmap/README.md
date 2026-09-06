@@ -73,16 +73,20 @@ HarfRust (`harfrust`), BabelScript (`babelscript`), Graphite (`graphite`),
 ICU (`icu`), FreeType (`freetype`) and HarfBuzz fallback
 (`harfbuzz_fallback`).
 
-Two engines are **Windows-only** and will not run on Linux/macOS:
+The two Windows shaping APIs are provided by the `pyusp` and `pydwshape`
+packages, each in a **native** and a **Wine** flavour:
 
-| Engine        | Backend                          | Notes                                                                                                    |
-| ------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `directwrite` | `pydwshape` (bundled DWriteCore) | The Python dependency is marked `platform_system == 'Windows'`, so it is not even installed off-Windows. |
-| `uniscribe`   | ctypes → `usp10.dll` (GDI)       | Loads the Windows `usp10` library directly.                                                              |
+| Engine             | Backend                          | Notes                                                                                                                                                                                   |
+| ------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `uniscribe`        | `pyusp` backend `usp10`          | Native Microsoft Uniscribe, **Windows-only**, single whole-run stage (no per-lookup callback). `pyusp` bundles a pinned `usp10.dll`.                                                    |
+| `uniscribe_wine`   | `pyusp` backend `wineusp`        | Wine's open-source Uniscribe (LGPL), **cross-platform**; `trace=True` returns a real cmap → per-GSUB-lookup → final timeline.                                                           |
+| `directwrite`      | `pydwshape` backend `dwcore`     | Native **DWriteCore**, **Windows-only**; full per-lookup trace. `pydwshape` only ships Windows wheels (marked `platform_system == 'Windows'`).                                          |
+| `directwrite_wine` | `pydwshape` backend `winedwrite` | Wine DWrite port, **cross-platform**; full per-lookup trace. Bundled in every wheel since pydwshape 0.4.0 (`winedwrite.dll` on Windows too); `WDWRITE_LIB` overrides for manual builds. |
 
-On non-Windows the API rejects these two with a `"… engine is Windows-only"`
-error (see `backend/server.py`); the app itself stays cross-platform — all the
-other engines keep working.
+`pyusp` ships win/manylinux/macOS wheels, so it installs everywhere; the API
+rejects the two native engines (`uniscribe`, `directwrite`) on non-Windows
+with a `"… engine is Windows-only"` error (see `backend/server.py`), while the
+two Wine engines run on every platform.
 
 ---
 
