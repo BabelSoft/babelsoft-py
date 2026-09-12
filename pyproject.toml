@@ -30,6 +30,16 @@ dependencies = [
     "requests",
     "rich",
     "pygraphite2>=0.4.0",
+    # pyyudit >= 0.3.0: per-platform wheels (win_amd64 / manylinux / macosx) with
+    # the native library + Yudit's property maps in pyyudit/_lib/data/*.my
+    # (indic.my, charclass.my, cluster.my, shape.my, ...).  0.2.0 was the first
+    # release whose Arabic/Syriac joining and RTL ordering match HarfBuzz and
+    # that reported real OpenType lookup rows (0.1.x had no maps and no joining);
+    # 0.3.0 fixed the position fields (dx is an offset again, Indic advances are
+    # positive, rendered positions match HarfBuzz).  Indic substitutions are
+    # still not applied as of 0.3.0.
+    "pyyudit>=0.3.0",
+    "brotli>=1.2.0",
 ]
 
 [dependency-groups]

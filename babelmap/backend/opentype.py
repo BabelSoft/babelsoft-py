@@ -23,6 +23,10 @@ FONT_DIRS = [
     r"C:\Windows\Fonts",
 ]
 
+# Font containers the picker offers (shaping normalises them, see
+# backend/font_source.py — collections and WOFF/WOFF2 included).
+FONT_EXTS = ("*.ttf", "*.otf", "*.ttc", "*.otc", "*.woff", "*.woff2")
+
 # HarfBuzz buffer flags exposed in the UI (name → BufferFlags member).
 BUFFER_FLAGS = [
     "BOT",
@@ -42,6 +46,14 @@ CLUSTER_LEVELS = {
     "characters": "CHARACTERS",
     "graphemes": "GRAPHEMES",
 }
+
+# Trace rows that still carry *unicode codepoints* rather than glyph ids: the ones
+# an engine reports before its cmap step (HarfBuzz: "Start of shaping" and
+# "start preprocess-text").  Crowbar marks exactly these with `glyphs: false`, and
+# we flag them per row with `cps: True` so the UI can label them U+XXXX instead of
+# looking up a meaningless glyph name for a codepoint.  Engine-specific pre-cmap
+# rows are marked by the shaper that knows them (see yudit_shaper).
+UNICODE_ROWS = frozenset({"Start of shaping", "start of shaping", "start preprocess-text", "start of text"})
 
 # Common scripts for the dropdown (ISO 15924 tags).
 COMMON_SCRIPTS = [
@@ -106,23 +118,41 @@ def _font_family(path: str) -> str:
     return os.path.basename(path)
 
 
+def _face_count(path: str) -> int:
+    """Faces in a font file — 1 unless it is a TTC/OTC collection."""
+    try:
+        from babelmap.backend.font_source import face_count
+
+        with open(path, "rb") as f:
+            head = f.read(4096)  # a ttcf header is tiny; this is enough
+        return face_count(head)
+    except Exception:
+        return 1
+
+
 def list_system_fonts() -> list[dict]:
-    """Enumerate system font files → [{path, name, file, ext}]."""
+    """Enumerate system font files → [{path, name, file, face_count}]."""
     out: list[dict] = []
     seen: set[str] = set()
     for d in FONT_DIRS:
         if not os.path.isdir(d):
             continue
-        for p in sorted(
-            glob.glob(os.path.join(d, "*.ttf"))
-            + glob.glob(os.path.join(d, "*.otf"))
-            + glob.glob(os.path.join(d, "*.ttc"))
-        ):
+        paths: list[str] = []
+        for ext in FONT_EXTS:
+            paths += glob.glob(os.path.join(d, ext))
+        for p in sorted(paths):
             key = os.path.basename(p).lower()
             if key in seen:
                 continue
             seen.add(key)
-            out.append({"path": p, "name": _font_family(p), "file": os.path.basename(p)})
+            out.append(
+                {
+                    "path": p,
+                    "name": _font_family(p),
+                    "file": os.path.basename(p),
+                    "face_count": _face_count(p),
+                }
+            )
     return out
 
 
@@ -249,6 +279,13 @@ def _build_trace_stages(rows: list[dict], show_all_lookups: bool = False) -> tup
             last_buf = _json.dumps(r["glyphs"])
             filtered.append(r)
 
+    # Flag pre-cmap rows (still codepoints, not glyph ids) — Crowbar's
+    # `glyphs: false`.  Shapers with their own pre-cmap stage names mark their
+    # rows before calling this (the flag survives the filtering above).
+    for r in filtered:
+        if r["m"] in UNICODE_ROWS:
+            r["cps"] = True
+
     _remap_clusters(filtered)
     final = filtered[-1]["glyphs"] if filtered else (rows[-1]["glyphs"] if rows else [])
     return filtered, final
@@ -331,12 +368,7 @@ def shape_trace(
 
     filtered, final = _build_trace_stages(rows, show_all_lookups)
 
-    used: set[int] = set()
-    for st in filtered:
-        for g in st.get("glyphs", []):
-            used.add(g["g"])
-    for g in final:
-        used.add(g["g"])
+    used = used_glyph_ids(filtered, final)
 
     return {
         "upem": face.upem,
@@ -346,6 +378,25 @@ def shape_trace(
         "messages": [s[0] for s in stages],
         "glyph_names": _glyph_names(data, used),
     }
+
+
+def used_glyph_ids(stages: list[dict], final: list[dict] | None = None) -> set[int]:
+    """Glyph ids the UI needs names for.
+
+    Pre-cmap rows (``cps`` — Crowbar's ``glyphs: false``) hold *codepoints*, not
+    glyph ids, so they are skipped: looking a codepoint up in the glyph order
+    would only produce a bogus name, while the dialog labels those rows
+    ``U+XXXX`` itself.
+    """
+    used: set[int] = set()
+    for st in stages:
+        if st.get("cps"):
+            continue
+        for g in st.get("glyphs", []):
+            used.add(g["g"])
+    for g in final or []:
+        used.add(g["g"])
+    return used
 
 
 def shape_flat(
@@ -402,7 +453,7 @@ def shape_flat(
         "effective": True,
     }
     _remap_clusters([stage])
-    used: set[int] = {g["g"] for g in glyphs}
+    used = used_glyph_ids([stage])
     return {
         "upem": face.upem,
         "glyph_count": face.glyph_count,

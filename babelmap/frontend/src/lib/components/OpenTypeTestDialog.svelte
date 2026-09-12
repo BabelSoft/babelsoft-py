@@ -17,6 +17,14 @@
   let fontB64 = $state("");
   let fontName = $state("");
   let lastFontKey = $state("");
+  // ── font source: container → face → what the engine receives ──
+  // TTC/OTC collections hold several faces; the backend flattens the chosen one
+  // into a single-face sfnt (see backend/font_source.py).
+  let fontFaces = $state<any[]>([]);
+  let fontContainerLabel = $state("");
+  let faceIndex = $state(0);
+  let fontDelivery = $state("auto");
+  let fontSourceInfo = $state<any>(null);
 
   // ── text + options ──
   let text = $state("ffi fi fl");
@@ -103,18 +111,8 @@
   // ── drag / position state ──
   let x = $state(180);
   let y = $state(90);
-  let w = $state(
-    Math.min(
-      1280,
-      (typeof window !== "undefined" ? window.innerWidth : 1280) - 32,
-    ),
-  );
-  let h = $state(
-    Math.min(
-      780,
-      (typeof window !== "undefined" ? window.innerHeight : 780) - 40,
-    ),
-  );
+  let w = $state(Math.min(1280, (typeof window !== "undefined" ? window.innerWidth : 1280) - 32));
+  let h = $state(Math.min(780, (typeof window !== "undefined" ? window.innerHeight : 780) - 40));
   let dragging = $state(false);
   let dragStartX = $state(0);
   let dragStartY = $state(0);
@@ -176,10 +174,20 @@
     return "#1a1a1a";
   }
   function fontKey(): string {
-    return fontB64 ? "upload:" + (fontName || "font") : "sys:" + fontPath;
+    return (fontB64 ? "upload:" + (fontName || "font") : "sys:" + fontPath) + "#" + faceIndex;
   }
-  function glyphName(g: any): string {
-    return glyphNames[g.g] ?? "U+" + hex4(g.g);
+  // Pre-cmap rows carry codepoints, not glyph ids, so they must be labelled
+  // U+XXXX instead of being looked up as glyph names.  The backend flags them
+  // per row (`stage.cps`, the same idea as Crowbar's `glyphs: false`); the stage
+  // names below are the unambiguous ones and serve as a fallback.  NB `reorder`
+  // is deliberately absent: it is pre-cmap for Indic but *post*-cmap (real glyph
+  // ids) for Arabic, which only the per-row flag can tell apart.
+  const CODEPOINT_ROWS = new Set(["input", "split", "join", "decompose", "Start of shaping", "start of shaping", "start preprocess-text", "start of text"]);
+  function isCodepointRow(stage: any): boolean {
+    return !!stage?.cps || CODEPOINT_ROWS.has(stage?.m);
+  }
+  function glyphName(g: any, cps = false): string {
+    return cps ? "U+" + hex4(g.g) : (glyphNames[g.g] ?? "U+" + hex4(g.g));
   }
   function isSupportedScript(tag: string): boolean {
     return !!fontInfo?.supported_scripts?.includes(String(tag).toLowerCase());
@@ -216,14 +224,12 @@
   });
   async function init() {
     try {
-      const [fr, mr] = await Promise.all([
-        fetch(API + "/opentype/fonts"),
-        fetch(API + "/opentype/meta"),
-      ]);
+      const [fr, mr] = await Promise.all([fetch(API + "/opentype/fonts"), fetch(API + "/opentype/meta")]);
       const fd = await fr.json();
       fonts = fd.fonts ?? [];
       if (mr.ok) meta = (await mr.json()) ?? meta;
       if (fonts.length && !fontPath && !fontB64) fontPath = fonts[0].path;
+      await loadFaces();
       if (text) shape();
     } catch {
       /* ignore */
@@ -233,6 +239,8 @@
   function onFontSelect() {
     fontB64 = "";
     fontName = "";
+    faceIndex = 0;
+    loadFaces();
     shape();
   }
 
@@ -245,6 +253,8 @@
       fontB64 = b64;
       fontPath = "";
       fontName = file.name;
+      faceIndex = 0;
+      loadFaces();
       shape();
     };
     fr.readAsDataURL(file);
@@ -291,6 +301,9 @@
     };
     if (fontB64) body.font_b64 = fontB64;
     else body.font_path = fontPath;
+    // Which face to use, and how to hand the font over (auto / flatten / raw).
+    body.font_face = faceIndex;
+    body.font_delivery = fontDelivery;
     try {
       const r = await fetch(API + "/opentype/shape", {
         method: "POST",
@@ -308,9 +321,9 @@
       featureTags = d.features ?? { gsub: [], gpos: [] };
       fontInfo = d.font_info ?? null;
       hbVersion = d.font_info?.hb_version ?? "";
+      fontSourceInfo = d.font_source ?? null;
       const next = { ...features };
-      for (const t of [...featureTags.gsub, ...featureTags.gpos])
-        if (!(t in next)) next[t] = "default";
+      for (const t of [...featureTags.gsub, ...featureTags.gpos]) if (!(t in next)) next[t] = "default";
       features = next;
       shownGlyphs = d.final ?? [];
       shownUpem = d.upem ?? 2048;
@@ -339,6 +352,9 @@
         if (Object.keys(variations).length) body.variations = variations;
         if (fontB64) body.font_b64 = fontB64;
         else body.font_path = fontPath;
+        // Outlines must come from the same face the shape used.
+        body.font_face = faceIndex;
+        body.font_delivery = fontDelivery;
         const r = await fetch(API + "/opentype/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -355,7 +371,8 @@
   }
 
   function onStageEnter(stage: any) {
-    if (stage.glyphs && stage.glyphs.length) {
+    // Codepoint rows (pre-cmap) hold no glyph ids, so there is nothing to draw.
+    if (stage.glyphs && stage.glyphs.length && !isCodepointRow(stage)) {
       shownGlyphs = stage.glyphs;
       renderGlyphs(stage.glyphs, hoverCl);
     }
@@ -385,14 +402,42 @@
     shape();
   }
 
+  /// Ask the backend which faces the current font holds (TTC/OTC list, WOFF
+  /// reports its single face) so the face picker can be populated.
+  async function loadFaces() {
+    const body: any = {};
+    if (fontB64) body.font_b64 = fontB64;
+    else if (fontPath) body.font_path = fontPath;
+    else {
+      fontFaces = [];
+      return;
+    }
+    try {
+      const r = await fetch(API + "/opentype/font_faces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        fontFaces = [];
+        return;
+      }
+      const d = await r.json();
+      fontContainerLabel = d.container_label ?? d.container ?? "";
+      fontFaces = d.faces ?? [];
+      if (!fontFaces.some((f: any) => f.index === faceIndex)) faceIndex = 0;
+    } catch {
+      fontFaces = [];
+    }
+  }
+
   // diff a row's glyphs vs the previous row (Crowbar highlight)
   function diffColors(prev: any[] | null, cur: any[]): (string | null)[] {
     if (!prev) return cur.map(() => null);
     return cur.map((g, i) => {
       const p = prev[i];
       if (!p) return "added";
-      if (p.g !== g.g || p.ax !== g.ax || p.dx !== g.dx || p.dy !== g.dy)
-        return "modified";
+      if (p.g !== g.g || p.ax !== g.ax || p.dx !== g.dx || p.dy !== g.dy) return "modified";
       return null;
     });
   }
@@ -405,21 +450,11 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && onClose()} />
 
 {#if show}
-  <div
-    class="otd"
-    class:dragging
-    class:resizing
-    style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;"
-  >
+  <div class="otd" class:dragging class:resizing style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;">
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="otd-header" onmousedown={onDragStart}>
       <span class="otd-title">OpenType Test</span>
-      <select
-        class="otd-font"
-        bind:value={fontPath}
-        onchange={onFontSelect}
-        disabled={!!fontB64}
-      >
+      <select class="otd-font" bind:value={fontPath} onchange={onFontSelect} disabled={!!fontB64}>
         {#each fonts as f}
           <option value={f.path}>{f.name}</option>
         {/each}
@@ -427,22 +462,14 @@
       <label class="otd-upload">
         <Icon name="copy" size={13} />
         <span>{fontName || "Upload font"}</span>
-        <input type="file" accept=".ttf,.otf,.ttc" onchange={onUpload} />
+        <input type="file" accept=".ttf,.otf,.ttc,.otc,.woff,.woff2" onchange={onUpload} />
       </label>
-      <button class="otd-close" onclick={onClose} title="Close"
-        ><Icon name="close" size={14} /></button
-      >
+      <button class="otd-close" onclick={onClose} title="Close"><Icon name="close" size={14} /></button>
     </div>
 
     <div class="otd-body">
       <div class="otd-options">
-        <textarea
-          class="otd-text"
-          bind:value={text}
-          oninput={onOptionChange}
-          placeholder="Enter text to shape…"
-          spellcheck="false"
-          style:font-family={fontName ? `"${fontName}"` : undefined}
+        <textarea class="otd-text" bind:value={text} oninput={onOptionChange} placeholder="Enter text to shape…" spellcheck="false" style:font-family={fontName ? `"${fontName}"` : undefined}
         ></textarea>
 
         <label class="otd-opt"
@@ -462,11 +489,10 @@
                  platform; see babelmap/README.md. -->
             <option value="harfbuzz">HarfBuzz</option>
             <option value="harfrust">HarfRust (Rust HarfBuzz port)</option>
-            <option value="babelscript"
-              >BabelScript (OT reimplementation)</option
-            >
+            <option value="babelscript">BabelScript (OT reimplementation)</option>
             <option value="harfbuzz_fallback">HarfBuzz fallback (cmap)</option>
             <option value="graphite">Graphite (SIL)</option>
+            <option value="yudit">Yudit</option>
             <option value="uniscribe">Uniscribe</option>
             <option value="uniscribe_wine">Uniscribe (Wine)</option>
             <option value="directwrite">DirectWrite (DWriteCore)</option>
@@ -475,6 +501,33 @@
             <option value="freetype">FreeType (cmap · no shaping)</option>
           </select></label
         >
+
+        <!-- Font source: which face to use and how it is handed to the engine.
+             "auto" flattens TTC/OTC + WOFF/WOFF2 into a single-face sfnt; "raw"
+             passes the file through with a face index (HarfBuzz/HarfRust only). -->
+        <label class="otd-opt"
+          >Font delivery
+          <select bind:value={fontDelivery} onchange={onOptionChange}>
+            <option value="auto">Auto (flatten if needed)</option>
+            <option value="flatten">Flatten to single face</option>
+            <option value="raw">Raw file + face index</option>
+          </select></label
+        >
+
+        {#if fontFaces.length > 1}
+          <label class="otd-opt"
+            >Face
+            <select bind:value={faceIndex} onchange={onOptionChange}>
+              {#each fontFaces as f}<option value={f.index}>{f.label}</option>{/each}
+            </select></label
+          >
+        {/if}
+
+        {#if fontSourceInfo}
+          <span class="otd-srcnote">
+            {fontSourceInfo.container_label} → {fontSourceInfo.flattened ? `flattened face ${fontSourceInfo.requested_face}` : "raw bytes"}
+          </span>
+        {/if}
 
         <label class="otd-opt"
           >Direction
@@ -485,36 +538,22 @@
 
         <label class="otd-opt"
           >Script
-          <input
-            list="otd-scripts"
-            bind:value={script}
-            oninput={onOptionChange}
-            placeholder="auto / e.g. latn, arab"
-          /></label
+          <input list="otd-scripts" bind:value={script} oninput={onOptionChange} placeholder="auto / e.g. latn, arab" /></label
         >
         <datalist id="otd-scripts">
           <option value="auto">Auto</option>
           {#each meta.scripts as s}
-            <option value={s.tag}
-              >{s.label}{isSupportedScript(s.tag) ? " ✅" : ""}</option
-            >
+            <option value={s.tag}>{s.label}{isSupportedScript(s.tag) ? " ✅" : ""}</option>
           {/each}
         </datalist>
 
         <label class="otd-opt"
           >Language
-          <input
-            list="otd-langs"
-            bind:value={language}
-            oninput={onOptionChange}
-            placeholder="e.g. ENG, ARA"
-          /></label
+          <input list="otd-langs" bind:value={language} oninput={onOptionChange} placeholder="e.g. ENG, ARA" /></label
         >
         <datalist id="otd-langs">
           {#each meta.languages as l}
-            <option value={l.tag}
-              >{l.label}{isSupportedLang(l.tag) ? " ✅" : ""}</option
-            >
+            <option value={l.tag}>{l.label}{isSupportedLang(l.tag) ? " ✅" : ""}</option>
           {/each}
         </datalist>
 
@@ -525,15 +564,7 @@
           </select></label
         >
 
-        <label class="otd-opt"
-          >Size <input
-            type="range"
-            min="24"
-            max="240"
-            bind:value={size}
-            onchange={onOptionChange}
-          /><span class="otd-sizev">{size}</span></label
-        >
+        <label class="otd-opt">Size <input type="range" min="24" max="240" bind:value={size} onchange={onOptionChange} /><span class="otd-sizev">{size}</span></label>
 
         <div class="otd-axes">
           <div class="otd-sub">Variation Axes</div>
@@ -550,15 +581,11 @@
                   oninput={(e) => {
                     variations = {
                       ...variations,
-                      [ax.tag]: Number(
-                        (e.currentTarget as HTMLInputElement).value,
-                      ),
+                      [ax.tag]: Number((e.currentTarget as HTMLInputElement).value),
                     };
                     shape();
                   }}
-                /><span class="otd-sizev"
-                  >{variations[ax.tag] ?? ax.default}</span
-                ></label
+                /><span class="otd-sizev">{variations[ax.tag] ?? ax.default}</span></label
               >
             {/each}
           {:else}
@@ -568,12 +595,7 @@
 
         <div class="otd-features">
           <div class="otd-sub">Features</div>
-          <input
-            class="otd-fstr"
-            bind:value={featureString}
-            oninput={onOptionChange}
-            placeholder="Feature string, e.g. +liga,-kern (overrides chips)"
-          />
+          <input class="otd-fstr" bind:value={featureString} oninput={onOptionChange} placeholder="Feature string, e.g. +liga,-kern (overrides chips)" />
           {#if !featureString.trim()}
             <div class="otd-flist">
               {#if featureTags.gsub.length || featureTags.gpos.length}
@@ -582,11 +604,7 @@
                     class="otd-feat"
                     class:on={features[tag] === "on"}
                     class:off={features[tag] === "off"}
-                    title={features[tag] === "on"
-                      ? "Forced on — click to force off"
-                      : features[tag] === "off"
-                        ? "Forced off — click to restore default"
-                        : "Default — click to force on"}
+                    title={features[tag] === "on" ? "Forced on — click to force off" : features[tag] === "off" ? "Forced off — click to restore default" : "Default — click to force on"}
                     onclick={() => toggleFeature(tag)}>{tag}</button
                   >
                 {/each}
@@ -597,20 +615,8 @@
           {/if}
         </div>
 
-        <label class="otd-check"
-          ><input
-            type="checkbox"
-            bind:checked={showAllLookups}
-            onchange={onOptionChange}
-          />Show All Lookups</label
-        >
-        <label class="otd-check"
-          ><input
-            type="checkbox"
-            bind:checked={glyphMode}
-            onchange={onOptionChange}
-          />Glyph Mode (ids)</label
-        >
+        <label class="otd-check"><input type="checkbox" bind:checked={showAllLookups} onchange={onOptionChange} />Show All Lookups</label>
+        <label class="otd-check"><input type="checkbox" bind:checked={glyphMode} onchange={onOptionChange} />Glyph Mode (ids)</label>
 
         <div class="otd-bflg">
           <div class="otd-sub">Buffer Flags</div>
@@ -621,9 +627,7 @@
                 checked={bufferFlags.includes(v)}
                 onchange={(e) => {
                   const on = (e.target as HTMLInputElement).checked;
-                  bufferFlags = on
-                    ? [...bufferFlags, v]
-                    : bufferFlags.filter((f) => f !== v);
+                  bufferFlags = on ? [...bufferFlags, v] : bufferFlags.filter((f) => f !== v);
                   shape();
                 }}
               /><span class="otd-flag" title={l}>{v}</span></label
@@ -678,22 +682,17 @@
                       </tr>
                     {:else if !(stage.m === "Start of shaping" && cluster !== "characters")}
                       {@const feat = featureOf(stage.m)}
-                      {@const dbg = debugFor(
-                        stage.m,
-                        stageTag(stage.m) || "GSUB",
-                      )}
-                      <tr
-                        class:lookup={!!feat}
-                        style:padding-left={stage.depth * 14 + "px"}
-                        onmouseenter={() => onStageEnter(stage)}
-                        onmouseleave={onStageLeave}
-                      >
+                      {@const dbg = debugFor(stage.m, stageTag(stage.m) || "GSUB")}
+                      <tr class:lookup={!!feat} style:padding-left={stage.depth * 14 + "px"} onmouseenter={() => onStageEnter(stage)} onmouseleave={onStageLeave}>
                         <td class="otd-msg">
                           {#if feat}
                             <span class="otd-featname">{feat}</span>
                             <span class="otd-msgtxt"> · {stage.m}</span>
                           {:else}
                             <span class="otd-msgtxt">{stage.m}</span>
+                          {/if}
+                          {#if isCodepointRow(stage)}
+                            <span class="otd-cpsnote" title="these entries are unicode codepoints, not glyph ids">codepoints</span>
                           {/if}
                           {#if dbg}
                             <div class="otd-dbg">
@@ -713,12 +712,16 @@
                                 class:hl={hoverCl === g.cl}
                                 style:color={paletteFor(g.cl)}
                                 style:border-color={paletteFor(g.cl)}
-                                title={`gid ${g.g} · cluster ${g.cl} · adv ${g.ax ?? 0} ${g.ay ?? 0} · off ${g.dx ?? 0} ${g.dy ?? 0}`}
+                                title={isCodepointRow(stage)
+                                  ? `codepoint ${g.g} (U+${hex4(g.g)}) · cluster ${g.cl}`
+                                  : `gid ${g.g} · cluster ${g.cl} · adv ${g.ax ?? 0} ${g.ay ?? 0} · off ${g.dx ?? 0} ${g.dy ?? 0}`}
                                 onmouseenter={() => onGlyphEnter(g)}
                                 onmouseleave={onGlyphLeave}
                               >
-                                <span class="otd-gname">{glyphName(g)}</span>
-                                <span class="otd-gid">({g.g})</span>
+                                <span class="otd-gname">{glyphName(g, isCodepointRow(stage))}</span>
+                                {#if !isCodepointRow(stage)}
+                                  <span class="otd-gid">({g.g})</span>
+                                {/if}
                                 {#if g.ax || g.ay}
                                   <span class="otd-gadv"
                                     >{#if g.ax}→{g.ax}{/if}{#if g.ay}↑{g.ay}{/if}</span
@@ -880,6 +883,19 @@
   }
   .otd-sizev {
     font-size: 11px;
+  }
+  .otd-srcnote {
+    font-size: 10px;
+    color: var(--fg2, #888);
+    line-height: 1.3;
+  }
+  .otd-cpsnote {
+    margin-left: 5px;
+    padding: 0 3px;
+    font-size: 9px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    opacity: 0.65;
   }
   .otd-check {
     display: flex;
@@ -1083,11 +1099,7 @@
     box-shadow: inset 0 0 0 2px currentColor;
   }
   .otd-glyph.modified {
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent 0 4px,
-      rgba(128, 128, 128, 0.15) 4px 6px
-    );
+    background: repeating-linear-gradient(-45deg, transparent 0 4px, rgba(128, 128, 128, 0.15) 4px 6px);
   }
   .otd-glyph.hl {
     outline: 2px solid currentColor;

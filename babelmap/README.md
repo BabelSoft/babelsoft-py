@@ -70,8 +70,47 @@ All endpoints implemented and working. Port **18080** (`http://127.0.0.1:18080`)
 `POST /api/opentype/shape` (the OpenType Test Framework dialog) can shape with
 several engines. Most are **cross-platform** — HarfBuzz (`harfbuzz`),
 HarfRust (`harfrust`), BabelScript (`babelscript`), Graphite (`graphite`),
-ICU (`icu`), FreeType (`freetype`) and HarfBuzz fallback
+Yudit (`yudit`), ICU (`icu`), FreeType (`freetype`) and HarfBuzz fallback
 (`harfbuzz_fallback`).
+
+`yudit` runs the shaping engine of the **Yudit** Unicode editor through the
+`pyyudit` package; it derives script/direction from the text itself, so the
+dialog's direction / script / language / feature options do not apply. What the
+trace shows depends on the script, because the engine reports whatever Yudit's
+pipeline emits: for **Arabic / Syriac / Latin** it is a real OpenType trace
+(`input` → `split` → `join` → `gindex` → `rlig`/`calt`/`liga`/`kern`/`mark`/
+`mkmk` with per-lookup rows → `reorder` → `shaped`) and **Arabic joining + RTL
+ordering match HarfBuzz glyph-for-glyph**; for **Indic** it is Yudit's own
+pipeline (`nukt`/`akhn`/`rphf`/`blwf`/`half`/`vatu`/`pres`/`abvs`/`blws`/`psts`/
+`haln` → `clean` → `abvm`/`blwm`/`dist`/`gpos_final` → `shaped`), whose
+substitutions require the font to carry the **first-version** script tag
+(`deva`/`beng`/`taml`/…). A font that only registers the second-version tags
+(`dev2`/`bng2`/`tml2`/… — Nirmala UI registers those plus `sinh`) matches no
+feature for those scripts, so the glyphs come back unchanged and the trace shows
+**0 `start lookup` rows** — correct behaviour, not an engine failure. Applying
+the `…2` features is deliberately not done (their feature order differs, so it
+would yield _wrong_ glyphs, not merely different ones). With a `deva` font such
+as NotoSansDevanagari, Yudit shapes `नमस्ते` glyph-for-glyph like HarfBuzz. Note
+that HarfBuzz reaches Indic through `dev2` while Yudit uses `deva`, so a
+`dev2`-only font is not a meaningful Indic A/B against HarfBuzz.
+
+Positions are trustworthy since 0.3.0 — `dx` is a real x offset again and
+Latin/Arabic runs match HarfBuzz glyph-for-glyph, rendered x positions included.
+Rows before Yudit's cmap step (`input`/`split`/`join`/`decompose`, and the Indic
+`reorder`) hold codepoints rather than glyph ids; they are flagged `cps` (the same
+idea as Crowbar's `glyphs: false`) so the dialog labels them `U+XXXX` instead of a
+glyph name — Arabic `join` usefully shows the presentation-form codepoints Yudit
+picked, e.g. `U+FEE3`.
+
+`pyyudit` ships per-platform wheels (`win_amd64` / `manylinux` / `macosx`) with
+the matching native library bundled in `pyyudit/_lib/`; a `py3-none-any` install
+(no bundled library) makes the engine raise a `LibraryNotFound` hint, and the
+native library can be built with CMake from
+[github.com/Kushim-Jiang/pyyudit](https://github.com/Kushim-Jiang/pyyudit).
+The loader accepts single-face fonts only — TTC/OTC input is flattened by the
+font-source layer before it reaches the engine (in `raw` delivery mode the
+collection is handed over as-is and the engine rejects it with a clear
+`FontError`).
 
 The two Windows shaping APIs are provided by the `pyusp` and `pydwshape`
 packages, each in a **native** and a **Wine** flavour:
@@ -87,6 +126,31 @@ packages, each in a **native** and a **Wine** flavour:
 rejects the two native engines (`uniscribe`, `directwrite`) on non-Windows
 with a `"… engine is Windows-only"` error (see `backend/server.py`), while the
 two Wine engines run on every platform.
+
+### Font source — containers, faces, delivery
+
+Handling _collections_ is BabelMap's job, not the engines': `backend/font_source.py`
+turns whatever the user supplied (`.ttf` / `.otf` / **`.ttc` / `.otc`** /
+**`.woff` / `.woff2`**) into a single-face sfnt before the engines see it.
+
+| Layer                      | What happens                                                                                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/opentype/font_faces` | `POST {font_b64?\|font_path?}` → container, face count and one entry per face (`label`, family, subfamily, glyph count, `glyf`/`CFF`). Drives the dialog's face picker.       |
+| `font_delivery=auto`       | **Default.** A plain sfnt is passed through untouched; a collection / WOFF / WOFF2 is flattened to the chosen face. Every engine then behaves identically.                    |
+| `font_delivery=flatten`    | Always hand over a standalone single-face sfnt.                                                                                                                               |
+| `font_delivery=raw`        | Hand over the original bytes **plus** `font_face` — only HarfBuzz/HarfRust honour a face index; useful to compare an engine's own collection handling against our extraction. |
+| `font_face=N`              | Face index inside a collection (`0` for single-face fonts). Out of range → a 400 `Face selection failed: face N does not exist — 6 face(s) available (0-5)`.                  |
+
+Flattening is a **byte-level sfnt slice** (table directory + tables copied
+verbatim, offsets rebased, `head.checkSumAdjustment` recomputed) — never a
+fontTools re-serialisation, so glyph data cannot change. The `font_source` object
+in the shape response reports `container`, `requested_face`, `delivery`,
+`flattened` and the byte sizes, and the dialog shows it under the Face picker.
+Metadata, glyph names and SVG outlines always come from the flattened face
+(fontTools needs a single face), even in `raw` mode.
+
+`babelmap/backend/shape_compare.py --face N` uses the same layer, so the CLI also
+accepts collections/WOFF.
 
 ---
 

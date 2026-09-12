@@ -814,12 +814,54 @@ def unicode_block_unicodedata(name: str, version: str = Query(None, min_length=1
 # ── OpenType Test Framework (HarfBuzz shaping) ────────────────────────
 
 
+def _payload_font_bytes(payload: dict) -> bytes | None:
+    """Font bytes from a request body — ``font_b64`` wins over ``font_path``.
+
+    Returns ``None`` when the body carries no font (callers turn that into a 400).
+    """
+    from babelmap.backend.opentype import font_bytes, font_bytes_from_b64
+
+    b64 = payload.get("font_b64")
+    fpath = payload.get("font_path")
+    if b64:
+        return font_bytes_from_b64(b64)
+    if fpath:
+        return font_bytes(fpath)
+    return None
+
+
 @app.get("/api/opentype/fonts")
 def opentype_fonts():
     """System fonts for the OpenType Test Framework."""
     from babelmap.backend.opentype import list_system_fonts
 
     return {"fonts": list_system_fonts()}
+
+
+@app.post("/api/opentype/font_faces")
+def opentype_font_faces(payload: dict):
+    """Faces inside a font file, for the dialog's face picker.
+
+    Body: {font_b64?|font_path?}
+
+    → {container, container_label, is_collection, face_count, faces: [{index,
+    label, family, subfamily, full_name, glyph_count, outlines}],
+    flatten_supported, note, size}
+
+    Collections (TTC/OTC) list every face; WOFF/WOFF2 report their single face.
+    """
+    from babelmap.backend.font_source import describe
+
+    try:
+        data = _payload_font_bytes(payload)
+    except Exception:
+        return JSONResponse({"error": "Font could not be loaded"}, 400)
+    if not data:
+        return JSONResponse({"error": "No font provided (font_b64 or font_path)"}, 400)
+    try:
+        return describe(data)
+    except Exception as e:
+        return JSONResponse({"error": f"Font inspection failed: {e}"}, 400)
 
 
 @app.get("/api/opentype/meta")
@@ -836,10 +878,15 @@ def opentype_shape(payload: dict):
     trace (Crowbar-style stages), final glyph run, GSUB/GPOS feature tags and
     optionally a rendered SVG.
 
-    Body: {font_b64?, font_path?, text, direction?, script?, language?,
-    cluster?, flags?: [..], features? (dict or string), variations?,
-    show_all_lookups?, glyph_mode?, render?: bool, size?: int,
-    font_index?: int, color?}
+    Body: {font_b64?, font_path?, font_face? (index into a TTC/OTC; default 0),
+    font_delivery? ("auto" | "flatten" | "raw", default "auto"), text,
+    direction?, script?, language?, cluster?, flags?: [..], features? (dict or
+    string), variations?, show_all_lookups?, glyph_mode?, render?: bool,
+    size?: int, color?}
+
+    The font source layer (babelmap/backend/font_source.py) turns TTC/OTC and
+    WOFF/WOFF2 input into a single-face sfnt before the engines see it; the
+    response reports what it did in ``font_source``.
     """
     from babelmap.backend.opentype import (
         feature_tags,
@@ -863,6 +910,35 @@ def opentype_shape(payload: dict):
         return JSONResponse({"error": "Font could not be loaded"}, 400)
     if not data:
         return JSONResponse({"error": "No font provided (font_b64 or font_path)"}, 400)
+
+    # ── Font source: TTC/OTC + WOFF/WOFF2 → single-face sfnt for the engines ──
+    # The engines disagree about container support (Yudit refuses TTC outright;
+    # DWriteCore/Uniscribe/Graphite/ICU/FreeType cannot be told which face to
+    # use), so normalise once here and use these bytes for everything below —
+    # engines *and* the fontTools-based metadata/render helpers.
+    # See babelmap/backend/font_source.py.
+    from babelmap.backend.font_source import FaceNotFound, prepare
+
+    try:
+        src = prepare(
+            data,
+            delivery=str(payload.get("font_delivery", "auto")),
+            face_index=int(payload.get("font_face", payload.get("font_index", 0)) or 0),
+        )
+    except FaceNotFound as e:
+        return JSONResponse({"error": f"Face selection failed: {e}"}, 400)
+    data, font_index = src.data, src.face_index
+    # The fontTools-based helpers below (feature tags, glyph names, outlines) can
+    # only read a single face, so give them one even when the engine itself got
+    # the raw collection (delivery="raw").
+    meta_data = data
+    if not src.flattened and src.container not in ("sfnt", "unknown"):
+        from babelmap.backend.font_source import FontSourceError, flatten
+
+        try:
+            meta_data = flatten(src.original, src.requested_face)
+        except FontSourceError:
+            pass
 
     try:
         engine = payload.get("engine", "harfbuzz")
@@ -960,7 +1036,21 @@ def opentype_shape(payload: dict):
                 features=payload.get("features"),
                 variations=payload.get("variations"),
                 show_all_lookups=bool(payload.get("show_all_lookups")),
-                font_index=int(payload.get("font_index", 0)),
+                font_index=font_index,
+            )
+        elif engine == "yudit":
+            from babelmap.backend.yudit_shaper import shape_with_yudit
+
+            result = shape_with_yudit(
+                data,
+                payload.get("text", ""),
+                direction=payload.get("direction", "auto"),
+                script=payload.get("script", ""),
+                language=payload.get("language", ""),
+                features=payload.get("features"),
+                variations=payload.get("variations"),
+                show_all_lookups=bool(payload.get("show_all_lookups")),
+                font_index=font_index,
             )
         elif engine == "harfbuzz_fallback":
             result = shape_flat(
@@ -973,7 +1063,7 @@ def opentype_shape(payload: dict):
                 cluster_level=payload.get("cluster", "monotone_graphemes"),
                 flags=payload.get("flags") or [],
                 features=payload.get("features"),
-                font_index=int(payload.get("font_index", 0)),
+                font_index=font_index,
             )
         else:
             result = shape_trace(
@@ -988,30 +1078,29 @@ def opentype_shape(payload: dict):
                 variations=payload.get("variations"),
                 show_all_lookups=bool(payload.get("show_all_lookups")),
                 glyph_mode=bool(payload.get("glyph_mode")),
-                font_index=int(payload.get("font_index", 0)),
+                font_index=font_index,
             )
     except Exception as e:
         return JSONResponse({"error": f"Shaping failed: {e}"}, 400)
 
-    result["features"] = feature_tags(data)
-    result["font_info"] = font_info(data)
+    result["features"] = feature_tags(meta_data)
+    result["font_info"] = font_info(meta_data)
+    # What the font source layer did (container, chosen face, delivery) — the
+    # dialog shows it and uses `faces` for the face picker.
+    result["font_source"] = src.info
 
     # Glyph names (shape_trace already provides them; Uniscribe path needs them)
     if "glyph_names" not in result:
-        from babelmap.backend.opentype import _glyph_names
+        from babelmap.backend.opentype import _glyph_names, used_glyph_ids
 
-        used: set[int] = set()
-        for st in result.get("stages", []):
-            for g in st.get("glyphs", []):
-                used.add(g["g"])
-        for g in result.get("final", []):
-            used.add(g["g"])
-        result["glyph_names"] = _glyph_names(data, used)
+        result["glyph_names"] = _glyph_names(
+            meta_data, used_glyph_ids(result.get("stages", []), result.get("final", []))
+        )
 
     if payload.get("render"):
         try:
             result["svg"] = render_svg(
-                data,
+                meta_data,
                 result["final"],
                 result["upem"],
                 size=int(payload.get("size", 128)),
@@ -1027,23 +1116,31 @@ def opentype_shape(payload: dict):
 def opentype_render(payload: dict):
     """Render an arbitrary glyph run as SVG (for hover / partial-trace views).
 
-    Body: {font_b64?|font_path?, glyphs: [{g, ax, dx, dy, cl}], upem,
-    size?, color?, highlight_cl?, highlight_color?, variations?}
+    Body: {font_b64?|font_path?, font_face?, font_delivery?, glyphs:
+    [{g, ax, dx, dy, cl}], upem, size?, color?, highlight_cl?, highlight_color?,
+    variations?} — the glyph ids come from ``/api/opentype/shape``, so the same
+    ``font_face`` the shape used has to be requested here as well.
     """
-    from babelmap.backend.opentype import font_bytes, font_bytes_from_b64, render_svg
+    from babelmap.backend.font_source import FaceNotFound, FontSourceError, flatten
+    from babelmap.backend.opentype import render_svg
 
-    data = None
-    b64 = payload.get("font_b64")
-    fpath = payload.get("font_path")
     try:
-        if b64:
-            data = font_bytes_from_b64(b64)
-        elif fpath:
-            data = font_bytes(fpath)
+        raw = _payload_font_bytes(payload)
     except Exception:
         return JSONResponse({"error": "Font could not be loaded"}, 400)
-    if not data:
+    if not raw:
         return JSONResponse({"error": "No font provided"}, 400)
+    # Outlines must come from the very same face the shape used, otherwise the
+    # glyph ids would not match.  Rendering reads them through fontTools, which
+    # only understands a single face, so this always flattens (the delivery mode
+    # only matters for the shaping engines).
+    face = int(payload.get("font_face", payload.get("font_index", 0)) or 0)
+    try:
+        data = flatten(raw, face)
+    except FaceNotFound as e:
+        return JSONResponse({"error": f"Face selection failed: {e}"}, 400)
+    except FontSourceError:
+        data = raw
     try:
         svg = render_svg(
             data,

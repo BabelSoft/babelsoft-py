@@ -3,8 +3,8 @@
 Shapes a piece of text with a font through every shaping engine and prints,
 for each engine, the final glyph run plus its trace/log.  The point is to
 spot engine differences (HarfBuzz vs HarfRust vs Uniscribe vs DirectWrite vs
-BabelScript vs …) on a given font + text — e.g. complex scripts where one
-engine reshapes/reorders and another does not.
+BabelScript vs Yudit vs …) on a given font + text — e.g. complex scripts where
+one engine reshapes/reorders and another does not.
 
 Run from the repo root (so ``babelmap`` is importable):
 
@@ -30,7 +30,11 @@ import sys
 from pathlib import Path
 
 # Default probe: Devanagari "rk-ka-i" — catches whether an engine does Indic
-# reordering / GSUB at all (correct shaping collapses the 4 codepoints to 2).
+# reordering / GSUB at all.  Caveat: Yudit only applies the first-version Indic
+# tags (deva/…), so on a font that only registers the second-version ones
+# (dev2/…, e.g. Nirmala UI) it legitimately reports 0 `start lookup` rows and
+# returns the glyphs unchanged — that is a font/tag mismatch, not an engine
+# failure (see the *yudit* notes in babelmap/README.md).
 DEFAULT_FONT = Path(r"C:\Softwares\Acrobat\main\Acrobat DC\Resource\Font\AdobeDevanagari-Regular.otf")
 DEFAULT_TEXT = "\u0930\u094d\u0915\u093f"  # र्कि
 
@@ -41,6 +45,7 @@ ENGINES: dict[str, tuple[str, bool]] = {
     "harfrust": ("harfrust  (pyharfrust2)", False),
     "babelscript": ("babelscript  (pure GSUB/GPOS)", False),
     "graphite": ("graphite  (graphite2)", False),
+    "yudit": ("yudit  (pyyudit, per-stage trace)", False),
     "icu": ("icu  (arabic-reshaper)", False),
     "freetype": ("freetype  (cmap only)", True),
     "uniscribe": ("uniscribe  (usp10, single run)", False),
@@ -107,6 +112,10 @@ def _shape(key: str, data: bytes, path: Path, text: str) -> dict:
         from babelmap.backend.graphite_shaper import shape_with_graphite
 
         return shape_with_graphite(data, text)
+    if key == "yudit":
+        from babelmap.backend.yudit_shaper import shape_with_yudit
+
+        return shape_with_yudit(data, text)
     if key == "icu":
         from babelmap.backend.icu_shaper import shape_with_icu
 
@@ -171,8 +180,14 @@ def main(argv: list[str] | None = None) -> int:
         prog="python -m babelmap.backend.shape_compare",
         description="Shape text across every shaping engine and compare results.",
     )
-    ap.add_argument("--font", default=str(DEFAULT_FONT), help="Font file (.ttf/.otf).")
+    ap.add_argument("--font", default=str(DEFAULT_FONT), help="Font file (.ttf/.otf/.ttc/.otc/.woff/.woff2).")
     ap.add_argument("--text", default=DEFAULT_TEXT, help="Text to shape (default: र्कि).")
+    ap.add_argument(
+        "--face",
+        type=int,
+        default=0,
+        help="Face index inside a TTC/OTC collection (default: 0).",
+    )
     ap.add_argument(
         "--engines",
         default=",".join(ENGINES),
@@ -196,7 +211,33 @@ def main(argv: list[str] | None = None) -> int:
         print(f"unknown engine(s): {bad}", file=sys.stderr)
         return 1
 
-    data = font.read_bytes()
+    from babelmap.backend.font_source import FaceNotFound, prepare
+
+    raw = font.read_bytes()
+    # Collections / WOFF are normalised here too, so every engine (and
+    # fontTools) sees one single-face sfnt — same rule as the HTTP API.
+    try:
+        src = prepare(raw, face_index=args.face)
+    except FaceNotFound as e:
+        print(f"{font.name}: {e}", file=sys.stderr)
+        return 1
+    data = src.data
+    if src.container != "sfnt":
+        print(
+            f"font source: {src.container}"
+            + (f" face {src.requested_face}" if src.container == "ttc" else "")
+            + f" → {src.delivery}"
+            + (f" ({src.info['size_in']} → {src.info['size_out']} bytes)" if src.flattened else "")
+        )
+    # freetype is handed a *path*, so give it the flattened face when we made one.
+    shaped_path = font
+    if src.flattened:
+        import tempfile
+
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".ttf")
+        tmp.write(data)
+        tmp.close()
+        shaped_path = Path(tmp.name)
     load_font(data)
     print(f"font: {font}\nfamily: {_family}  upem={_upem}  glyphs={len(_order)}")
     print(f"text: {text}  =  " + " ".join(f"U+{ord(c):04X}" for c in text))
@@ -204,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
     summary: dict[str, dict] = {}
     for key in wanted:
         label, _ = ENGINES[key]
-        summary[key] = run_engine(key, label, data, font, text)
+        summary[key] = run_engine(key, label, data, shaped_path, text)
 
     # ── One-line comparison summary ──────────────────────────────────────
     print(f"\n{'=' * 78}\n  SUMMARY  (final glyph ids per engine)\n{'=' * 78}")
