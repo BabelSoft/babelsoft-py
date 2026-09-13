@@ -115,12 +115,27 @@ collection is handed over as-is and the engine rejects it with a clear
 The two Windows shaping APIs are provided by the `pyusp` and `pydwshape`
 packages, each in a **native** and a **Wine** flavour:
 
-| Engine             | Backend                          | Notes                                                                                                                                                                                   |
-| ------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `uniscribe`        | `pyusp` backend `usp10`          | Native Microsoft Uniscribe, **Windows-only**, single whole-run stage (no per-lookup callback). `pyusp` bundles a pinned `usp10.dll`.                                                    |
-| `uniscribe_wine`   | `pyusp` backend `wineusp`        | Wine's open-source Uniscribe (LGPL), **cross-platform**; `trace=True` returns a real cmap → per-GSUB-lookup → final timeline.                                                           |
-| `directwrite`      | `pydwshape` backend `dwcore`     | Native **DWriteCore**, **Windows-only**; full per-lookup trace. `pydwshape` only ships Windows wheels (marked `platform_system == 'Windows'`).                                          |
-| `directwrite_wine` | `pydwshape` backend `winedwrite` | Wine DWrite port, **cross-platform**; full per-lookup trace. Bundled in every wheel since pydwshape 0.4.0 (`winedwrite.dll` on Windows too); `WDWRITE_LIB` overrides for manual builds. |
+| Engine             | Backend                          | Notes                                                                                                                                                                                                                 |
+| ------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `uniscribe`        | `pyusp` backend `usp10`          | Native Microsoft Uniscribe, **Windows-only**, single whole-run stage (no per-lookup callback). Drives the system `usp10.dll` (the published wheel bundles only `wineusp.dll`; a dev wheel may pin an app-local copy). |
+| `uniscribe_wine`   | `pyusp` backend `wineusp`        | Wine's open-source Uniscribe (LGPL), **cross-platform**; `trace=True` returns a real cmap → per-GSUB-lookup → final timeline.                                                                                         |
+| `directwrite`      | `pydwshape` backend `dwcore`     | Native **DWriteCore**, **Windows-only**; full per-lookup trace. `pydwshape` only ships Windows wheels (marked `platform_system == 'Windows'`).                                                                        |
+| `directwrite_wine` | `pydwshape` backend `winedwrite` | Wine DWrite port, **cross-platform**; full per-lookup trace. Bundled in every wheel since pydwshape 0.4.0 (`winedwrite.dll` on Windows too); `WDWRITE_LIB` overrides for manual builds.                               |
+
+Feature selection (`features` / the dialog's feature chips + feature string) is
+**Uniscribe-specific** in two ways, both from system-usp10 semantics:
+
+- it **replaces** the run's default GSUB feature set instead of adding to it, so
+  `{liga: true}` applies exactly `liga`;
+- it is only honoured by the **native** engine. `uniscribe_wine` has no feature
+  support at all — the Wine port's `ScriptShapeOpenType` logs
+  `FIXME("Ranges not supported yet")` and drops the records, so `pyusp` raises
+  (the dialog then shows `Shaping failed: features … cannot be applied by the
+loaded Wine Uniscribe port …`) rather than shaping with the toggles silently
+  ignored.
+
+Before pyusp 0.6.0 every tag was packed byte-reversed, so feature toggles had no
+effect on _either_ engine — if a toggle looks dead, check `pyusp.__version__`.
 
 `pyusp` ships win/manylinux/macOS wheels, so it installs everywhere; the API
 rejects the two native engines (`uniscribe`, `directwrite`) on non-Windows
@@ -402,6 +417,19 @@ toggle). ✅ = handled in `App.onMenuAction()`, 🚫 = placeholder (no handler),
 cd babelmap/frontend
 npm install
 ```
+
+The frontend toolchain is **Vite 8** + `@sveltejs/vite-plugin-svelte` 7, with a
+**TypeScript 6 + TypeScript 7** pair for type checking: `svelte-check` still
+drives the classic TS 6 API for the Svelte language service, while
+`@typescript/native` (an npm alias for `typescript@7`, the native compiler)
+provides the `tsgo` engine:
+
+```bash
+npm run check     # svelte-check --tsgo  (TypeScript 7 native)
+```
+
+(Plain `svelte-check` runs against TS 6; the `--tsgo` flag is what selects the
+native compiler, and it needs both packages installed.)
 
 ### 2. Install backend dependencies (uv)
 

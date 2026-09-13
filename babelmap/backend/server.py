@@ -961,6 +961,10 @@ def opentype_shape(payload: dict):
                 features=payload.get("features"),
                 # usp10 = native Microsoft Uniscribe (single run); wineusp =
                 # Wine's Uniscribe reimplementation with a real per-lookup trace.
+                # NB (pyusp 0.6.0): `features` now really applies on usp10 and
+                # *replaces* the run's default GSUB set; the Wine port cannot
+                # apply feature records, so pyusp raises and the dialog shows the
+                # "Shaping failed: features …" body instead of an ignored toggle.
                 backend="usp10" if engine == "uniscribe" else "wineusp",
                 trace=engine == "uniscribe_wine",
             )

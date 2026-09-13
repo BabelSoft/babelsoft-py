@@ -7,6 +7,7 @@ babellib/tools/
 # Svelte build output
 package-lock.json
 node_modules/
+.svelte-check/
 Cargo.lock
 gen/
 

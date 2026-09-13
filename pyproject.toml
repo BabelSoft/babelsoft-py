@@ -6,18 +6,27 @@ requires-python = ">=3.11"
 # Single source of truth for Python libraries (previously split across
 # requirements.txt + babelmap/backend/requirements.txt).
 dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "Pillow>=10.0.0",
-    "uharfbuzz>=0.40.0",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.52.4",
+    "Pillow>=12.3.0",
+    "uharfbuzz>=0.56.1",
     "pyharfrust2>=0.1.0",
-    "fonttools>=4.50.0",
-    "freetype-py>=2.5.0",
-    "arabic-reshaper>=3.0.0",
-    # pyusp >= 0.5.0 (cross-platform wheels) provides the Uniscribe engines:
+    "fonttools>=4.65.0",
+    "freetype-py>=2.5.1",
+    "arabic-reshaper>=3.0.1",
+    # pyusp >= 0.6.0 (cross-platform wheels) provides the Uniscribe engines:
     #   backend="usp10"  → native Microsoft Uniscribe (Windows-only)
     #   backend="wineusp"→ Wine's Uniscribe reimplementation (everywhere, and
     #                       gives a real per-lookup trace when trace=True).
+    #   0.5.0 added backend="textshaping" (Windows-only native per-application
+    #   trace from the system TextShaping.dll, gated to validated builds).
+    #   0.6.0 made `features` actually apply — every tag used to be packed with
+    #   from_be_bytes(), so no tag could ever match a font and toggles were
+    #   silently ignored.  Note the new semantics: a feature list *replaces* the
+    #   script's default GSUB set for the run (system usp10 range semantics), and
+    #   non-empty features are refused for backend="wineusp" (the Wine port drops
+    #   feature records, so pyusp raises instead of returning an ignored shape).
+    #   pyusp.__version__ exposes the native module version (spot a stale wheel).
     # pydwshape >= 0.4.0 (Windows wheels only) provides the DirectWrite
     #   engines: backend="dwcore" → native DWriteCore; backend="winedwrite" →
     #   the Wine DWrite port, bundled in every wheel since 0.4.0 (the Windows
@@ -25,7 +34,7 @@ dependencies = [
     #   WDWRITE_LIB still overrides for manual builds).  Both auto-detect the
     #   script from the text in native code (0.1.0 left an empty script at id
     #   0, so complex scripts like Devanagari were not shaped).
-    "pyusp>=0.5.0",
+    "pyusp>=0.6.0",
     "pydwshape>=0.4.0; platform_system == 'Windows'",
     "requests",
     "rich",
