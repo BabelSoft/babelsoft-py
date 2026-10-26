@@ -2,7 +2,14 @@
   import { t } from "../i18n.svelte";
 
   interface Props {
-    selInfo: { hex: string; char: string; dec: string; name: string } | null;
+    selInfo: {
+      hex: string;
+      char: string;
+      /** Options ▸ Alternative Representation of the code point. */
+      alt: string;
+      /** Full description: name + source refs + readings (Options ▸ Status Bar). */
+      name: string;
+    } | null;
   }
 
   let { selInfo }: Props = $props();
@@ -21,7 +28,15 @@
       }
     }}
   />
-  <input class="ir2" readonly value={selInfo?.dec || ""} />
+  <input
+    class="ir2"
+    readonly
+    value={selInfo?.alt || ""}
+    title={t("options.alt_repr")}
+    onclick={() => {
+      if (selInfo?.alt) navigator.clipboard.writeText(selInfo.alt);
+    }}
+  />
 </div>
 
 <style>
@@ -46,7 +61,7 @@
     cursor: text;
   }
   .ir2 {
-    width: 80px;
+    width: 150px;
     text-align: center;
     font-family: monospace;
     font-size: 12px;

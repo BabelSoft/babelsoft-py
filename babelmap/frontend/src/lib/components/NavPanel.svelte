@@ -14,6 +14,7 @@
     onPageDown: () => void;
     onRowStart: () => void;
     onRowEnd: () => void;
+    onIvs: () => void;
     onRandom: () => void;
   }
 
@@ -29,6 +30,7 @@
     onPageDown,
     onRowStart,
     onRowEnd,
+    onIvs,
     onRandom,
   }: Props = $props();
 </script>
@@ -71,7 +73,8 @@
     <button onclick={onRowEnd} title={t("nav.row_end")}
       ><Icon name="row-end" size={16} /></button
     >
-    <button title={t("nav.ivs")} disabled><Icon name="wavy" size={16} /></button
+    <button onclick={onIvs} title={t("nav.ivs")}
+      ><Icon name="wavy" size={16} /></button
     >
     <button onclick={onRandom} title={t("nav.random")}
       ><Icon name="dice" size={16} /></button

@@ -2,8 +2,11 @@
   import Icon from "../icons/Icon.svelte";
   import { t } from "../i18n.svelte";
   import type { BlockInfo } from "../types";
+  import { settings } from "../settings.svelte";
+  import { getFonts } from "../api";
   import AdvSearch from "./AdvSearch.svelte";
   import SearchResultsWindow from "./SearchResultsWindow.svelte";
+  import GlyphText from "./GlyphText.svelte";
 
   interface Props {
     buf: string;
@@ -19,6 +22,8 @@
     onConfigureStack?: () => void;
     gv: string;
     sv: string;
+    /** Options ▸ Go To Code Points ▸ Hexadecimal / Decimal. */
+    gotoHex?: boolean;
     blocks: BlockInfo[];
     sblock: string;
     editVisible: boolean;
@@ -62,6 +67,7 @@
     onConfigureStack = () => {},
     gv,
     sv,
+    gotoHex = true,
     blocks,
     sblock,
     editVisible,
@@ -96,6 +102,84 @@
 
   let open = $state(false);
   let ddEl = $state<HTMLElement>();
+
+  // ── Edit-buffer rendering (Edit ▸ Glyph/Text Mode and Colour Glyphs) ──
+  // In the original, `CUniscribeEdit::SetSimpleMode()` switches between
+  // `DrawSimple` (each character drawn with the font mapped to its block) and
+  // `DrawComplex` (one shaping engine over the whole text), and
+  // `SetColourMode()` decides whether `OutputGlyph` uses the font's built-in
+  // colour glyph (`bColour && IsColourFont() && IsColourGlyph()`).  Neither
+  // touches `m_nFontSize`, so the size here is pinned once and the toggles only
+  // change the family and the colour-glyph preference.
+  const BUF_PX = 12;
+  const bufStyle = $derived(
+    [
+      `font-size: ${bufSize ?? BUF_PX}px`,
+      "line-height: 1.5",
+      // Glyph mode draws with the mapped stack; text mode with a plain text font.
+      `font-family: ${
+        glyph
+          ? stackFamily || settings.singleFamily || "serif"
+          : "ui-monospace, monospace"
+      }`,
+      // Colour Glyphs: prefer the font's colour glyphs (the web equivalent of
+      // IsColourFont/IsColourGlyph); off forces the monochrome forms.
+      `font-variant-emoji: ${colour ? "emoji" : "text"}`,
+    ].join("; "),
+  );
+
+  // Font families for the single-font selector.  Loaded lazily — only when
+  // single-font mode is actually used, so the default (composite) path never
+  // pays for the request.
+  let families = $state<string[]>([]);
+
+  // ── Glyph Mode caret mirroring ────────────────────────────────────
+  // The canvas draws each glyph in its own forced-width cell, so the browser's
+  // caret (which follows the *shaped* text) would sit in the wrong place.  We
+  // hide the native one and draw ours, which means tracking the textarea's
+  // selection, scroll offset and text colour.
+  let ebEl = $state<HTMLTextAreaElement | null>(null);
+  let caretPos = $state(0);
+  let selStart = $state(0);
+  let selEnd = $state(0);
+  let scrollTop = $state(0);
+  let ebColour = $state("#000000");
+  let ebBg = $state("#ffffff");
+
+  function syncSel() {
+    const el = ebEl;
+    if (!el) return;
+    caretPos = el.selectionStart ?? 0;
+    selStart = el.selectionStart ?? 0;
+    selEnd = el.selectionEnd ?? selStart;
+    scrollTop = el.scrollTop;
+    // In glyph mode the textarea's own colours are transparent, so both the
+    // text and the background have to come from the first ancestor that
+    // actually has them.
+    ebColour = firstColour(el, "color") ?? "#000000";
+    ebBg = firstColour(el, "backgroundColor") ?? "#ffffff";
+  }
+
+  /** Nearest non-transparent `color` / `backgroundColor` at or above `el`. */
+  function firstColour(el: HTMLElement, prop: "color" | "backgroundColor") {
+    for (let n: HTMLElement | null = el; n; n = n.parentElement) {
+      const v = getComputedStyle(n)[prop];
+      if (v && v !== "rgba(0, 0, 0, 0)" && v !== "transparent") return v;
+    }
+    return null;
+  }
+
+  $effect(() => {
+    if (glyph) queueMicrotask(syncSel);
+  });
+  $effect(() => {
+    if (settings.fontMode !== "single" || families.length) return;
+    getFonts()
+      .then((list) => {
+        families = list;
+      })
+      .catch(() => {});
+  });
 
   function toggleOpen() {
     open = !open;
@@ -156,7 +240,7 @@
       <input
         type="text"
         value={gv}
-        placeholder={t("general.hex")}
+        placeholder={gotoHex ? t("general.hex") : t("general.decimal")}
         oninput={(e) => onGvChange((e.target as HTMLInputElement).value)}
         onkeydown={(e) => {
           if (e.key === "Enter") onGoto();
@@ -176,87 +260,128 @@
     onClose={onCloseResults}
     onLoadMore={onLoadMoreResults}
   />
-  <fieldset class="eb">
-    <legend>{t("bottom.edit_buffer")}</legend>
-    <textarea
-      value={buf}
-      oninput={(e) => onBufChange((e.target as HTMLTextAreaElement).value)}
-      rows={3}
-      spellcheck={false}
-      style="font-family: {stackFamily || 'inherit'};{bufSize
-        ? ` font-size: ${bufSize}px;`
-        : ''}"
-      placeholder="Click cells to add. Arrow keys navigate. Enter to add selected."
-      oncontextmenu={(e) => onContextMenu(e)}
-      onwheel={(e: WheelEvent & { currentTarget: HTMLTextAreaElement }) => {
-        // Ctrl+wheel over the buffer changes the buffer font size (and must not
-        // scroll the page / the textarea's own text).  The first notch starts
-        // from the buffer's current rendered size, so zooming never jumps.
-        if (!e.ctrlKey) return;
-        e.preventDefault();
-        const cur =
-          bufSize ??
-          parseFloat(getComputedStyle(e.currentTarget).fontSize) ??
-          14;
-        onBufSizeChange(cur - Math.sign(e.deltaY));
-      }}
-    ></textarea>
-    <div class="ebc">
-      <div class="ebr">
-        <label class="rd">
-          <input
-            type="radio"
-            name="rdr"
-            checked={glyph}
-            onchange={() => onGlyphToggle(true)}
+  {#if editVisible}
+    <fieldset class="eb">
+      <legend>{t("bottom.edit_buffer")}</legend>
+      <div class="eb-wrap">
+        {#if glyph}
+          <!-- Glyph Mode: the unshaped cells drawn over the (invisible) textarea. -->
+          <GlyphText
+            text={buf}
+            px={bufSize ?? BUF_PX}
+            family={stackFamily || settings.singleFamily || "serif"}
+            caret={caretPos}
+            {selStart}
+            {selEnd}
+            {scrollTop}
+            colour={ebColour}
+            colourGlyphs={colour}
+            bg={ebBg}
           />
-          {t("bottom.glyph")}
-        </label>
-        <label class="rd">
-          <input
-            type="radio"
-            name="rdr"
-            checked={!glyph}
-            onchange={() => onGlyphToggle(false)}
-          />
-          {t("bottom.text")}
-        </label>
-        <label class="ck">
-          <input
-            type="checkbox"
-            checked={colour}
-            onchange={(e) =>
-              onColourToggle((e.target as HTMLInputElement).checked)}
-          />
-          {t("bottom.colour")}
-        </label>
+        {/if}
+        <textarea
+          bind:this={ebEl}
+          value={buf}
+          class:ghost={glyph}
+          oninput={(e) => onBufChange((e.target as HTMLTextAreaElement).value)}
+          rows={3}
+          spellcheck={false}
+          style={bufStyle}
+          placeholder="Click cells to add. Arrow keys navigate. Enter to add selected."
+          oncontextmenu={(e) => onContextMenu(e)}
+          onwheel={(e: WheelEvent & { currentTarget: HTMLTextAreaElement }) => {
+            // Ctrl+wheel over the buffer changes the buffer font size (and must not
+            // scroll the page / the textarea's own text).  The first notch starts
+            // from the buffer's current rendered size, so zooming never jumps.
+            if (!e.ctrlKey) return;
+            e.preventDefault();
+            const cur =
+              bufSize ??
+              parseFloat(getComputedStyle(e.currentTarget).fontSize) ??
+              14;
+            onBufSizeChange(cur - Math.sign(e.deltaY));
+          }}
+          onscroll={(e) =>
+            (scrollTop = (e.currentTarget as HTMLTextAreaElement).scrollTop)}
+          onselect={() => syncSel()}
+          onkeyup={() => syncSel()}
+          onkeydown={() => queueMicrotask(syncSel)}
+          onmouseup={() => syncSel()}
+          onclick={() => syncSel()}></textarea>
       </div>
-      <div class="ebr">
-        {#each [{ l: t("edit.char"), v: "char" }, { l: t("edit.ncr_hex"), v: "ncr_hex" }, { l: t("edit.ncr_dec"), v: "ncr_dec" }, { l: t("edit.html"), v: "html" }, { l: t("edit.ucn"), v: "ucn" }] as m}
+      <div class="ebc">
+        <div class="ebr">
           <label class="rd">
             <input
               type="radio"
-              name="em"
-              value={m.v}
-              checked={mode === m.v}
-              onchange={() => onModeChange(m.v)}
+              name="rdr"
+              checked={glyph}
+              onchange={() => onGlyphToggle(true)}
             />
-            {m.l}
+            {t("bottom.glyph")}
           </label>
-        {/each}
+          <label class="rd">
+            <input
+              type="radio"
+              name="rdr"
+              checked={!glyph}
+              onchange={() => onGlyphToggle(false)}
+            />
+            {t("bottom.text")}
+          </label>
+          <label class="ck">
+            <input
+              type="checkbox"
+              checked={colour}
+              onchange={(e) =>
+                onColourToggle((e.target as HTMLInputElement).checked)}
+            />
+            {t("bottom.colour")}
+          </label>
+        </div>
+        <div class="ebr">
+          {#each [{ l: t("edit.char"), v: "char" }, { l: t("edit.ncr_hex"), v: "ncr_hex" }, { l: t("edit.ncr_dec"), v: "ncr_dec" }, { l: t("edit.html"), v: "html" }, { l: t("edit.ucn"), v: "ucn" }] as m}
+            <label class="rd">
+              <input
+                type="radio"
+                name="em"
+                value={m.v}
+                checked={mode === m.v}
+                onchange={() => onModeChange(m.v)}
+              />
+              {m.l}
+            </label>
+          {/each}
+        </div>
+        <div class="ebr ebtns">
+          {#if settings.fontMode === "single"}
+            <select
+              class="sb sel"
+              bind:value={settings.singleFamily}
+              title={t("fonts.single")}
+            >
+              {#if !families.includes(settings.singleFamily)}
+                <option value={settings.singleFamily}
+                  >{settings.singleFamily}</option
+                >
+              {/if}
+              {#each families as f (f)}
+                <option value={f}>{f}</option>
+              {/each}
+            </select>
+          {/if}
+          <button class="sb" onclick={onConfigureStack}
+            >{t("font.configure")}…</button
+          >
+          <button class="sb" onclick={onHideToggle}>{t("bottom.hide")}</button>
+          <button class="sb" onclick={onSave}>{t("bottom.save")}</button>
+          <button class="sb" onclick={onClear}>{t("bottom.clear")}</button>
+          <button class="sb" onclick={onCopy}>{t("bottom.copy")}</button>
+          <button class="sb" onclick={onCut}>{t("bottom.cut")}</button>
+        </div>
       </div>
-      <div class="ebr ebtns">
-        <button class="sb" onclick={onConfigureStack}
-          >{t("font.configure")}…</button
-        >
-        <button class="sb" onclick={onHideToggle}>{t("bottom.hide")}</button>
-        <button class="sb" onclick={onSave}>{t("bottom.save")}</button>
-        <button class="sb" onclick={onClear}>{t("bottom.clear")}</button>
-        <button class="sb" onclick={onCopy}>{t("bottom.copy")}</button>
-        <button class="sb" onclick={onCut}>{t("bottom.cut")}</button>
-      </div>
-    </div>
-  </fieldset>
+    </fieldset>
+  {/if}
 </div>
 
 <style>
@@ -408,6 +533,18 @@
     color: #fff;
     border-color: var(--ac);
   }
+  /* Single-font mode: the family picker sits where a button normally would,
+     so it inherits the same height and rounding. */
+  .sb.sel {
+    max-width: 190px;
+    padding: 0 6px;
+    font-weight: 500;
+  }
+  .sb.sel:hover {
+    background: var(--bg3);
+    color: var(--fg);
+    border-color: var(--bd);
+  }
   .rd {
     display: flex;
     align-items: center;
@@ -430,6 +567,29 @@
   }
   .ck input {
     accent-color: var(--ac);
+  }
+  .eb-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+  }
+  /* Glyph mode: the canvas sits on top of the textarea and owns the whole
+     rendering (including the caret and the selection). */
+  .eb-wrap textarea {
+    position: relative;
+    z-index: 1;
+  }
+  /* Glyph mode: the canvas is the visible text, the textarea only edits it. */
+  .eb textarea.ghost {
+    color: transparent;
+    caret-color: transparent;
+    background: transparent;
+  }
+  /* …including its selection, which follows the shaped layout, not our cells. */
+  .eb textarea.ghost::selection {
+    background: transparent;
+    color: transparent;
   }
   .eb textarea {
     width: 100%;

@@ -5,7 +5,7 @@
 
   interface Props {
     statusMsg: string;
-    selInfo: { hex: string; name: string } | null;
+    selInfo: { hex: string; name: string; short?: string } | null;
     grid: GridPage | null;
     planeLabel: string;
     fsize: number;
@@ -46,7 +46,7 @@
     {#if displayMsg}
       <span class="status-msg">{displayMsg}</span>
     {:else if selInfo}
-      U+{selInfo.hex} – {selInfo.name}
+      U+{selInfo.hex} – {selInfo.short ?? selInfo.name}
     {:else if grid}
       {grid.block_name}
     {:else}
