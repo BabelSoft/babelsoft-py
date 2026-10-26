@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { GridPage, BlockInfo } from "./lib/types";
+  import { API_BASE } from "./lib/api";
   import { t, lang } from "./lib/i18n.svelte";
   import SaveDialog from "./lib/components/SaveDialog.svelte";
   import ContextMenu from "./lib/components/ContextMenu.svelte";
@@ -21,8 +23,49 @@
     fontStack,
     stackFamily,
     loadUserFonts,
+    applyStack,
+    clearStack,
+    inject,
   } from "./lib/fontStack.svelte";
   import { startCoverageScan, startScanTicker } from "./lib/coverage.svelte";
+  import { altRepresentation, charRef, revertToChars } from "./lib/altRepr";
+  import FontQualityDialog from "./lib/components/FontQualityDialog.svelte";
+  import ExportGlyphsDialog from "./lib/components/ExportGlyphsDialog.svelte";
+  import ColourCodingDialog from "./lib/components/ColourCodingDialog.svelte";
+  import BookmarksDialog from "./lib/components/BookmarksDialog.svelte";
+  import HelpDialog from "./lib/components/HelpDialog.svelte";
+  import LookupDialog, {
+    type LookupKind,
+  } from "./lib/components/LookupDialog.svelte";
+  import UcdDialog from "./lib/components/UcdDialog.svelte";
+  import {
+    addBookmark,
+    clearBookmarks,
+    removeBookmark,
+    bookmarks as bookmarkList,
+    hex as bmHex,
+  } from "./lib/bookmarks.svelte";
+  import {
+    settings,
+    applySettings,
+    saveSettings,
+    resetSettings,
+    GRID_SIZES,
+    GRID_POINT_SIZES,
+    gridPxFor,
+    ALT_REPRS,
+    CJKV_READINGS,
+    TANGUT_READINGS,
+    COLOUR_CODINGS,
+    type EditMode,
+  } from "./lib/settings.svelte";
+  import {
+    ALT_LABELS as ALT_KEYS,
+    CJKV_LABELS as CJKV_KEYS,
+    TANGUT_LABELS as TANGUT_KEYS,
+    COLOUR_LABELS as COLOUR_KEYS,
+    POPUP_LABELS as POPUP_KEYS,
+  } from "./lib/i18n.svelte";
 
   let dark = $state(false);
   let grid = $state<GridPage | null>(null);
@@ -31,12 +74,28 @@
   let plane = $state(0);
   let scroll = $state(0);
   let buf = $state("");
-  let mode = $state<"char" | "ncr_hex" | "ncr_dec" | "html" | "ucn">("char");
-  let glyph = $state(true);
-  let colour = $state(false);
+  // Edit-buffer state, initialised from the persisted settings and mirrored
+  // back by the effect below — the original keeps the same four in its
+  // registry (Rendering Mode, Colour Rendering, Map Mode, Show Edit Buffer).
+  let mode = $state<EditMode>(settings.editMode);
+  let glyph = $state(settings.glyphMode);
+  let colour = $state(settings.colourGlyphs);
+  let editVisible = $state(settings.editBufferVisible);
   let gv = $state("");
   let sv = $state("");
   let blocks = $state<BlockInfo[]>([]);
+  /**
+   * The block list in the order Options ▸ Unicode Blocks asks for:
+   * alphabetical (the original's default, `eRegistrySortBlocks`) or code point
+   * order.  The API already returns code point order, so the sort is cheap.
+   */
+  const blocksShown = $derived.by(() =>
+    settings.blocksSorted
+      ? [...blocks].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        )
+      : blocks,
+  );
   let sblock = $state("");
   let sr = $state(-1);
   let sc = $state(-1);
@@ -51,7 +110,7 @@
   let _searchProgress = $state(0);
   let _searchLoading = $state(false);
   let _searchComplete = $state(false);
-  let _filterNoBlock = $state(true);
+  let _filterNoBlock = $derived(!settings.showReservedRanges);
   // ── Dialog / context menu state ────────────────────────────────────
   let showSaveDlg = $state(false);
   let showUnicode = $state(false);
@@ -60,6 +119,20 @@
   let showOpenTypeTest = $state(false);
   let showFontOverview = $state(false);
   let showCompositeFont = $state(false);
+  let showFontQuality = $state(false);
+  let showExportGlyphs = $state(false);
+  let showColourConfig = $state(false);
+  let showBookmarks = $state(false);
+  let showHelp = $state(false);
+  let showLookup = $state(false);
+  let lookupKind = $state<LookupKind>("pinyin");
+  let showUcd = $state(false);
+  // Tools ▸ Supplementary Information now lives in Character Properties as its
+  // own page (the original's CJKV / Tangut / hieroglyph dialogs were all "more
+  // about this character").
+  let charPropsView = $state<
+    "props" | "extended" | "ideographic" | "history" | "supplementary"
+  >("props");
   let charPropsCp = $state(-1);
   let ctxShow = $state(false);
   let ctxX = $state(0);
@@ -74,10 +147,17 @@
   const stack = $derived(fontStack.applied ? stackFamily(fontStack.items) : "");
 
   // The grid font size lives in the font stack (Ctrl+wheel over the grid).
-  // `null` = never zoomed → the grid keeps its original responsive
-  // `clamp(15px, 4vh, 56px)` sizing.  `fsize` is the number the status bar and
-  // RTF export read, so it falls back to the same nominal 16px used before.
-  const fsize = $derived(fontStack.gridSize ?? 16);
+  // `null` = never chosen → the Medium row of the View size column, which is
+  // the original's default (`GridPointSize[2][1]` = 16pt).  `fsize` is the
+  // number the status bar, the RTF export and Copy Glyph read.
+  const fsize = $derived(fontStack.gridSize ?? gridPxFor(2, settings.viewSize));
+
+  // Code points the Export Font Glyphs dialog starts from: the selected cell,
+  // or nothing (the dialog then keeps its own default range).
+  const exportCps = $derived.by(() => {
+    const cp = selCp();
+    return cp != null && cp >= 0 ? [cp] : [];
+  });
 
   // Ctrl+wheel zoom.  One wheel notch = one pixel; `deltaY > 0` (scroll down)
   // shrinks.  Clamped so the size never leaves a sane, usable range.
@@ -92,7 +172,235 @@
   }
   function zoomGrid(deltaY: number) {
     const next = Math.round(currentGridSize()) - Math.sign(deltaY);
-    fontStack.gridSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, next));
+    const size = Math.max(MIN_SIZE, Math.min(MAX_SIZE, next));
+    fontStack.gridSize = size;
+    settings.gridSize = size;
+  }
+
+  // ── Settings ⇄ stores ───────────────────────────────────────────────
+  // `settings` is the single source of truth: every change is mirrored into
+  // the rendering stores here and persisted (debounced, so dragging a slider
+  // does not hammer localStorage).
+  let _saveTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    // Touch every persisted field so the effect re-runs on any change.
+    void JSON.stringify(settings);
+    applySettings();
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(saveSettings, 250);
+  });
+
+  // The Edit-menu state is *driven* locally (the menu, the bottom panel and the
+  // keyboard all mutate these four), so push it into the persisted settings
+  // rather than the other way round — one writer, no feedback loop.
+  $effect(() => {
+    settings.glyphMode = glyph;
+    settings.colourGlyphs = colour;
+    settings.editMode = mode;
+    settings.editBufferVisible = editVisible;
+  });
+
+  /**
+   * Nav panel ▸ IVS — `OnButtonUnicodeVariationSequences` → `CDialogUVS`.
+   *
+   * The original opens a dedicated window, but every sequence it lists is
+   * already part of Character Properties, so the button goes there instead
+   * (the rows are clickable and insert the sequence into the buffer).
+   */
+  function openUvs(): void {
+    const cp = selCp();
+    if (cp == null || cp < 0) {
+      showStatus(t("general.select_char"));
+      return;
+    }
+    charPropsCp = cp;
+    charPropsView = "props";
+    showCharProps = true;
+  }
+
+  /** Tools ▸ … Lookup — all five modes share one window. */
+  function openLookup(kind: LookupKind) {
+    lookupKind = kind;
+    showLookup = true;
+  }
+
+  /** Tools ▸ Supplementary Information — CJKV / Tangut / hieroglyph. */
+  function openSupplementaryInfo(): void {
+    const cp = selCp();
+    if (cp == null || cp < 0) {
+      showStatus(t("general.select_char"));
+      return;
+    }
+    charPropsCp = cp;
+    charPropsView = "supplementary";
+    showCharProps = true;
+  }
+
+  /**
+   * Tools ▸ Generate Full UCD XML Data — `OnToolsXMLData` writes
+   * `ucd.nounihan.flat.<product>.xml` for the whole repertoire.  Here the
+   * browser downloads what the backend streams for the BMP plus the
+   * supplementary planes' CJK/Hangul runs.
+   */
+  async function generateUcdXml(): Promise<void> {
+    showStatus("Generating UCD XML…");
+    try {
+      const r = await fetch(
+        `${API}/ucd/xml?start=0&end=1114111&all_cjk=false&all_hangul=false`,
+      );
+      if (!r.ok) throw new Error(String(r.status));
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "ucd.nounihan.flat.babelmap.xml";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showStatus("UCD XML saved");
+    } catch {
+      showStatus("UCD XML generation failed");
+    }
+  }
+
+  /** File ▸ Close to System Tray / Exit — both are window-shell operations. */
+  async function windowAction(kind: "tray" | "exit"): Promise<void> {
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const win = getCurrentWindow();
+      if (kind === "tray") await win.hide();
+      else await win.close();
+      return;
+    } catch {
+      // Browser dev mode: nothing to hide or close.
+    }
+    showStatus(
+      kind === "tray"
+        ? "Close to tray needs the desktop shell"
+        : "Exit needs the desktop shell",
+    );
+  }
+
+  /** Fonts ▸ Single Font / Composite Font. */
+  function setFontMode(mode: "single" | "composite") {
+    settings.fontMode = mode;
+    fontStack.mode = mode;
+    if (mode === "single") {
+      // Single mode bypasses the stack entirely: apply it so the grid and the
+      // buffer immediately use the chosen family, and drop the injected CSS.
+      fontStack.applied = true;
+      inject("");
+      showStatus(`Single font: ${settings.singleFamily}`);
+    } else {
+      // Back to composite: apply the stack only if it actually has content,
+      // otherwise the grid would inherit a bare "serif" and lose its default.
+      if (
+        fontStack.blocks.length ||
+        fontStack.items.some((i) => i.enabled && (i.family || i.userId))
+      ) {
+        applyStack();
+      } else {
+        clearStack();
+      }
+      showStatus("Composite font");
+    }
+  }
+
+  /** Fonts ▸ Grid Font Size ▸ (one of the five presets). */
+  function setGridSizeIndex(i: number) {
+    if (i < 0 || i >= GRID_SIZES.length) return;
+    const size = gridPxFor(i, settings.viewSize);
+    settings.gridSize = size;
+    fontStack.gridSize = size;
+  }
+
+  /**
+   * View ▸ Medium Size / Large Size.
+   *
+   * These pick the *column* of the original's `GridPointSize[][2]` table, so
+   * the same Fonts ▸ Grid Font Size row renders at a different point size (the
+   * Medium column is 2pt smaller than the Large one).  A custom Ctrl+wheel
+   * zoom is carried over by re-applying the same relative step.
+   */
+  function setViewSize(v: "medium" | "large") {
+    if (settings.viewSize === v) return;
+    const row = GRID_POINT_SIZES.findIndex(
+      (r) => r[settings.viewSize === "large" ? 0 : 1] === settings.gridSize,
+    );
+    settings.viewSize = v;
+    if (row >= 0) {
+      const size = gridPxFor(row, v);
+      settings.gridSize = size;
+      fontStack.gridSize = size;
+    }
+    showStatus(v === "large" ? "Large size" : "Medium size");
+  }
+
+  /** View ▸ Keep on Top — `eRegistryStayontop`; the desktop shell owns it. */
+  async function setKeepOnTop(on: boolean) {
+    settings.keepOnTop = on;
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().setAlwaysOnTop(on);
+    } catch {
+      // Browser dev mode: there is no window to pin, so only remember it.
+    }
+    showStatus(on ? "Keep on top: on" : "Keep on top: off");
+  }
+
+  // ── Edit ▸ Copy Glyph / Copy Glyph Outline ──────────────────────────
+  //
+  // `CDialogMap::CopyGlyph(bOutline)` draws the current character into a
+  // 10×-cell bitmap and puts it on the Clipboard, stroked instead of filled
+  // when `bOutline` is set.  The browser's canvas is the equivalent renderer
+  // and it uses the very same font stack as the grid, so what is copied is
+  // what is on screen.
+  async function copyGlyph(outline: boolean): Promise<void> {
+    const cp = selCp();
+    if (cp == null || cp < 0) {
+      showStatus(t("general.select_char"));
+      return;
+    }
+    const ch = String.fromCodePoint(cp);
+    const px = Math.max(12, Math.round(fsize)) * 10; // m_nGlyphSize * 10
+    const family = stack || settings.singleFamily || "serif";
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.font = `${px}px ${family}`;
+    const m = ctx.measureText(ch);
+    const pad = Math.ceil(px * 0.15);
+    const w = Math.max(1, Math.ceil(m.width) + pad * 2);
+    const h = Math.max(1, Math.ceil(px * 1.35) + pad * 2);
+    canvas.width = w;
+    canvas.height = h;
+    ctx.font = `${px}px ${family}`;
+    ctx.textBaseline = "alphabetic";
+    const baseline = h - pad - Math.ceil(px * 0.28);
+    if (outline) {
+      ctx.lineWidth = Math.max(1, Math.round(px / 32));
+      ctx.strokeStyle = "#000000";
+      ctx.strokeText(ch, pad, baseline);
+    } else {
+      ctx.fillStyle = "#000000";
+      ctx.fillText(ch, pad, baseline);
+    }
+    const blob = await new Promise<Blob | null>((res) =>
+      canvas.toBlob(res, "image/png"),
+    );
+    if (!blob) return;
+    try {
+      const ClipboardItemCtor = (globalThis as any).ClipboardItem;
+      if (!ClipboardItemCtor || !navigator.clipboard?.write) throw new Error();
+      await navigator.clipboard.write([
+        new ClipboardItemCtor({ "image/png": blob }),
+      ]);
+      showStatus(
+        outline
+          ? `Copied glyph outline U+${bmHex(cp)}`
+          : `Copied glyph U+${bmHex(cp)}`,
+      );
+    } catch {
+      showStatus("This browser cannot copy images to the clipboard");
+    }
   }
 
   function showStatus(msg: string) {
@@ -110,7 +418,9 @@
   >([]);
   let PLANES = $derived.by(() => {
     if (planeMeta.length === 0) return [];
-    if (_filterNoBlock) {
+    // View ▸ Hide Reserved Planes (`eRegistryShowReservedPlanes`): off by
+    // default, which is what leaves the seven assigned planes on the bar.
+    if (!settings.showReservedPlanes) {
       return planeMeta
         .filter((m) => !m.reserved && m.abbreviation)
         .map((m) => ({ id: m.plane, l: m.abbreviation }));
@@ -140,7 +450,7 @@
     }
     try {
       grid = await get<GridPage>(
-        `/grid/${plane}?scroll=${scroll}&filter_no_block=${_filterNoBlock}`,
+        `/grid/${plane}?scroll=${scroll}&filter_no_block=${_filterNoBlock}${gridAttrs()}`,
       );
     } catch (e: any) {
       err = e.message;
@@ -148,6 +458,23 @@
       if (!q) loading = false;
     }
   }
+
+  /**
+   * Colour coding and rotated vertical scripts both need the cell's Unicode
+   * properties, which the grid endpoint only computes when asked.
+   */
+  function gridAttrs(): string {
+    return settings.colourCoding !== "none" || settings.rotateVertical
+      ? "&attrs=1"
+      : "";
+  }
+
+  // Reload the page when a setting that changes the cells themselves changes.
+  $effect(() => {
+    void settings.colourCoding;
+    void settings.rotateVertical;
+    untrack(() => load(undefined, undefined, true));
+  });
   async function loadBlocks() {
     if (blocks.length === 0)
       try {
@@ -204,10 +531,15 @@
   }
   async function doGo() {
     if (!gv.trim()) return;
-    let cp = parseInt(
-      gv.replace(/^(0x|U\+|\$|#)/i, ""),
-      gv.startsWith("#") ? 10 : 16,
-    );
+    // Options ▸ Go To Code Points decides the base; an explicit `$`/`#`/`0x`
+    // prefix still wins, exactly like the original's `$%04X` / `#%d` field.
+    const raw = gv.trim();
+    const decimal = /^#/.test(raw)
+      ? true
+      : /^(\$|0x|U\+)/i.test(raw)
+        ? false
+        : !settings.gotoHex;
+    const cp = parseInt(raw.replace(/^(0x|U\+|\$|#)/i, ""), decimal ? 10 : 16);
     if (isNaN(cp) || cp < 0 || cp > 0x10ffff) return;
     gv = "";
     await gotoCP(cp);
@@ -411,7 +743,7 @@
   async function gotoCP(cp: number) {
     const np = Math.floor(cp / 0x10000);
     const g = await get<GridPage>(
-      `/grid/${np}/goto/${cp}?filter_no_block=${_filterNoBlock}`,
+      `/grid/${np}/goto/${cp}?filter_no_block=${_filterNoBlock}${gridAttrs()}`,
     );
     if (g.not_found) {
       alert(`U+${cp.toString(16).toUpperCase()} ${t("general.not_assigned")}`);
@@ -484,30 +816,13 @@
   }
   function conv(): string {
     if (!buf) return "";
-    const a = [...buf];
-    if (mode === "ncr_hex")
-      return a
-        .map((c) => `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`)
-        .join("");
-    if (mode === "ncr_dec")
-      return a.map((c) => `&#${c.codePointAt(0)!};`).join("");
-    if (mode === "html")
-      return a
-        .map((c) =>
-          c.codePointAt(0)! > 127
-            ? `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`
-            : c,
-        )
-        .join("");
-    if (mode === "ucn")
-      return a
-        .map((c) =>
-          c.codePointAt(0)! <= 0xffff
-            ? `\\u${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`
-            : `\\U${c.codePointAt(0)!.toString(16).toUpperCase().padStart(8, "0")}`,
-        )
-        .join("");
-    return buf;
+    if (mode === "char") return buf;
+    // One shared formatter with Options ▸ Alternative Representation; the
+    // "Convert Basic Latin" flag decides whether printable ASCII is escaped
+    // or left alone, exactly like `ConvertToCharRef`'s bConvertBasicLatin.
+    return [...buf]
+      .map((c) => charRef(c.codePointAt(0)!, mode, settings.convertBasicLatin))
+      .join("");
   }
 
   /** Switch edit buffer mode: revert to char, then convert to new format */
@@ -520,38 +835,7 @@
 
   /** Parse buffer back to raw characters from the given mode */
   function revertToChar(text: string, from: typeof mode): string {
-    if (from === "char") return text;
-    if (from === "ncr_hex") {
-      return text.replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => {
-        const cp = parseInt(h, 16);
-        return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "\ufffd";
-      });
-    }
-    if (from === "ncr_dec") {
-      return text.replace(/&#(\d+);/g, (_, d) => {
-        const cp = parseInt(d, 10);
-        return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "\ufffd";
-      });
-    }
-    if (from === "html") {
-      return text
-        .replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => {
-          const cp = parseInt(h, 16);
-          return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "\ufffd";
-        })
-        .replace(/&#(\d+);/g, (_, d) => {
-          const cp = parseInt(d, 10);
-          return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "\ufffd";
-        });
-      // Named entities handled by browser — keep as-is for now
-    }
-    if (from === "ucn") {
-      return text.replace(/\\[uU]([0-9A-Fa-f]{4,8})/g, (_, h) => {
-        const cp = parseInt(h, 16);
-        return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "\ufffd";
-      });
-    }
-    return text;
+    return revertToChars(text, from);
   }
 
   // ── Edit Buffer operations ──────────────────────────────────────────
@@ -616,6 +900,11 @@
     }
   }
 
+  /** Append text to the edit buffer (the UVS dialog's rows do this). */
+  function appendText(text: string) {
+    buf += text;
+  }
+
   /** Clear the edit buffer */
   function doClear() {
     buf = "";
@@ -673,28 +962,109 @@
     if (sr < 0 || !grid) return "";
     return grid.cells[sr]?.[sc]?.char_name || "";
   }
+
+  /** True when the plane has no assigned characters (`Unicode::IsPlaneReserved`). */
+  function planeIsReserved(p: number): boolean {
+    const m = planeMeta.find((x) => x.plane === p);
+    return !!m?.reserved;
+  }
+  // ── Options ▸ CJKV / Tangut readings (description annotations) ──────
+  // The backend formats them with the same global switches the original uses
+  // (`Lookup::UseUpperCaseReadings` / `UseToneNumbers`), so the flags are part
+  // of the cache key.
+  interface Readings {
+    cjkv: string;
+    tangut: string;
+    cjk_refs: string;
+    tangut_refs: string;
+    cjk: boolean;
+    tangut_char: boolean;
+  }
+  let _readings = $state<Record<string, Readings>>({});
+  function readingsKey(cp: number): string {
+    return [
+      cp,
+      settings.cjkvReading,
+      settings.tangutReading,
+      settings.cjkvUpperCase ? 1 : 0,
+      settings.cjkvToneNumbers ? 1 : 0,
+      settings.tangutToneNumbers ? 1 : 0,
+    ].join(":");
+  }
+  $effect(() => {
+    const cp = selCp();
+    if (cp == null || cp < 0) return;
+    const key = readingsKey(cp);
+    if (_readings[key]) return;
+    const q = new URLSearchParams({
+      cjkv: settings.cjkvReading,
+      tangut: settings.tangutReading,
+      upper: String(settings.cjkvUpperCase),
+      tones: String(settings.cjkvToneNumbers),
+      tangut_tones: String(settings.tangutToneNumbers),
+    });
+    fetch(`${API_BASE}/readings/${cp}?${q.toString()}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) _readings[key] = d as Readings;
+      })
+      .catch(() => {});
+  });
+
+  /** True for names the original only shows when "algorithmic names" is on. */
+  function isAlgorithmicName(n: string): boolean {
+    return /^(CJK (UNIFIED|COMPATIBILITY) IDEOGRAPH|TANGUT IDEOGRAPH|TANGUT COMPONENT|NUSHU CHARACTER|KHITAN SMALL SCRIPT CHARACTER|EGYPTIAN HIEROGLYPH)/.test(
+      n,
+    );
+  }
+
   let selInfo = $derived.by(() => {
     const cp = selCp();
     if (cp != null && cp >= 0) {
       const cell = grid!.cells[sr]?.[sc];
       const reserved = cell?.reserved;
-      const nm = reserved
+      const short = reserved
         ? "<reserved>"
         : selName() || `U+${cp.toString(16).toUpperCase()}`;
+      const rd = _readings[readingsKey(cp)];
+      // The original's SetDescription(): name → " : <source refs>" →
+      // " [reading]", with each piece owned by one Options toggle.
+      const parts: string[] = [];
+      if (
+        !reserved &&
+        (settings.showAlgorithmicNames || !isAlgorithmicName(short))
+      ) {
+        parts.push(short);
+      }
+      if (rd?.cjk && settings.showCjkRefs && rd.cjk_refs) {
+        parts.push(`: ${rd.cjk_refs}`);
+      }
+      if (rd?.cjkv) parts.push(`[${rd.cjkv}]`);
+      if (rd?.tangut_char && settings.showTangutRefs && rd.tangut_refs) {
+        parts.push(`: ${rd.tangut_refs}`);
+      }
+      if (rd?.tangut) parts.push(`[${rd.tangut}]`);
       return {
         hex: cp
           .toString(16)
           .toUpperCase()
           .padStart(cp > 0xffff ? 5 : 4, "0"),
         char: String.fromCodePoint(cp),
-        dec: String(cp),
-        name: nm,
+        // Options ▸ Alternative Representation — this field is the original's
+        // `m_pAltCode` (the third edit box of the map dialog).
+        alt: altRepresentation(
+          cp,
+          settings.altRepr,
+          settings.convertBasicLatin,
+        ),
+        name: parts.join(" "),
+        short,
       };
     }
     return null;
   });
 
-  function onKey(e: KeyboardEvent) {
+  async function onKey(e: KeyboardEvent) {
     if (
       e.target instanceof HTMLInputElement ||
       e.target instanceof HTMLTextAreaElement ||
@@ -758,9 +1128,41 @@
     } else if (e.key === "F9") {
       e.preventDefault();
       openCharProps();
+    } else if (e.key === "F7" && e.shiftKey) {
+      e.preventDefault();
+      showCompositeFont = true;
+    } else if (e.key === "F6") {
+      // Edit ▸ Copy Glyph / Copy Glyph Outline.
+      e.preventDefault();
+      await copyGlyph(e.shiftKey);
+    } else if (e.key === "F12") {
+      // Tools ▸ Mandarin (F12) / Cantonese (Shift+F12).
+      e.preventDefault();
+      openLookup(e.shiftKey ? "jyutping" : "pinyin");
+    } else if (e.key === "F11") {
+      // Tools ▸ Han Radical (F11) / Yi Radical (Shift+F11).
+      e.preventDefault();
+      openLookup(e.shiftKey ? "yi_radical" : "han_radical");
+    } else if (e.key === "1" && (e.altKey || e.ctrlKey)) {
+      // Ctrl+1 / Ctrl+2 are consumed by the browser (tab switching), so the
+      // working accelerator is Alt+1 / Alt+2.
+      e.preventDefault();
+      setFontMode("single");
+    } else if (e.key === "2" && (e.altKey || e.ctrlKey)) {
+      e.preventDefault();
+      setFontMode("composite");
+    } else if (e.key === "Insert") {
+      e.preventDefault();
+      doAddBookmark();
+    } else if (e.key === "Delete" && e.ctrlKey) {
+      e.preventDefault();
+      doRemoveBookmark();
     } else if (e.key === "F8" && e.shiftKey) {
       e.preventDefault();
       showEmojiLookup = true;
+    } else if (e.key === "F1") {
+      e.preventDefault();
+      showHelp = true;
     }
   }
 
@@ -774,8 +1176,10 @@
     showCharProps = true;
   }
 
-  function onMenuAction(label: string) {
-    if (label === t("edit.clear")) doClear();
+  async function onMenuAction(label: string) {
+    if (label === t("file.close_tray")) await windowAction("tray");
+    else if (label === t("file.exit")) await windowAction("exit");
+    else if (label === t("edit.clear")) doClear();
     else if (label === t("edit.copy_plain")) copyPlain();
     else if (label === t("edit.copy_rtf")) copyRtf();
     else if (label === t("edit.cut_plain")) cutPlain();
@@ -785,6 +1189,8 @@
     else if (label === t("edit.glyph_mode")) glyph = true;
     else if (label === t("edit.text_mode")) glyph = false;
     else if (label === t("edit.colour_glyphs")) colour = !colour;
+    else if (label === t("edit.copy_glyph")) await copyGlyph(false);
+    else if (label === t("edit.copy_glyph_outline")) await copyGlyph(true);
     else if (label === t("edit.char")) changeMode("char");
     else if (label === t("edit.ncr_hex")) changeMode("ncr_hex");
     else if (label === t("edit.ncr_dec")) changeMode("ncr_dec");
@@ -801,20 +1207,206 @@
     else if (label === t("tools.properties")) openCharProps();
     else if (label === t("tools.emoji_lookup")) showEmojiLookup = true;
     else if (label === t("tools.opentype_test")) showOpenTypeTest = true;
+    else if (label === t("tools.mandarin")) openLookup("pinyin");
+    else if (label === t("tools.cantonese")) openLookup("jyutping");
+    else if (label === t("tools.zhuang")) openLookup("zhuang");
+    else if (label === t("tools.han_radical")) openLookup("han_radical");
+    else if (label === t("tools.yi_radical")) openLookup("yi_radical");
+    else if (label === t("tools.supplementary")) openSupplementaryInfo();
+    else if (label === t("tools.ucd")) showUcd = true;
+    else if (label === t("tools.ucd_xml")) await generateUcdXml();
     // Fonts menu
+    else if (label === t("fonts.single")) setFontMode("single");
+    else if (label === t("fonts.composite")) setFontMode("composite");
+    else if (label === t("fonts.list_all_styles")) {
+      settings.allStyles = !settings.allStyles;
+      showStatus(
+        settings.allStyles
+          ? "Listing all styles of every font"
+          : "Listing only primary styles",
+      );
+    } else if (label === t("fonts.legacy_enum")) {
+      settings.legacyEnum = !settings.legacyEnum;
+      showStatus(
+        settings.legacyEnum
+          ? "Legacy (GDI) font names"
+          : "Typographic font names",
+      );
+    } else if (label === t("fonts.symbol_mappings")) {
+      settings.symbolMapping = !settings.symbolMapping;
+      showStatus(
+        settings.symbolMapping
+          ? "Symbol font mappings ON (U+F020–F0FF shown as ASCII)"
+          : "Symbol font mappings OFF",
+      );
+    } else if (label === t("fonts.very_small")) setGridSizeIndex(0);
+    else if (label === t("fonts.small")) setGridSizeIndex(1);
+    else if (label === t("fonts.medium")) setGridSizeIndex(2);
+    else if (label === t("fonts.large")) setGridSizeIndex(3);
+    else if (label === t("fonts.very_large")) setGridSizeIndex(4);
+    else if (label === t("fonts.default")) settings.fontQuality = 0;
+    else if (label === t("fonts.draft")) settings.fontQuality = 1;
+    else if (label === t("fonts.proof")) settings.fontQuality = 2;
+    else if (label === t("fonts.non_aa")) settings.fontQuality = 3;
+    else if (label === t("fonts.aa")) settings.fontQuality = 4;
+    else if (label === t("fonts.cleartype")) settings.fontQuality = 5;
+    else if (label === t("fonts.cleartype_nat")) settings.fontQuality = 6;
+    else if (label === t("fonts.quality_dialog")) showFontQuality = true;
     else if (label === t("fonts.overview")) showFontOverview = true;
+    else if (label === t("fonts.export_glyphs")) showExportGlyphs = true;
     else if (label === t("fonts.composite_mapping")) showCompositeFont = true;
     else if (label === t("font.configure")) showCompositeFont = true;
     // View menu
-    else if (label === t("view.filter_no_block")) {
-      _filterNoBlock = !_filterNoBlock;
+    else if (label === t("view.show_edit_buffer")) {
+      editVisible = !editVisible;
+      showStatus(editVisible ? "Edit buffer shown" : "Edit buffer hidden");
+    } else if (label === t("view.filter_no_block")) {
+      settings.showReservedRanges = !settings.showReservedRanges;
       showStatus(
         _filterNoBlock
           ? "Filter ON: unassigned blocks hidden"
           : "Filter OFF: showing full planes",
       );
       load();
+    } else if (label === t("view.medium_size")) setViewSize("medium");
+    else if (label === t("view.large_size")) setViewSize("large");
+    else if (label === t("view.hide_reserved_planes")) {
+      settings.showReservedPlanes = !settings.showReservedPlanes;
+      // Hiding them again while one is on screen falls back to the BMP, like
+      // `OnViewReservedPlanes` does.
+      if (!settings.showReservedPlanes && planeIsReserved(plane)) goPlane(0);
+      showStatus(
+        settings.showReservedPlanes
+          ? "Showing the reserved planes"
+          : "Hiding the reserved planes",
+      );
+    } else if (label === t("view.keep_on_top"))
+      await setKeepOnTop(!settings.keepOnTop);
+    // Bookmarks menu
+    else if (label === t("bookmarks.manage")) showBookmarks = true;
+    else if (label === t("bookmarks.add")) doAddBookmark();
+    else if (label === t("bookmarks.remove")) doRemoveBookmark();
+    else if (label === t("bookmarks.clear")) {
+      clearBookmarks();
+      showStatus("Bookmarks cleared");
+    } else if (/^U\+[0-9A-F]{4,6}\b/.test(label)) {
+      // A dynamic bookmark entry — jump to that code point.
+      const cp = parseInt(label.slice(2).split(" ")[0], 16);
+      if (!Number.isNaN(cp)) await gotoCP(cp);
     }
+    // Help menu — both items open the same window (F1 is Online Help).
+    else if (label === t("help.help") || label === t("help.about"))
+      showHelp = true;
+    // Options menu
+    else onOptionsAction(label);
+  }
+
+  /** Bookmarks ▸ Add Bookmark (Insert) — adds the selected character. */
+  function doAddBookmark(): void {
+    const cp = selCp();
+    if (cp == null || cp < 0) {
+      showStatus(t("general.select_char"));
+      return;
+    }
+    const name = selInfo?.short || `U+${bmHex(cp)}`;
+    const idx = addBookmark(cp, name);
+    showStatus(
+      idx >= 0
+        ? `Bookmarked U+${bmHex(cp)}`
+        : bookmarkList().some((b) => b.cp === cp)
+          ? `U+${bmHex(cp)} is already bookmarked`
+          : `Bookmarks are full (32)`,
+    );
+  }
+
+  /** Bookmarks ▸ Remove Bookmark (Ctrl+Delete). */
+  function doRemoveBookmark(): void {
+    const cp = selCp();
+    if (cp == null || cp < 0) return;
+    showStatus(
+      removeBookmark(cp)
+        ? `Bookmark removed: U+${bmHex(cp)}`
+        : `U+${bmHex(cp)} is not bookmarked`,
+    );
+  }
+
+  /**
+   * One Options item.
+   *
+   * The original has one handler per group that differs only in *which value*
+   * the clicked id maps to (`nID - IDM_OPTIONS_<group>_START`), so the same
+   * shape is used here: a `[values, labelKeys]` pair plus a setter.
+   */
+  function onOptionsAction(label: string): void {
+    /** Radio group: pick the value whose label matches, if any. */
+    const choose = <T,>(
+      values: readonly T[],
+      keys: readonly string[],
+      set: (v: T) => void,
+    ): boolean => {
+      const i = keys.findIndex((k) => t(k) === label);
+      if (i < 0) return false;
+      set(values[i]);
+      return true;
+    };
+
+    if (label === t("options.blocks_alpha")) settings.blocksSorted = true;
+    else if (label === t("options.blocks_codepoint"))
+      settings.blocksSorted = false;
+    else if (label === t("options.search_aliases"))
+      settings.searchAliases = !settings.searchAliases;
+    else if (label === t("options.goto_hex")) settings.gotoHex = true;
+    else if (label === t("options.goto_dec")) settings.gotoHex = false;
+    else if (
+      choose(ALT_REPRS, ALT_KEYS, (v) => (settings.altRepr = v)) ||
+      choose(CJKV_READINGS, CJKV_KEYS, (v) => (settings.cjkvReading = v)) ||
+      choose(
+        TANGUT_READINGS,
+        TANGUT_KEYS,
+        (v) => (settings.tangutReading = v),
+      ) ||
+      choose([36, 72, 108, 144], POPUP_KEYS, (v) => (settings.popupMag = v)) ||
+      choose(COLOUR_CODINGS, COLOUR_KEYS, (v) => (settings.colourCoding = v))
+    ) {
+      // handled by the group above
+    } else if (label === t("options.cjkv_upper_case"))
+      settings.cjkvUpperCase = !settings.cjkvUpperCase;
+    else if (label === t("options.cjkv_tone_numbers"))
+      settings.cjkvToneNumbers = !settings.cjkvToneNumbers;
+    else if (label === t("options.tangut_tones"))
+      settings.tangutToneNumbers = !settings.tangutToneNumbers;
+    else if (label === t("options.grid_single_click"))
+      settings.selectClick = "single";
+    else if (label === t("options.grid_double_click"))
+      settings.selectClick = "double";
+    else if (label === t("options.grid_copy_on_select"))
+      settings.copyOnSelect = !settings.copyOnSelect;
+    else if (label === t("options.cutcopy_plain")) settings.cutCopy = "plain";
+    else if (label === t("options.cutcopy_rtf")) settings.cutCopy = "rtf";
+    else if (label === t("options.status_algorithmic"))
+      settings.showAlgorithmicNames = !settings.showAlgorithmicNames;
+    else if (label === t("options.status_cjk"))
+      settings.showCjkRefs = !settings.showCjkRefs;
+    else if (label === t("options.status_tangut"))
+      settings.showTangutRefs = !settings.showTangutRefs;
+    else if (label === t("options.other_convert_latin"))
+      settings.convertBasicLatin = !settings.convertBasicLatin;
+    else if (label === t("options.other_rotate_vertical"))
+      settings.rotateVertical = !settings.rotateVertical;
+    else if (label === t("options.other_close_tray"))
+      settings.closeToTray = !settings.closeToTray;
+    else if (label === t("options.font_config")) showCompositeFont = true;
+    else if (label === t("options.customize_colours")) showColourConfig = true;
+    else if (label === t("options.reset")) doResetSettings();
+  }
+
+  /** Options ▸ Reset — the original's confirmation + `m_pRegistry->Reset()`. */
+  function doResetSettings(): void {
+    if (!confirm("Reset all options to default settings?")) return;
+    resetSettings();
+    // The Fonts group is mirrored into the render stores; re-apply + rebuild.
+    setFontMode(settings.fontMode);
+    showStatus("All options reset to defaults");
   }
 
   // Start Python backend via Tauri (no-op in browser dev mode)
@@ -847,7 +1439,6 @@
   <MenuBar
     {dark}
     {showLang}
-    filterNoBlock={_filterNoBlock}
     {onMenuAction}
     onDarkToggle={() => (dark = !dark)}
     onToggleLang={() => (showLang = !showLang)}
@@ -893,6 +1484,7 @@
       onRowEnd={() => {
         sr = 7;
       }}
+      onIvs={() => openUvs()}
       onRandom={() => {
         const cp = Math.floor(Math.random() * 0x110000);
         gv = cp.toString(16).toUpperCase();
@@ -919,9 +1511,10 @@
     onConfigureStack={() => (showCompositeFont = true)}
     {gv}
     {sv}
-    {blocks}
+    gotoHex={settings.gotoHex}
+    blocks={blocksShown}
     {sblock}
-    editVisible={true}
+    {editVisible}
     onBufChange={(v: string) => (buf = v)}
     onSblockChange={(v: string) => (sblock = v)}
     onGvChange={(v: string) => (gv = v)}
@@ -943,11 +1536,14 @@
     onModeChange={(m: string) => changeMode(m as any)}
     onGlyphToggle={(v: boolean) => (glyph = v)}
     onColourToggle={(v: boolean) => (colour = v)}
-    onCopy={copyPlain}
-    onCut={cutPlain}
+    onCopy={settings.cutCopy === "rtf" ? copyRtf : copyPlain}
+    onCut={settings.cutCopy === "rtf" ? cutRtf : cutPlain}
     onClear={doClear}
     onSave={openSaveDlg}
-    onHideToggle={() => {}}
+    onHideToggle={() => {
+      editVisible = false;
+      showStatus("Edit buffer hidden — View ▸ Show Edit Buffer");
+    }}
     onContextMenu={(e: MouseEvent) =>
       openCtxMenu(e, e.currentTarget as HTMLTextAreaElement)}
   />
@@ -986,6 +1582,13 @@
   <CharacterPropertiesDialog
     show={showCharProps}
     cp={charPropsCp}
+    initialView={charPropsView}
+    onInsert={(text: string) => {
+      appendText(text);
+      showStatus(
+        `Inserted ${[...text].map((c) => `U+${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`).join(" ")}`,
+      );
+    }}
     onClose={() => (showCharProps = false)}
   />
 
@@ -1012,6 +1615,45 @@
     show={showCompositeFont}
     onClose={() => (showCompositeFont = false)}
   />
+
+  <FontQualityDialog
+    show={showFontQuality}
+    onClose={() => (showFontQuality = false)}
+  />
+
+  <ExportGlyphsDialog
+    show={showExportGlyphs}
+    onClose={() => (showExportGlyphs = false)}
+    initialCps={exportCps}
+  />
+
+  <ColourCodingDialog
+    show={showColourConfig}
+    onClose={() => (showColourConfig = false)}
+  />
+
+  <BookmarksDialog
+    show={showBookmarks}
+    onClose={() => (showBookmarks = false)}
+    onGoto={(cp: number) => {
+      showBookmarks = false;
+      gotoCP(cp);
+    }}
+  />
+
+  <HelpDialog show={showHelp} onClose={() => (showHelp = false)} />
+
+  <LookupDialog
+    show={showLookup}
+    kind={lookupKind}
+    onClose={() => (showLookup = false)}
+    onGoto={(cp: number) => {
+      showLookup = false;
+      gotoCP(cp);
+    }}
+  />
+
+  <UcdDialog show={showUcd} onClose={() => (showUcd = false)} />
 
   <ContextMenu
     show={ctxShow}

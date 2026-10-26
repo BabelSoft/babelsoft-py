@@ -45,6 +45,21 @@ export interface GridCell {
   char_name: string | null;
   reserved?: boolean;
   glyph_b64?: string;
+  // Options ▸ Colour Coding attributes (only present when `attrs=1`).
+  /** General category short code, e.g. `Lu`. */
+  gc?: string;
+  /** Bidi class, e.g. `L`, `ON`. */
+  bc?: string;
+  /** Bidi mirrored: `True` / `False`. */
+  bm?: string;
+  /** Decomposition type, e.g. `Canonical`, `None_`. */
+  dt?: string;
+  /** Numeric type, e.g. `Decimal`. */
+  nt?: string;
+  /** Script long name, e.g. `Latin`, `Han`. */
+  sc?: string;
+  /** Unicode version major the character was introduced in. */
+  ver?: string;
 }
 
 /** A page of character grid data */

@@ -13,6 +13,60 @@
  *
  * The `t()` function uses a Svelte 5 $state so the UI reactively updates.
  */
+import {
+  ALT_REPRS,
+  CJKV_READINGS,
+  COLOUR_CODINGS,
+  TANGUT_READINGS,
+  gridIndexOf,
+} from "./settings.svelte";
+
+// Menu-item keys for the Options submenus whose order must match the value
+// arrays in settings.ts (the index *is* the correspondence).
+export const ALT_LABELS = [
+  "options.alt_decimal",
+  "options.alt_ucn",
+  "options.alt_ucn16",
+  "options.alt_ncr_hex",
+  "options.alt_ncr_dec",
+  "options.alt_html",
+  "options.alt_utf8_hex",
+  "options.alt_utf8_oct",
+];
+export const CJKV_LABELS = [
+  "options.cjkv_mandarin",
+  "options.cjkv_cantonese",
+  "options.cjkv_korean",
+  "options.cjkv_quoc_ngu",
+  "options.cjkv_viqr",
+  "options.cjkv_zhuang",
+];
+export const TANGUT_LABELS = [
+  "options.tangut_gong",
+  "options.tangut_kychanov",
+  "options.tangut_sofronov",
+  "options.tangut_nishida",
+  "options.tangut_miyake_2012",
+  "options.tangut_miyake_2015",
+];
+export const COLOUR_LABELS = [
+  "options.coding_none",
+  "options.coding_gc",
+  "options.coding_bc",
+  "options.coding_bm",
+  "options.coding_dt",
+  "options.coding_nt",
+  "options.coding_script",
+  "options.coding_version",
+];
+/** Popup-magnification sizes (`TOOLTIP_MULTIPLIER` × 1..4 = 36/72/108/144). */
+const POPUP_SIZES = [36, 72, 108, 144];
+export const POPUP_LABELS = [
+  "options.popup_36",
+  "options.popup_72",
+  "options.popup_108",
+  "options.popup_144",
+];
 
 // ── Supported languages ──────────────────────────────────────────────
 
@@ -95,6 +149,39 @@ const translations: Record<string, TranslationDict> = {
     "tools.char_history": "Character History...",
     "tools.uvs": "Unicode Variation Sequences...",
     "tools.opentype_test": "OpenType Test Framework...",
+    "tools.mandarin": "Mandarin (Pinyin) Lookup...",
+    "tools.cantonese": "Cantonese (Jyutping) Lookup...",
+    "tools.zhuang": "Zhuang Lookup...",
+    "tools.han_radical": "Han Radical Lookup...",
+    "tools.yi_radical": "Yi Radical Lookup...",
+    "lookup.title": "Lookup",
+    "lookup.count": "characters",
+    "lookup.tone": "Tone",
+    "lookup.strokes": "Strokes",
+    "lookup.any": "Any",
+    "lookup.search": "Search",
+    "lookup.reading_hint": "Reading, e.g. yi",
+    "lookup.radical_hint": "Radical, e.g. 水 or 85",
+    "lookup.none": "No characters matched.",
+    "lookup.idle": "Type a reading and press Enter.",
+    "lookup.m_pinyin": "Pinyin",
+    "lookup.m_jyutping": "Jyutping",
+    "lookup.m_zhuang": "Zhuang",
+    "lookup.m_han": "Han radical",
+    "lookup.m_yi": "Yi radical",
+    "tools.supplementary": "Supplementary Information",
+    "tools.ucd": "Generate Core UCD Data",
+    "tools.ucd_xml": "Generate Full UCD XML Data",
+    "supp.none": "No supplementary data for this character.",
+    "ucd.block": "Block",
+    "ucd.start": "From",
+    "ucd.end": "To",
+    "ucd.all_cjk": "All CJK ideographs",
+    "ucd.all_hangul": "All Hangul syllables",
+    "ucd.generate": "Generate",
+    "ucd.copy": "Copy",
+    "ucd.save": "Save...",
+    "ucd.idle": "Pick a range, then Generate.",
 
     /* Fonts menu */
     "fonts.single": "Single Font",
@@ -123,6 +210,20 @@ const translations: Record<string, TranslationDict> = {
     "fonts.coverage": "Font Coverage...",
     "fonts.info": "Font Information...",
     "fonts.export_glyphs": "Export Font Glyphs...",
+    "fonts.quality_dialog": "Font Quality...",
+    "fonts.quality_note": "The character grid is rasterised by the system — CSS cannot choose a mode. This preview and Export Font Glyphs use the quality you pick.",
+    "fonts.quality_sample": "Sample text",
+    "fonts.export_range": "Code points",
+    "fonts.export_range_hint": "e.g. U+41, U+4E00-4E10, 30-39",
+    "fonts.export_size": "Size (px)",
+    "fonts.export_cell": "Cell W×H",
+    "fonts.export_format": "Format",
+    "fonts.export_fg": "Foreground",
+    "fonts.export_bg": "Background",
+    "fonts.export_scale": "Supersample",
+    "fonts.export_go": "Export ZIP",
+    "fonts.export_count": "{n} glyphs",
+    "dlg.close": "Close",
     "fonts.composite_mapping": "Composite Font Mappings...",
 
     /* Composite Font Mappings dialog */
@@ -288,6 +389,18 @@ const translations: Record<string, TranslationDict> = {
     "bookmarks.manage": "Manage Bookmarks...",
     "bookmarks.remove": "Remove Bookmark",
     "bookmarks.clear": "Clear All Bookmarks",
+    "bookmarks.title": "Bookmarks",
+    "bookmarks.heading": "Bookmarks ({n} of {max})",
+    "bookmarks.add_title": "Add Bookmarks",
+    "bookmarks.add_hint": "Add up to {n} bookmarks as space-separated hexadecimal code points",
+    "bookmarks.added": "{n} bookmarks added",
+    "bookmarks.delete_selected": "Delete the selected bookmarks?",
+    "bookmarks.delete_all": "Delete all bookmarks?",
+    "bookmarks.empty": "No bookmarks",
+    "bookmarks.codepoint": "Code Point",
+    "bookmarks.name": "Character Name",
+    "bookmarks.remove_all": "Remove All",
+    "bookmarks.close": "Close",
 
     /* View */
     "view.zoom_in": "Zoom In",
@@ -337,6 +450,7 @@ const translations: Record<string, TranslationDict> = {
     "general.ready": "Ready",
     "general.select_char": "Select a character...",
     "general.hex": "hex",
+    "general.decimal": "decimal",
     "general.not_assigned": "not assigned",
     "general.not_found": "Not found",
     "lang.title": "Select Language",
@@ -477,6 +591,39 @@ const translations: Record<string, TranslationDict> = {
     "tools.char_history": "字符历史",
     "tools.uvs": "UVS",
     "tools.opentype_test": "OpenType 测试",
+    "tools.mandarin": "普通话（拼音）查询...",
+    "tools.cantonese": "粤语（粵拼）查询...",
+    "tools.zhuang": "壮语查询...",
+    "tools.han_radical": "汉字部首查询...",
+    "tools.yi_radical": "彝文部首查询...",
+    "lookup.title": "查表",
+    "lookup.count": "个字符",
+    "lookup.tone": "声调",
+    "lookup.strokes": "笔画",
+    "lookup.any": "不限",
+    "lookup.search": "搜索",
+    "lookup.reading_hint": "读音，例如 yi",
+    "lookup.radical_hint": "部首，例如 水 或 85",
+    "lookup.none": "没有匹配的字符。",
+    "lookup.idle": "输入读音后按回车。",
+    "lookup.m_pinyin": "拼音",
+    "lookup.m_jyutping": "粤拼",
+    "lookup.m_zhuang": "壮语",
+    "lookup.m_han": "汉字部首",
+    "lookup.m_yi": "彝文部首",
+    "tools.supplementary": "补充信息",
+    "tools.ucd": "生成核心 UCD 数据",
+    "tools.ucd_xml": "生成完整 UCD XML 数据",
+    "supp.none": "此字符没有补充信息。",
+    "ucd.block": "区块",
+    "ucd.start": "起始",
+    "ucd.end": "结束",
+    "ucd.all_cjk": "所有汉字",
+    "ucd.all_hangul": "所有谚文音节",
+    "ucd.generate": "生成",
+    "ucd.copy": "复制",
+    "ucd.save": "保存...",
+    "ucd.idle": "选择范围后点击生成。",
 
     "fonts.single": "单一字体",
     "fonts.composite": "复合字体",
@@ -504,6 +651,20 @@ const translations: Record<string, TranslationDict> = {
     "fonts.coverage": "字体覆盖...",
     "fonts.info": "字体信息...",
     "fonts.export_glyphs": "导出字体字形...",
+    "fonts.quality_dialog": "字体质量...",
+    "fonts.quality_note": "字符表格由系统栅格化，CSS 无法选择渲染方式。此预览与“导出字体字形”使用你选择的质量。",
+    "fonts.quality_sample": "示例文本",
+    "fonts.export_range": "码位",
+    "fonts.export_range_hint": "例如 U+41, U+4E00-4E10, 30-39",
+    "fonts.export_size": "字号 (px)",
+    "fonts.export_cell": "单元格 宽×高",
+    "fonts.export_format": "格式",
+    "fonts.export_fg": "前景色",
+    "fonts.export_bg": "背景色",
+    "fonts.export_scale": "超采样",
+    "fonts.export_go": "导出 ZIP",
+    "fonts.export_count": "{n} 个字形",
+    "dlg.close": "关闭",
     "fonts.composite_mapping": "复合字体映射...",
 
     "options.unicode_blocks": "Unicode 区块",
@@ -577,6 +738,18 @@ const translations: Record<string, TranslationDict> = {
     "bookmarks.manage": "管理书签...",
     "bookmarks.remove": "移除书签",
     "bookmarks.clear": "清除所有书签",
+    "bookmarks.title": "书签",
+    "bookmarks.heading": "书签（{n} / {max}）",
+    "bookmarks.add_title": "添加书签",
+    "bookmarks.add_hint": "最多可添加 {n} 个书签，用空格分隔十六进制码位",
+    "bookmarks.added": "已添加 {n} 个书签",
+    "bookmarks.delete_selected": "删除选中的书签？",
+    "bookmarks.delete_all": "删除所有书签？",
+    "bookmarks.empty": "没有书签",
+    "bookmarks.codepoint": "码位",
+    "bookmarks.name": "字符名称",
+    "bookmarks.remove_all": "全部移除",
+    "bookmarks.close": "关闭",
 
     "view.zoom_in": "放大",
     "view.zoom_out": "缩小",
@@ -621,6 +794,7 @@ const translations: Record<string, TranslationDict> = {
     "general.ready": "就绪",
     "general.select_char": "选择一个字符...",
     "general.hex": "十六进制",
+    "general.decimal": "十进制",
     "general.not_assigned": "未分配",
     "general.not_found": "未找到",
     "lang.title": "选择语言",
@@ -745,6 +919,20 @@ const translations: Record<string, TranslationDict> = {
     "fonts.coverage": "フォントカバレッジ",
     "fonts.info": "フォント情報",
     "fonts.export_glyphs": "グリフエクスポート",
+    "fonts.quality_dialog": "フォント品質...",
+    "fonts.quality_note": "文字グリッドはシステムのラスタライザを使用します（CSS では選択できません）。このプレビューとグリフのエクスポートは選択した品質を使用します。",
+    "fonts.quality_sample": "サンプル文字列",
+    "fonts.export_range": "コードポイント",
+    "fonts.export_range_hint": "例: U+41, U+4E00-4E10, 30-39",
+    "fonts.export_size": "サイズ (px)",
+    "fonts.export_cell": "セル 幅×高さ",
+    "fonts.export_format": "形式",
+    "fonts.export_fg": "前景色",
+    "fonts.export_bg": "背景色",
+    "fonts.export_scale": "スーパーサンプリング",
+    "fonts.export_go": "ZIP を書き出す",
+    "fonts.export_count": "{n} グリフ",
+    "dlg.close": "閉じる",
     "fonts.composite_mapping": "複合マッピング",
     "options.unicode_blocks": "Unicodeブロック",
     "options.name_search": "名前検索",
@@ -796,6 +984,7 @@ const translations: Record<string, TranslationDict> = {
     "general.ready": "準備完了",
     "general.select_char": "文字を選択...",
     "general.hex": "16進",
+    "general.decimal": "10進",
     "general.not_assigned": "未割当",
     "general.not_found": "見つかりません",
     "lang.title": "言語を選択",
@@ -917,6 +1106,20 @@ const translations: Record<string, TranslationDict> = {
     "fonts.coverage": "글꼴 커버리지",
     "fonts.info": "글꼴 정보",
     "fonts.export_glyphs": "글리프 내보내기",
+    "fonts.quality_dialog": "글꼴 품질...",
+    "fonts.quality_note": "문자 그리드는 시스템 래스터라이저를 사용합니다(CSS로 선택할 수 없음). 이 미리보기와 내보내기는 선택한 품질을 사용합니다.",
+    "fonts.quality_sample": "샘플 텍스트",
+    "fonts.export_range": "코드 포인트",
+    "fonts.export_range_hint": "예: U+41, U+4E00-4E10, 30-39",
+    "fonts.export_size": "크기 (px)",
+    "fonts.export_cell": "셀 너비×높이",
+    "fonts.export_format": "형식",
+    "fonts.export_fg": "전경색",
+    "fonts.export_bg": "배경색",
+    "fonts.export_scale": "슈퍼샘플링",
+    "fonts.export_go": "ZIP 내보내기",
+    "fonts.export_count": "{n}개 글리프",
+    "dlg.close": "닫기",
     "fonts.composite_mapping": "복합 매핑",
     "options.unicode_blocks": "유니코드 블록",
     "options.name_search": "이름 검색",
@@ -968,6 +1171,7 @@ const translations: Record<string, TranslationDict> = {
     "general.ready": "준비",
     "general.select_char": "문자 선택...",
     "general.hex": "16진수",
+    "general.decimal": "10진수",
     "general.not_assigned": "할당되지 않음",
     "general.not_found": "찾을 수 없음",
     "lang.title": "언어 선택",
@@ -1089,6 +1293,20 @@ const translations: Record<string, TranslationDict> = {
     "fonts.coverage": "Couverture de police",
     "fonts.info": "Informations de police",
     "fonts.export_glyphs": "Exporter les glyphes",
+    "fonts.quality_dialog": "Qualité de police...",
+    "fonts.quality_note": "La grille est rastérisée par le système — CSS ne peut pas choisir le mode. Cet aperçu et l'export utilisent la qualité choisie.",
+    "fonts.quality_sample": "Texte d'exemple",
+    "fonts.export_range": "Points de code",
+    "fonts.export_range_hint": "ex. U+41, U+4E00-4E10, 30-39",
+    "fonts.export_size": "Taille (px)",
+    "fonts.export_cell": "Cellule L×H",
+    "fonts.export_format": "Format",
+    "fonts.export_fg": "Premier plan",
+    "fonts.export_bg": "Arrière-plan",
+    "fonts.export_scale": "Suréchantillonnage",
+    "fonts.export_go": "Exporter le ZIP",
+    "fonts.export_count": "{n} glyphes",
+    "dlg.close": "Fermer",
     "fonts.composite_mapping": "Correspondance composite",
     "options.unicode_blocks": "Blocs Unicode",
     "options.name_search": "Recherche par nom",
@@ -1140,6 +1358,7 @@ const translations: Record<string, TranslationDict> = {
     "general.ready": "Prêt",
     "general.select_char": "Sélectionner un caractère...",
     "general.hex": "hex",
+    "general.decimal": "decimal",
     "general.not_assigned": "non attribué",
     "general.not_found": "Non trouvé",
     "lang.title": "Choisir la langue",
@@ -1261,6 +1480,20 @@ const translations: Record<string, TranslationDict> = {
     "fonts.coverage": "Schriftabdeckung",
     "fonts.info": "Schriftinformation",
     "fonts.export_glyphs": "Glyphen exportieren",
+    "fonts.quality_dialog": "Schriftqualität...",
+    "fonts.quality_note": "Das Zeichenraster wird vom System gerastert — CSS kann den Modus nicht wählen. Diese Vorschau und der Export nutzen die gewählte Qualität.",
+    "fonts.quality_sample": "Beispieltext",
+    "fonts.export_range": "Codepunkte",
+    "fonts.export_range_hint": "z. B. U+41, U+4E00-4E10, 30-39",
+    "fonts.export_size": "Größe (px)",
+    "fonts.export_cell": "Zelle B×H",
+    "fonts.export_format": "Format",
+    "fonts.export_fg": "Vordergrund",
+    "fonts.export_bg": "Hintergrund",
+    "fonts.export_scale": "Überabtastung",
+    "fonts.export_go": "ZIP exportieren",
+    "fonts.export_count": "{n} Glyphen",
+    "dlg.close": "Schließen",
     "fonts.composite_mapping": "Komposit-Zuordnung",
     "options.unicode_blocks": "Unicode-Blöcke",
     "options.name_search": "Namenssuche",
@@ -1312,6 +1545,7 @@ const translations: Record<string, TranslationDict> = {
     "general.ready": "Bereit",
     "general.select_char": "Zeichen auswählen...",
     "general.hex": "Hex",
+    "general.decimal": "Dezimal",
     "general.not_assigned": "nicht zugewiesen",
     "general.not_found": "Nicht gefunden",
     "lang.title": "Sprache wählen",
@@ -1433,6 +1667,20 @@ const translations: Record<string, TranslationDict> = {
     "fonts.coverage": "Cobertura de fuente",
     "fonts.info": "Información de fuente",
     "fonts.export_glyphs": "Exportar glifos",
+    "fonts.quality_dialog": "Calidad de fuente...",
+    "fonts.quality_note": "La cuadrícula la rasteriza el sistema — CSS no puede elegir el modo. Esta vista previa y la exportación usan la calidad elegida.",
+    "fonts.quality_sample": "Texto de ejemplo",
+    "fonts.export_range": "Puntos de código",
+    "fonts.export_range_hint": "p. ej. U+41, U+4E00-4E10, 30-39",
+    "fonts.export_size": "Tamaño (px)",
+    "fonts.export_cell": "Celda An×Al",
+    "fonts.export_format": "Formato",
+    "fonts.export_fg": "Primer plano",
+    "fonts.export_bg": "Fondo",
+    "fonts.export_scale": "Supermuestreo",
+    "fonts.export_go": "Exportar ZIP",
+    "fonts.export_count": "{n} glifos",
+    "dlg.close": "Cerrar",
     "fonts.composite_mapping": "Mapeo compuesto",
     "options.unicode_blocks": "Bloques Unicode",
     "options.name_search": "Búsqueda por nombre",
@@ -1484,6 +1732,7 @@ const translations: Record<string, TranslationDict> = {
     "general.ready": "Listo",
     "general.select_char": "Seleccionar carácter...",
     "general.hex": "hex",
+    "general.decimal": "decimal",
     "general.not_assigned": "no asignado",
     "general.not_found": "No encontrado",
     "lang.title": "Seleccionar idioma",
@@ -1519,8 +1768,47 @@ export function t(key: string): string {
  * Convenience: get all UI menu/text data already translated.
  * Returns a reactive-derived object that updates automatically when lang changes.
  */
-export function localizedMenus(filterNoBlock: boolean = true) {
-  const menuData: { label: string; items: { l: string; k?: string; checked?: boolean; sub?: { l: string; sep?: boolean }[]; sep?: boolean }[] }[] = [
+/** The slice of the settings that the menu reflects as checkmarks. */
+export type MenuState = import("./settings.svelte").Settings;
+
+/** One entry of a drop-down menu (or of a submenu). */
+export interface MenuItem {
+  l: string;
+  k?: string;
+  checked?: boolean;
+  /** Greyed out: rendered but not clickable. */
+  disabled?: boolean;
+  sub?: MenuItem[];
+  sep?: boolean;
+}
+
+export function localizedMenus(st?: MenuState) {
+  // Menu state defaults: an un-checked composite mode with nothing enabled, so
+  // existing callers keep the plain menu they had before.
+  const inSingleMode = (st?.fontMode ?? "composite") === "single";
+  const gridSize = st?.gridSize ?? null;
+  // Index of the Fonts ▸ Grid Font Size row that matches the live px, so the
+  // dot follows View ▸ Medium/Large Size (the row/column table).
+  const gridIdx = gridIndexOf(gridSize, st?.viewSize ?? "medium");
+  const quality = st?.fontQuality ?? 0;
+  // Edit-menu state.  Same idea as the Fonts group: the toggle items show a
+  // checkmark so the menu itself says which mode is active, and the choice is
+  // persisted (the original stores these three in the registry).
+  const glyphMode = st?.glyphMode ?? true;
+  const editMode = st?.editMode ?? "char";
+  // Options-menu state.  `st` is the whole settings object, so every submenu
+  // below can show a radio dot / checkmark for the value that is active.
+  const opt = st;
+  const menuData: { label: string; items: MenuItem[] }[] = [
+    {
+      // File is only two items in the original too: the tray and Exit.  The
+      // window itself belongs to the desktop shell, so both are shell calls.
+      label: t("menu.file"),
+      items: [
+        { l: t("file.close_tray"), checked: !!opt?.closeToTray },
+        { l: t("file.exit") },
+      ],
+    },
     {
       label: t("menu.edit"),
       items: [
@@ -1535,12 +1823,21 @@ export function localizedMenus(filterNoBlock: boolean = true) {
         { l: t("edit.copy_glyph"), k: "F6" },
         { l: t("edit.copy_glyph_outline"), k: "Shift+F6" },
         { sep: true, l: "" },
-        { l: t("edit.glyph_mode"), k: "Ctrl+0" },
-        { l: t("edit.text_mode"), k: "Ctrl+9" },
+        { l: t("edit.glyph_mode"), k: "Ctrl+0", checked: glyphMode },
+        { l: t("edit.text_mode"), k: "Ctrl+9", checked: !glyphMode },
         { sep: true, l: "" },
-        { l: t("edit.colour_glyphs"), k: "Ctrl+7" },
+        { l: t("edit.colour_glyphs"), k: "Ctrl+7", checked: !!st?.colourGlyphs },
         { sep: true, l: "" },
-        { l: t("edit.char_mode"), sub: [{ l: t("edit.char") }, { l: t("edit.ncr_hex") }, { l: t("edit.ncr_dec") }, { l: t("edit.html") }, { l: t("edit.ucn") }] },
+        {
+          l: t("edit.char_mode"),
+          sub: [
+            { l: t("edit.char"), checked: editMode === "char" },
+            { l: t("edit.ncr_hex"), checked: editMode === "ncr_hex" },
+            { l: t("edit.ncr_dec"), checked: editMode === "ncr_dec" },
+            { l: t("edit.html"), checked: editMode === "html" },
+            { l: t("edit.ucn"), checked: editMode === "ucn" },
+          ],
+        },
       ],
     },
     {
@@ -1556,40 +1853,63 @@ export function localizedMenus(filterNoBlock: boolean = true) {
     },
     {
       label: t("menu.tools"),
-      items: [{ l: t("tools.unicode") }, { l: t("tools.emoji_lookup"), k: "Shift+F8" }, { l: t("tools.properties"), k: "F9" }, { sep: true, l: "" }, { l: t("tools.opentype_test") }],
+      items: [
+        { l: t("tools.unicode") },
+        { sep: true, l: "" },
+        { l: t("tools.mandarin"), k: "F12" },
+        { l: t("tools.cantonese"), k: "Shift+F12" },
+        { l: t("tools.zhuang") },
+        { l: t("tools.han_radical"), k: "F11" },
+        { l: t("tools.yi_radical"), k: "Shift+F11" },
+        { sep: true, l: "" },
+        { l: t("tools.emoji_lookup"), k: "Shift+F8" },
+        { l: t("tools.properties"), k: "F9" },
+        { l: t("tools.supplementary") },
+        { sep: true, l: "" },
+        { l: t("tools.ucd") },
+        { l: t("tools.ucd_xml") },
+        { sep: true, l: "" },
+        { l: t("tools.opentype_test") },
+      ],
     },
     {
       label: t("menu.fonts"),
       items: [
-        { l: t("fonts.single"), k: "Ctrl+1" },
-        { l: t("fonts.composite"), k: "Ctrl+2" },
+        { l: t("fonts.single"), k: "Ctrl+1", checked: inSingleMode },
+        { l: t("fonts.composite"), k: "Ctrl+2", checked: !inSingleMode },
         { sep: true, l: "" },
-        { l: t("fonts.list_all_styles") },
-        { l: t("fonts.legacy_enum") },
-        { l: t("fonts.symbol_mappings") },
+        // The original greys these two out unless single-font mode is active:
+        // both only make sense when enumerating one family's faces.
+        { l: t("fonts.list_all_styles"), checked: !!st?.allStyles, disabled: !inSingleMode },
+        { l: t("fonts.legacy_enum"), checked: !!st?.legacyEnum, disabled: !inSingleMode },
+        { l: t("fonts.symbol_mappings"), checked: !!st?.symbolMapping },
         { sep: true, l: "" },
-        { l: t("fonts.grid_size"), sub: [{ l: t("fonts.very_small") }, { l: t("fonts.small") }, { l: t("fonts.medium") }, { l: t("fonts.large") }, { l: t("fonts.very_large") }] },
+        {
+          l: t("fonts.grid_size"),
+          sub: [
+            { l: t("fonts.very_small"), checked: gridIdx === 0 },
+            { l: t("fonts.small"), checked: gridIdx === 1 },
+            { l: t("fonts.medium"), checked: gridIdx === 2 },
+            { l: t("fonts.large"), checked: gridIdx === 3 },
+            { l: t("fonts.very_large"), checked: gridIdx === 4 },
+          ],
+        },
         { sep: true, l: "" },
         {
           l: t("fonts.quality"),
           sub: [
-            { l: t("fonts.default") },
-            { l: t("fonts.draft") },
-            { l: t("fonts.proof") },
-            { l: t("fonts.non_aa") },
-            { l: t("fonts.aa") },
-            { l: t("fonts.cleartype") },
-            { l: t("fonts.cleartype_nat") },
+            { l: t("fonts.default"), checked: quality === 0 },
+            { l: t("fonts.draft"), checked: quality === 1 },
+            { l: t("fonts.proof"), checked: quality === 2 },
+            { l: t("fonts.non_aa"), checked: quality === 3 },
+            { l: t("fonts.aa"), checked: quality === 4 },
+            { l: t("fonts.cleartype"), checked: quality === 5 },
+            { l: t("fonts.cleartype_nat"), checked: quality === 6 },
           ],
         },
-        { sep: true, l: "" },
-        { l: t("fonts.add") },
-        { l: t("fonts.remove") },
+        { l: t("fonts.quality_dialog") },
         { sep: true, l: "" },
         { l: t("fonts.overview") },
-        { l: t("fonts.analysis"), k: "F7" },
-        { l: t("fonts.coverage") },
-        { l: t("fonts.info"), k: "Ctrl+F7" },
         { l: t("fonts.export_glyphs") },
         { sep: true, l: "" },
         { l: t("fonts.composite_mapping"), k: "Shift+F7" },
@@ -1598,67 +1918,106 @@ export function localizedMenus(filterNoBlock: boolean = true) {
     {
       label: t("menu.options"),
       items: [
-        { l: t("options.unicode_blocks"), sub: [{ l: t("options.blocks_alpha") }, { l: t("options.blocks_codepoint") }] },
-        { l: t("options.name_search"), sub: [{ l: t("options.search_aliases") }] },
-        { l: t("options.goto_cp"), sub: [{ l: t("options.goto_hex") }, { l: t("options.goto_dec") }] },
+        {
+          l: t("options.unicode_blocks"),
+          sub: [
+            { l: t("options.blocks_alpha"), checked: !!opt?.blocksSorted },
+            { l: t("options.blocks_codepoint"), checked: !opt?.blocksSorted },
+          ],
+        },
+        {
+          l: t("options.name_search"),
+          sub: [{ l: t("options.search_aliases"), checked: !!opt?.searchAliases }],
+        },
+        {
+          l: t("options.goto_cp"),
+          sub: [
+            { l: t("options.goto_hex"), checked: opt?.gotoHex !== false },
+            { l: t("options.goto_dec"), checked: opt?.gotoHex === false },
+          ],
+        },
         {
           l: t("options.alt_repr"),
-          sub: [
-            { l: t("options.alt_decimal") },
-            { l: t("options.alt_ucn") },
-            { l: t("options.alt_ucn16") },
-            { l: t("options.alt_ncr_hex") },
-            { l: t("options.alt_ncr_dec") },
-            { l: t("options.alt_html") },
-            { l: t("options.alt_utf8_hex") },
-            { l: t("options.alt_utf8_oct") },
-          ],
+          sub: ALT_LABELS.map((key, i) => ({
+            l: t(key),
+            checked: (opt?.altRepr ?? "decimal") === ALT_REPRS[i],
+          })),
         },
         {
           l: t("options.cjkv_readings"),
           sub: [
-            { l: t("options.cjkv_mandarin") },
-            { l: t("options.cjkv_cantonese") },
-            { l: t("options.cjkv_korean") },
-            { l: t("options.cjkv_quoc_ngu") },
-            { l: t("options.cjkv_viqr") },
-            { l: t("options.cjkv_zhuang") },
+            ...CJKV_LABELS.map((key, i) => ({
+              l: t(key),
+              checked: (opt?.cjkvReading ?? "mandarin") === CJKV_READINGS[i],
+            })),
             { sep: true, l: "" },
-            { l: t("options.cjkv_upper_case") },
-            { l: t("options.cjkv_tone_numbers") },
+            { l: t("options.cjkv_upper_case"), checked: !!opt?.cjkvUpperCase },
+            { l: t("options.cjkv_tone_numbers"), checked: !!opt?.cjkvToneNumbers },
           ],
         },
         {
           l: t("options.tangut_readings"),
           sub: [
-            { l: t("options.tangut_gong") },
-            { l: t("options.tangut_kychanov") },
-            { l: t("options.tangut_sofronov") },
-            { l: t("options.tangut_nishida") },
-            { l: t("options.tangut_miyake_2012") },
-            { l: t("options.tangut_miyake_2015") },
+            ...TANGUT_LABELS.map((key, i) => ({
+              l: t(key),
+              checked: (opt?.tangutReading ?? "gong2008") === TANGUT_READINGS[i],
+            })),
             { sep: true, l: "" },
-            { l: t("options.tangut_tones") },
+            { l: t("options.tangut_tones"), checked: !!opt?.tangutToneNumbers },
           ],
         },
-        { l: t("options.char_grid"), sub: [{ l: t("options.grid_single_click") }, { l: t("options.grid_double_click") }, { sep: true, l: "" }, { l: t("options.grid_copy_on_select") }] },
-        { l: t("options.popup_magnif"), sub: [{ l: t("options.popup_36") }, { l: t("options.popup_72") }, { l: t("options.popup_108") }, { l: t("options.popup_144") }] },
+        {
+          l: t("options.char_grid"),
+          sub: [
+            { l: t("options.grid_single_click"), checked: opt?.selectClick !== "double" },
+            { l: t("options.grid_double_click"), checked: opt?.selectClick === "double" },
+            { sep: true, l: "" },
+            { l: t("options.grid_copy_on_select"), checked: !!opt?.copyOnSelect },
+          ],
+        },
+        {
+          l: t("options.popup_magnif"),
+          sub: POPUP_SIZES.map((size, i) => ({
+            l: t(POPUP_LABELS[i]),
+            checked: (opt?.popupMag ?? 72) === size,
+          })),
+        },
         {
           l: t("options.colour_coding"),
+          sub: COLOUR_LABELS.map((key, i) => ({
+            l: t(key),
+            checked: (opt?.colourCoding ?? "none") === COLOUR_CODINGS[i],
+          })),
+        },
+        {
+          l: t("options.cut_copy_defaults"),
           sub: [
-            { l: t("options.coding_none") },
-            { l: t("options.coding_gc") },
-            { l: t("options.coding_bc") },
-            { l: t("options.coding_bm") },
-            { l: t("options.coding_dt") },
-            { l: t("options.coding_nt") },
-            { l: t("options.coding_script") },
-            { l: t("options.coding_version") },
+            { l: t("options.cutcopy_plain"), checked: opt?.cutCopy === "plain" },
+            { l: t("options.cutcopy_rtf"), checked: opt?.cutCopy !== "plain" },
           ],
         },
-        { l: t("options.cut_copy_defaults"), sub: [{ l: t("options.cutcopy_plain") }, { l: t("options.cutcopy_rtf") }] },
-        { l: t("options.status_bar"), sub: [{ l: t("options.status_algorithmic") }, { l: t("options.status_cjk") }, { l: t("options.status_tangut") }] },
-        { l: t("options.other"), sub: [{ l: t("options.other_convert_latin") }, { l: t("options.other_rotate_vertical") }, { l: t("options.other_close_tray") }] },
+        {
+          l: t("options.status_bar"),
+          sub: [
+            {
+              l: t("options.status_algorithmic"),
+              checked: opt?.showAlgorithmicNames !== false,
+            },
+            { l: t("options.status_cjk"), checked: opt?.showCjkRefs !== false },
+            {
+              l: t("options.status_tangut"),
+              checked: opt?.showTangutRefs !== false,
+            },
+          ],
+        },
+        {
+          l: t("options.other"),
+          sub: [
+            { l: t("options.other_convert_latin"), checked: !!opt?.convertBasicLatin },
+            { l: t("options.other_rotate_vertical"), checked: !!opt?.rotateVertical },
+            { l: t("options.other_close_tray"), checked: !!opt?.closeToTray },
+          ],
+        },
         { sep: true, l: "" },
         { l: t("options.font_config") },
         { l: t("options.customize_colours") },
@@ -1668,20 +2027,37 @@ export function localizedMenus(filterNoBlock: boolean = true) {
     },
     {
       label: t("menu.bookmarks"),
-      items: [{ l: t("bookmarks.manage") }, { sep: true, l: "" }, { l: t("bookmarks.add"), k: "Insert" }, { l: t("bookmarks.remove"), k: "Ctrl+Delete" }, { l: t("bookmarks.clear") }],
+      items: [
+        { l: t("bookmarks.manage") },
+        { sep: true, l: "" },
+        { l: t("bookmarks.add"), k: "Insert" },
+        { l: t("bookmarks.remove"), k: "Ctrl+Delete" },
+        { l: t("bookmarks.clear") },
+        // The original appends one entry per bookmark below the separator
+        // (`OnAddBookmark` / `OnManageBookmarks` rebuild the menu from the
+        // registry), so the list is part of the menu itself.
+        ...(opt?.bookmarks?.length
+          ? [
+              { sep: true, l: "" },
+              ...opt.bookmarks.map((b) => ({
+                l: `U+${b.cp.toString(16).toUpperCase().padStart(4, "0")} ${b.name}`,
+              })),
+            ]
+          : []),
+      ],
     },
     {
       label: t("menu.view"),
       items: [
-        { l: t("view.medium_size") },
-        { l: t("view.large_size") },
+        { l: t("view.medium_size"), checked: (st?.viewSize ?? "medium") === "medium" },
+        { l: t("view.large_size"), checked: st?.viewSize === "large" },
         { sep: true, l: "" },
-        { l: t("view.filter_no_block"), checked: filterNoBlock },
-        { l: t("view.hide_reserved_planes") },
+        { l: t("view.filter_no_block"), checked: !(st?.showReservedRanges ?? false) },
+        { l: t("view.hide_reserved_planes"), checked: !(st?.showReservedPlanes ?? false) },
         { sep: true, l: "" },
-        { l: t("view.show_edit_buffer") },
+        { l: t("view.show_edit_buffer"), checked: st?.editBufferVisible ?? true },
         { sep: true, l: "" },
-        { l: t("view.keep_on_top") },
+        { l: t("view.keep_on_top"), checked: !!st?.keepOnTop },
       ],
     },
     { label: t("menu.help"), items: [{ l: t("help.help"), k: "F1" }, { l: t("help.about") }] },
