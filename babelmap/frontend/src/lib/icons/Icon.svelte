@@ -24,11 +24,14 @@
     "chevron-right": '<path d="m9 6 6 6-6 6"/>',
     "chevron-left": '<path d="m15 6-6 6 6 6"/>',
     "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+    "chevron-up": '<path d="m6 15 6-6 6 6"/>',
     "arrow-right": '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
 
     // actions
     check: '<path d="M20 6 9 17l-5-5"/>',
     close: '<path d="M18 6 6 18M6 6l12 12"/>',
+    trash:
+      '<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',
     copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/>',
   };
 
