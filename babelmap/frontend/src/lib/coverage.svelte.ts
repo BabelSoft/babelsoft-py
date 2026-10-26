@@ -11,6 +11,7 @@
  * and its progress bar is surfaced the same way Font Overview does it.
  */
 import { API_BASE } from "./api";
+import { settings } from "./settings.svelte";
 
 export interface BlockFont {
   index: number;
@@ -185,7 +186,9 @@ export async function loadCoverage(only?: string): Promise<void> {
   s.scanStarted = Date.now();
   s.scanElapsed = 0;
   try {
-    const q = only ? `?block=${encodeURIComponent(only)}` : "";
+    const q =
+      (only ? `?block=${encodeURIComponent(only)}&` : "?") +
+      `all_styles=${settings.allStyles ? "true" : "false"}`;
     const r = await fetch(API_BASE + "/fonts/coverage/stream" + q);
     if (!r.ok) throw new Error(String(r.status));
     const reader = r.body?.getReader();
@@ -257,7 +260,8 @@ export async function loadBlockChars(block: string): Promise<void> {
   s.charLoading = true;
   try {
     const r = await fetch(
-      API_BASE + "/fonts/coverage/chars?block=" + encodeURIComponent(block),
+      API_BASE + "/fonts/coverage/chars?block=" + encodeURIComponent(block) +
+        `&all_styles=${settings.allStyles ? "true" : "false"}`,
     );
     if (!r.ok) throw new Error(String(r.status));
     const d = (await r.json()) as BlockChars;
@@ -311,7 +315,11 @@ export function supportSet(data: BlockChars, faceIndex: number): BlockSupport {
   s.autoRunning = true;
   s.error = "";
   try {
-    const r = await fetch(API_BASE + "/fonts/coverage/auto");
+    const r = await fetch(
+      API_BASE +
+        "/fonts/coverage/auto?all_styles=" +
+        (settings.allStyles ? "true" : "false"),
+    );
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || String(r.status));
     s.auto = d.assignments ?? [];

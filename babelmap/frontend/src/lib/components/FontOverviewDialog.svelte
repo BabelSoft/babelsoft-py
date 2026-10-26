@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from "../icons/Icon.svelte";
+  import { untrack } from "svelte";
   import { API_BASE } from "../api";
+  import { settings } from "../settings.svelte";
   import {
     fontStack,
     loadUserFonts,
@@ -43,6 +45,9 @@
     family: string;
     hyper_family: string;
     subfamily: string;
+    // GDI names (name ID 1/2) — what Fonts ▸ Legacy Font Enumeration shows.
+    legacy_family?: string;
+    legacy_subfamily?: string;
     full_name: string;
     ps_name: string;
     version: string;
@@ -331,6 +336,39 @@
       (typeof window !== "undefined" ? window.innerHeight : 820) - 40,
     ),
   );
+
+  /**
+   * Keep the dialog inside the viewport.
+   *
+   * The defaults above assume a large window; on a narrow one (or after a
+   * resize) the dialog would extend past the right/bottom edge and take the
+   * close button with it.  Runs on open and on every resize.
+   *
+   * Until the user drags the resize handle the size is re-derived from the
+   * viewport, so the dialog grows back after the window is enlarged; after that
+   * the user's size is kept and only clamped.
+   */
+  function clampToViewport() {
+    if (typeof window === "undefined") return;
+    untrack(() => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const m = 8;
+      const prefW = Math.min(1240, vw - 32);
+      const prefH = Math.min(820, vh - 40);
+      w = Math.max(360, userSized ? Math.min(w, vw - m * 2) : prefW);
+      h = Math.max(260, userSized ? Math.min(h, vh - m * 2) : prefH);
+      x = Math.min(Math.max(x, m), Math.max(m, vw - w - m));
+      y = Math.min(Math.max(y, m), Math.max(m, vh - h - m));
+    });
+  }
+  $effect(() => {
+    if (!show) return;
+    clampToViewport();
+    const onResize = () => clampToViewport();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  });
   let dragging = $state(false);
   let dragStartX = $state(0);
   let dragStartY = $state(0);
@@ -355,6 +393,8 @@
     document.removeEventListener("mouseup", onDragEnd);
   }
   let resizing = $state(false);
+  /** Set once the user drags the resize handle — from then on their size wins. */
+  let userSized = $state(false);
   let resizeStartX = $state(0);
   let resizeStartY = $state(0);
   let winStartW = $state(0);
@@ -363,6 +403,7 @@
     e.preventDefault();
     e.stopPropagation();
     resizing = true;
+    userSized = true;
     resizeStartX = e.clientX;
     resizeStartY = e.clientY;
     winStartW = w;
@@ -371,8 +412,11 @@
     document.addEventListener("mouseup", onResizeEnd);
   }
   function onResizeMove(e: MouseEvent) {
-    w = Math.max(760, winStartW + (e.clientX - resizeStartX));
-    h = Math.max(420, winStartH + (e.clientY - resizeStartY));
+    const m = 8;
+    const maxW = Math.max(360, window.innerWidth - m * 2);
+    const maxH = Math.max(260, window.innerHeight - m * 2);
+    w = Math.min(maxW, Math.max(360, winStartW + (e.clientX - resizeStartX)));
+    h = Math.min(maxH, Math.max(260, winStartH + (e.clientY - resizeStartY)));
   }
   function onResizeEnd() {
     resizing = false;
@@ -418,8 +462,31 @@
     return Math.round(r * 100);
   }
   function styleLabel(f: Face): string {
-    const s = (f.subfamily || "Regular").trim();
+    const s = (
+      (settings.legacyEnum ? f.legacy_subfamily : f.subfamily) || "Regular"
+    ).trim();
     return f.variable ? s + " · Var" : s;
+  }
+  /** The family name to *display* — legacy (GDI) or typographic. */
+  function familyLabel(f: Face): string {
+    return (settings.legacyEnum ? f.legacy_family : f.family) || f.family;
+  }
+  /**
+   * Fonts ▸ List All Styles of Fonts.
+   *
+   * The original collapses a family to its primary face unless this is on
+   * (``CFontData::IsPrimaryStyle``); the same rule is applied here so the
+   * toggle visibly changes the list instead of being cosmetic.
+   */
+  function visibleFaces(faces: Face[]): Face[] {
+    if (settings.allStyles) return faces;
+    const prim = faces.filter(
+      (f) =>
+        !/(bold|italic|oblique|light|thin|black|semibold|medium|heavy)/i.test(
+          f.subfamily || "",
+        ),
+    );
+    return prim.length ? prim : faces.slice(0, 1);
   }
   function sampleChar(main: string): string {
     const m: Record<string, string> = {
@@ -1114,14 +1181,18 @@
                               style:font-family={fam.faces[0].family}
                               >{sampleChar(fam.faces[0].main_script)}</span
                             >
-                            <span class="fog-fname" title={fam.family}
-                              >{fam.family}</span
+                            <span
+                              class="fog-fname"
+                              title={familyLabel(fam.faces[0])}
+                              >{familyLabel(fam.faces[0])}</span
                             >
-                            <span class="fog-fcount">{fam.faces.length}</span>
+                            <span class="fog-fcount"
+                              >{visibleFaces(fam.faces).length}</span
+                            >
                           </div>
                           {#if showFaces}
                             <div class="fog-faces">
-                              {#each fam.faces as f (key(f))}
+                              {#each visibleFaces(fam.faces) as f (key(f))}
                                 <button
                                   class="fog-face"
                                   class:on={isSel(f)}
@@ -1324,8 +1395,7 @@
                 <textarea
                   bind:value={previewText}
                   spellcheck="false"
-                  placeholder="Type a preview…"
-                ></textarea>
+                  placeholder="Type a preview…"></textarea>
                 <input
                   type="range"
                   min="16"
@@ -1520,9 +1590,16 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    min-width: 760px;
-    min-height: 420px;
-    max-width: calc(100vw - 24px);
+    /* the inline width/height are the OUTER size, so the border must be
+       included — otherwise the dialog is 4px wider than clamped and can creep
+       past the viewport edge */
+    box-sizing: border-box;
+    /* The size is owned by clampToViewport() / the resize handle, which already
+       enforce a minimum; a CSS min-width here would silently override the
+       clamped inline width on small viewports. */
+    min-width: 0;
+    min-height: 0;
+    max-width: calc(100vw - 16px);
     max-height: calc(100vh - 16px);
     user-select: none;
   }

@@ -95,6 +95,20 @@ export interface BlockAssignment {
 }
 
 export const fontStack = $state({
+  /**
+   * How the grid picks fonts.
+   *
+   * * `composite` — the BabelMap "composite font": block assignments plus the
+   *   point-and-click stack, compiled into `@font-face` rules with ranges.
+   * * `single` — one family for everything (the original's
+   *   `IDM_OPTIONS_SINGLE_FONT`).  Nothing is injected; only the family name
+   *   changes, which also makes the grid fast on huge blocks.
+   *
+   * Mirrored from `settings.fontMode` by `applySettings()`.
+   */
+  mode: "composite" as "composite" | "single",
+  /** The family used in single-font mode. */
+  singleFamily: "Arial",
   /** The structured entries, in stack order (append-to-end = later fallback). */
   items: [] as StackItem[],
   /** Hand-written CSS, validated as a whole on the backend. */
@@ -269,6 +283,12 @@ export function clearBlockAssignment(block: string): void {
  * finally a generic family so unstyled characters still render.
  */
 export function stackFamily(items: StackItem[], base?: string): string {
+  // Single-font mode bypasses the whole machinery: one family, one generic
+  // fallback.  This is what the original does when `m_pFontDataNull` is set.
+  if (fontStack.mode === "single") {
+    const fam = fontStack.singleFamily || base;
+    return fam ? `${quoteFamily(fam)}, serif` : "serif";
+  }
   const names = fontStack.blocks
     .filter((a) => a.family || a.userId)
     .map(blockFamilyName);
@@ -276,12 +296,17 @@ export function stackFamily(items: StackItem[], base?: string): string {
     ...items.filter((i) => i.enabled && (i.family || i.userId)).map(itemFamily),
   );
   if (base) names.push(quoteFamily(base));
+  // An empty stack must leave `font-family` untouched, otherwise the grid would
+  // silently fall back to a bare generic family.
+  if (!names.length) return "";
   names.push("serif");
   return names.join(", ");
 }
 
 /** Full CSS injected into <head>: block faces, the user's CSS, then entries. */
 export function buildCss(items: StackItem[], css: string): string {
+  // Single-font mode injects nothing — the family is a system font.
+  if (fontStack.mode === "single") return "";
   const blocks = compileBlocks(fontStack.blocks);
   const compiled = compileItems(items);
   const user = css.trim();
@@ -415,6 +440,11 @@ export async function applyStack(): Promise<void> {
   const css = buildCss(fontStack.items, fontStack.css);
   inject(css);
   fontStack.applied = true;
+  // Nothing to compile in single-font mode, so skip the round-trip.
+  if (fontStack.mode === "single") {
+    fontStack.report = null;
+    return;
+  }
   await validateCss(css);
 }
 

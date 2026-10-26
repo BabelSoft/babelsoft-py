@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "../icons/Icon.svelte";
+  import { untrack } from "svelte";
   import { API_BASE } from "../api";
   import { t } from "../i18n.svelte";
   import {
@@ -70,6 +71,34 @@
       (typeof window !== "undefined" ? window.innerHeight : 780) - 40,
     ),
   );
+
+  /**
+   * Keep the dialog inside the viewport.
+   *
+   * The defaults above assume a large window; on a narrow one (or after a
+   * resize) the dialog would extend past the right/bottom edge and take the
+   * close button with it.  Runs on open and on every resize.  This dialog has no
+   * resize handle, so the size is always re-derived from the viewport.
+   */
+  function clampToViewport() {
+    if (typeof window === "undefined") return;
+    untrack(() => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const m = 8;
+      w = Math.max(320, Math.min(1120, vw - m * 2));
+      h = Math.max(240, Math.min(780, vh - m * 2));
+      x = Math.min(Math.max(x, m), Math.max(m, vw - w - m));
+      y = Math.min(Math.max(y, m), Math.max(m, vh - h - m));
+    });
+  }
+  $effect(() => {
+    if (!show) return;
+    clampToViewport();
+    const onResize = () => clampToViewport();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  });
   let dragging = $state(false);
   let dsx = $state(0),
     dsy = $state(0),
@@ -1187,7 +1216,9 @@
     position: fixed;
     inset: 0;
     background: transparent;
-    z-index: 60;
+    /* must clear the menu bar (z-index 100/200) — at 60 the dialog could be
+       drawn *under* it when dragged near the top of the screen */
+    z-index: 300;
   }
   .cfd {
     position: fixed;
@@ -1199,6 +1230,10 @@
     border-radius: 8px;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
     overflow: hidden;
+    /* the inline width/height are the OUTER size (see clampToViewport) */
+    box-sizing: border-box;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
   }
   .cfd-head {
     display: flex;
