@@ -637,6 +637,23 @@ def _covered_ranges(cps: list[int]) -> list[tuple[int, int]]:
     return out
 
 
+def _merge_ranges(cps: list[int]) -> list[tuple[int, int]]:
+    """Merged disjoint ``[start, end]`` ranges covering **every** entry of
+    ``cps`` (which must be sorted).
+
+    Unlike :func:`_covered_ranges` this applies *no* repertoire filter, so it is
+    a faithful, compact record of the cmap: combining marks, format characters
+    and unassigned-but-mapped code points all survive.
+    """
+    out: list[tuple[int, int]] = []
+    for cp in cps:
+        if out and cp == out[-1][1] + 1:
+            out[-1] = (out[-1][0], cp)
+        else:
+            out.append((cp, cp))
+    return out
+
+
 def _union_range_count(lists: list[list[tuple[int, int]]]) -> int:
     """Size of the union of disjoint range lists — shared code points across
     faces of one design count once."""
@@ -963,7 +980,18 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
     # Compact merged ranges of the covered characters, kept for the hyper
     # family's character union (faces of one design overlap heavily, so
     # summing per-script counts would double-count the shared repertoires).
+    #
+    # NOTE: these ranges are restricted to the "common repertoire" (the union
+    # of every script's sample ranges), so they are NOT a faithful record of
+    # the cmap — combining marks, format characters and anything else outside
+    # those ranges is missing.  ``_all_ranges`` below is the unfiltered one.
     cps_ranges = _covered_ranges(sorted_cps)
+    # Every range the cmap maps, unfiltered.  The composite-font coverage
+    # analysis (backend/font_coverage.py) needs this: it counts per-block
+    # coverage, and blocks such as "Combining Diacritical Marks" (U+0300-036F)
+    # lie entirely outside the script repertoires, so ``_cps_ranges`` would
+    # report zero covering fonts for them.
+    all_ranges = _merge_ranges(sorted_cps)
 
     family = _name(tt, 16, 1) or os.path.basename(path)
     subfamily = _name(tt, 17, 2) or "Regular"
@@ -1011,6 +1039,12 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
         "tags": _script_tags(counts, main_tag),
         "_counts": counts,
         "_cps_ranges": cps_ranges,
+        "_all_ranges": all_ranges,
+        # Every code point the cmap maps, sorted — the composite-font coverage
+        # analysis (backend/font_coverage.py) counts per-block coverage from
+        # this.  Dropped from the cached copy below because it is large, and
+        # re-derived from ``_all_ranges`` when needed.
+        "_all_cps": sorted_cps,
         "ot_langs": ot_langs,
         "ot_features": _read_ot_features(tt),
         "meta_langs": _read_name_langs(tt),
@@ -1044,6 +1078,13 @@ def _scan_file(path: str, source: str, reuse_cache: bool = True) -> list[dict]:
         for e in entries:
             c = dict(e)
             c.pop("_glyph_names", None)
+            # ``_all_cps`` can hold tens of thousands of ints per face; the
+            # composite-font coverage pass re-derives it from ``_all_ranges``
+            # (backend/font_coverage.py) when it needs it, so it is not cached.
+            # ``_all_ranges`` MUST be kept: it is the only faithful record of
+            # the cmap left after ``_all_cps`` is dropped (``_cps_ranges`` is
+            # filtered to the script repertoires).
+            c.pop("_all_cps", None)
             cached.append(c)
         _cache[key] = cached
     return entries
@@ -1146,16 +1187,27 @@ def _apply_hyper_classification(faces: list[dict]) -> None:
             f.pop("_glyph_names", None)
 
 
-def scan_fonts(extra_dirs: list[str] | None = None) -> list[dict]:
+def scan_fonts(
+    extra_dirs: list[str] | None = None,
+    progress: callable | None = None,
+) -> list[dict]:
     """Enumerate every font face across the default directories plus any
     ``extra_dirs``.  Returns a flat list of face entries (grouping by family
-    and script happens on the client)."""
+    and script happens on the client).
+
+    ``progress`` — optional callback ``progress(done, total, label, cached)``
+    invoked after each font file is scanned, so callers (e.g. the SSE endpoint)
+    can report a progress bar.  ``label`` is the file name, ``cached`` whether
+    the per-file cache was reused (warm scans are near-instant).
+    """
     dirs = list(DEFAULT_DIRS)
     for d in extra_dirs or []:
         if d and os.path.isdir(d) and d not in dirs:
             dirs.append(d)
 
-    out: list[dict] = []
+    # Collect the file list first so ``total`` is known up front (the UI needs a
+    # denominator to draw the bar).
+    pending: list[tuple[str, str]] = []
     seen_paths: set[str] = set()
     for d in dirs:
         source = _source_label(d)
@@ -1171,11 +1223,33 @@ def scan_fonts(extra_dirs: list[str] | None = None) -> list[dict]:
             if key in seen_paths:
                 continue
             seen_paths.add(key)
-            out.extend(_scan_file(p, source))
+            pending.append((p, source))
+
+    total = len(pending)
+    out: list[dict] = []
+    for done, (p, source) in enumerate(pending, start=1):
+        before = len(out)
+        out.extend(_scan_file(p, source))
+        if progress is not None:
+            # A file whose entries were already in the per-file cache was not
+            # re-read from disk — report that so the UI can label warm scans.
+            cached = not out[before:] or _is_cached(p)
+            progress(done, total, os.path.basename(p), cached)
 
     out.sort(key=lambda e: (e["family"].lower(), e["subfamily"].lower()))
     _apply_hyper_classification(out)
+    if progress is not None:
+        progress(total, total, "", True)
     return out
+
+
+def _is_cached(path: str) -> bool:
+    """True when ``path`` is present in the per-file cache (cheap stat only)."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    return (os.path.normcase(path), st.st_mtime_ns, st.st_size) in _cache
 
 
 def clear_cache() -> None:

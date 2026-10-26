@@ -4,6 +4,9 @@ babellib/data/babelstone/
 babellib/data/ivd/
 babellib/tools/
 
+# User-uploaded fonts managed by babelmap/backend/font_registry.py
+babelmap/backend/var/
+
 # Svelte build output
 package-lock.json
 node_modules/

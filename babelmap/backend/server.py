@@ -8,7 +8,6 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 BABELLIB = REPO_ROOT / "babellib"
@@ -17,10 +16,10 @@ BABELLIB = REPO_ROOT / "babellib"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(BABELLIB))
 
-from fastapi import FastAPI, Query  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import JSONResponse, StreamingResponse  # noqa: E402
-from babelsoft.unicode.core import Unicode  # noqa: E402
+from babelsoft.unicode.core import Unicode
+from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, StreamingResponse
 
 app = FastAPI(title="BabelMap Backend", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -131,7 +130,7 @@ def _find_font_file(family: str) -> str | None:
         return None
 
 
-def _render_glyph(cp: int, family: str, size: int = 16) -> Optional[str]:
+def _render_glyph(cp: int, family: str, size: int = 16) -> str | None:
     try:
         from PIL import Image, ImageDraw
 
@@ -665,6 +664,74 @@ def fonts_overview(dirs: str = ""):
     }
 
 
+@app.get("/api/fonts/overview/stream")
+def fonts_overview_stream(dirs: str = ""):
+    """Streaming font overview: SSE progress while scanning, then the payload.
+
+    Events: ``data: SCAN {"done":…,"total":…,"file":…,"pct":…}`` per font file,
+    then ``data: RESULT {fonts, chapters}``, then ``data: [DONE]``.
+    """
+    import json
+
+    from babelmap.backend.font_overview import CHAPTERS, scan_fonts
+
+    extra = [d.strip() for d in dirs.split("|") if d.strip()]
+
+    def gen():
+        import threading
+
+        # scan_fonts is synchronous and CPU-bound, so run it on a worker thread
+        # and pump the progress events its callback queues onto the SSE stream.
+        pending: list[dict] = []
+        box: dict = {}
+
+        def progress(done: int, total: int, label: str, cached: bool):
+            pending.append(
+                {
+                    "done": done,
+                    "total": total,
+                    "file": label,
+                    "cached": cached,
+                    "pct": round((done / total * 100.0) if total else 100.0, 1),
+                }
+            )
+
+        def run():
+            try:
+                box["fonts"] = scan_fonts(extra_dirs=extra, progress=progress)
+            except Exception as exc:  # pragma: no cover - defensive
+                box["error"] = str(exc)
+
+        th = threading.Thread(target=run, daemon=True)
+        th.start()
+        emitted = 0
+        while True:
+            while emitted < len(pending):
+                yield f"data: SCAN {json.dumps(pending[emitted])}\n\n"
+                emitted += 1
+            if not th.is_alive() and emitted >= len(pending):
+                break
+            th.join(timeout=0.05)
+
+        if "error" in box:
+            yield f"data: ERROR {json.dumps(box['error'])}\n\n"
+        else:
+            yield "data: RESULT " + json.dumps(
+                {
+                    "fonts": box.get("fonts") or [],
+                    "chapters": [CHAPTERS[n] for n in sorted(CHAPTERS)],
+                },
+                ensure_ascii=False,
+            ) + "\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.get("/api/fonts/raw")
 def fonts_raw(path: str = ""):
     """Serve a font file for @font-face (the variable-font preview needs a
@@ -688,6 +755,237 @@ def fonts_raw(path: str = ""):
         media_type=media,
         headers={"Cache-Control": "no-store"},
     )
+
+
+# ── User font registry (fonts from *outside* the system font folders) ──
+# The browser can resolve installed fonts via local("Name"), but a font the user
+# downloads / points at elsewhere is unreachable, so it is uploaded here and
+# served back for @font-face src: url(...).  See backend/font_registry.py.
+
+
+@app.get("/api/fonts/user")
+def user_fonts_list():
+    """List every font the user has added (newest first)."""
+    from babelmap.backend.font_registry import list_fonts
+
+    return {"fonts": list_fonts()}
+
+
+@app.post("/api/fonts/user")
+def user_fonts_add(payload: dict):
+    """Register an uploaded font.
+
+    Body: ``{file_name, data_b64}`` (base64 payload) **or** ``{file_name,
+    path}`` to import a file the backend can already read.  The font is copied
+    into the managed ``var/user_fonts`` folder and returned with its metadata.
+    """
+    from babelmap.backend.font_registry import register
+
+    file_name = str(payload.get("file_name") or "").strip()
+    b64 = payload.get("data_b64")
+    raw_path = payload.get("path")
+    try:
+        if b64:
+            data = base64.b64decode(b64, validate=False)
+            file_name = file_name or "font"
+        elif raw_path:
+            if not os.path.isfile(raw_path):
+                return JSONResponse({"error": f"No such file: {raw_path}"}, status_code=404)
+            with open(raw_path, "rb") as fh:
+                data = fh.read()
+            file_name = file_name or os.path.basename(raw_path)
+        else:
+            return JSONResponse({"error": "Provide data_b64 or path"}, status_code=400)
+        entry = register(file_name, data)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": f"Could not register the font: {e}"}, status_code=400)
+    return entry
+
+
+@app.post("/api/fonts/user/remove")
+def user_fonts_remove(payload: dict):
+    """Unregister (and delete) a user font — the inverse of ``POST /api/fonts/user``."""
+    from babelmap.backend.font_registry import unregister
+
+    fid = str(payload.get("id") or "").strip()
+    if not fid:
+        return JSONResponse({"error": "Missing id"}, status_code=400)
+    if not unregister(fid):
+        return JSONResponse({"error": f"Unknown font id '{fid}'"}, status_code=404)
+    return {"ok": True, "id": fid}
+
+
+@app.get("/api/fonts/user_file")
+def user_fonts_file(id: str = Query("", min_length=1)):
+    """Serve a registered user font back to the browser for ``@font-face``."""
+    from fastapi.responses import FileResponse
+
+    from babelmap.backend.font_registry import media_type, resolve
+
+    entry = resolve(id)
+    if entry is None:
+        return JSONResponse({"error": "unknown font id"}, status_code=404)
+    path = entry["path"]
+    if not os.path.isfile(path):
+        return JSONResponse({"error": "font file is gone"}, status_code=404)
+    return FileResponse(
+        path,
+        media_type=media_type(entry.get("ext", "")),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/api/fonts/user/analyze")
+def user_fonts_analyze(id: str = Query("", min_length=1)):
+    """FontTools analysis of one registered font (identity, coverage, OpenType)."""
+    from babelmap.backend.font_registry import analyze
+
+    info = analyze(id)
+    if info is None:
+        return JSONResponse({"error": f"Unknown font id '{id}'"}, status_code=404)
+    return info
+
+
+@app.post("/api/fonts/composite/validate")
+def composite_validate(payload: dict):
+    """Compile-validate user-written composite-font CSS.
+
+    Body: ``{css}``.  → ``{ok, errors, warnings, families, stats}`` where
+    ``ok`` (no errors) is the "编译通过 / takes effect" signal.  See
+    ``babelmap/backend/font_registry.py``.
+    """
+    from babelmap.backend.font_registry import validate_css
+
+    css = str(payload.get("css") or "")
+    # Feed the real installed family names so local("…") typos are caught.
+    try:
+        from babelmap.backend.font_overview import scan_fonts
+
+        families = sorted({f.get("family") or "" for f in scan_fonts()} - {""})
+    except Exception:
+        families = []
+    return validate_css(css, known_families=families)
+
+
+# ── Composite-font coverage (the port of CDialogConfig's block list + Auto) ──
+# See babelmap/backend/font_coverage.py for the inherited scoring rules.
+
+
+@app.get("/api/fonts/coverage")
+def fonts_coverage(block: str = "", dirs: str = ""):
+    """Per-block font coverage: one row per Unicode block with every font that
+    covers it, the best font, and the overall coverage summary.
+
+    ``block`` limits the answer to one block (much cheaper to render);
+    ``dirs`` adds extra font directories to the scan.
+    """
+    from babelmap.backend.font_coverage import block_coverage
+    from babelmap.backend.font_overview import scan_fonts
+
+    extra = [d.strip() for d in dirs.split("|") if d.strip()]
+    scan = {"fonts": scan_fonts(extra_dirs=extra)}
+    return block_coverage(scan, block_name=block or None)
+
+
+@app.get("/api/fonts/coverage/stream")
+def fonts_coverage_stream(block: str = "", dirs: str = ""):
+    """Streaming variant of ``/api/fonts/coverage``.
+
+    The scan is the expensive part, so it reuses the same SSE shape as the
+    font overview: ``data: SCAN {…}`` per font file, then ``data: RESULT
+    {blocks, summary, imported}``, then ``data: [DONE]``.
+    """
+    import json
+
+    from babelmap.backend.font_coverage import block_coverage
+    from babelmap.backend.font_overview import scan_fonts
+
+    extra = [d.strip() for d in dirs.split("|") if d.strip()]
+
+    def gen():
+        import threading
+
+        pending: list[dict] = []
+        box: dict = {}
+
+        def progress(done: int, total: int, label: str, cached: bool):
+            pending.append(
+                {
+                    "done": done,
+                    "total": total,
+                    "file": label,
+                    "cached": cached,
+                    "pct": round((done / total * 100.0) if total else 100.0, 1),
+                }
+            )
+
+        def run():
+            try:
+                scan = {"fonts": scan_fonts(extra_dirs=extra, progress=progress)}
+                box["result"] = block_coverage(scan, block_name=block or None)
+            except Exception as exc:  # pragma: no cover - defensive
+                box["error"] = str(exc)
+
+        th = threading.Thread(target=run, daemon=True)
+        th.start()
+        emitted = 0
+        while True:
+            while emitted < len(pending):
+                yield f"data: SCAN {json.dumps(pending[emitted])}\n\n"
+                emitted += 1
+            if not th.is_alive() and emitted >= len(pending):
+                break
+            th.join(timeout=0.05)
+
+        if "error" in box:
+            yield f"data: ERROR {json.dumps(box['error'])}\n\n"
+        else:
+            yield "data: RESULT " + json.dumps(box.get("result") or {}, ensure_ascii=False) + "\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/api/fonts/coverage/auto")
+def fonts_coverage_auto(dirs: str = ""):
+    """Run the **Auto** assignment: the best font for every block.
+
+    → ``{assignments, summary, imported}``; each assignment explains which
+    scoring criterion chose the font (``reason``).
+    """
+    from babelmap.backend.font_coverage import auto_assign
+    from babelmap.backend.font_overview import scan_fonts
+
+    extra = [d.strip() for d in dirs.split("|") if d.strip()]
+    return auto_assign({"fonts": scan_fonts(extra_dirs=extra)})
+
+
+@app.get("/api/fonts/coverage/chars")
+def fonts_coverage_chars(block: str = Query(..., min_length=1), dirs: str = ""):
+    """Every character of one block, annotated with the fonts that map it.
+
+    → ``{name, start, end, plane, total, cps, fonts, masks}`` where ``fonts``
+    are face indices and ``masks`` are base64 bitsets (bit *i* of row *j* = face
+    ``fonts[j]`` maps ``cps[i]``).  Drives the dialog's preview grid, which shows
+    the block in full and greys out the cells the selected font does not cover.
+
+    The bitset shape replaces a per-character ``supported_by`` list, which cost
+    ~7 MB of JSON and ~4 s for CJK Unified Ideographs (20 992 chars × 84 faces).
+    """
+    from babelmap.backend.font_coverage import block_chars
+    from babelmap.backend.font_overview import scan_fonts
+
+    extra = [d.strip() for d in dirs.split("|") if d.strip()]
+    result = block_chars(block, {"fonts": scan_fonts(extra_dirs=extra)})
+    if result is None:
+        return JSONResponse({"error": f"Unknown block '{block}'"}, status_code=404)
+    return result
 
 
 @app.get("/api/convert/edit")
