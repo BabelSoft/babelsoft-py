@@ -1,5 +1,12 @@
 <script lang="ts">
   import Icon from "../icons/Icon.svelte";
+  import { API_BASE } from "../api";
+  import {
+    fontStack,
+    loadUserFonts,
+    uploadFont,
+    removeUserFont,
+  } from "../fontStack.svelte";
 
   // Font Overview — every installed font, grouped by font family and then by
   // primary writing system (script), with a live preview and full metadata.
@@ -77,7 +84,13 @@
       covered: number;
       total: number;
       ratio: number;
-      blocks: { name: string; start: number; end: number; covered: number; total: number }[];
+      blocks: {
+        name: string;
+        start: number;
+        end: number;
+        covered: number;
+        total: number;
+      }[];
     }[];
     ot_langs: string[];
     // OpenType Layout feature tags declared in GSUB/GPOS (e.g. liga, kern, ss01…)
@@ -132,6 +145,38 @@
   let selected = $state<Face | null>(null);
   // expanded per-script block ranges in the coverage panel
   let covOpen = $state<Set<string>>(new Set());
+
+  // ── left column split ──
+  // The scanned fonts and "My fonts" stack in one column; the divider between
+  // them is draggable so either half can be given more room.  ``myHeight`` is
+  // the height of the lower (My fonts) pane in px.
+  let myHeight = $state(180);
+  let MIN_MINE = 90;
+  let MIN_SCAN = 120;
+  let splitting = $state(false);
+  let splitEl = $state<HTMLDivElement>();
+
+  function splitStart(e: MouseEvent) {
+    e.preventDefault();
+    splitting = true;
+    document.addEventListener("mousemove", splitMove);
+    document.addEventListener("mouseup", splitEnd);
+  }
+  function splitMove(e: MouseEvent) {
+    if (!splitEl) return;
+    // Distance from the pointer up to the top of the pane = new pane height.
+    const bottom = splitEl.getBoundingClientRect().bottom;
+    const max = splitEl.clientHeight - MIN_SCAN;
+    myHeight = Math.min(
+      Math.max(bottom - e.clientY, MIN_MINE),
+      Math.max(MIN_MINE, max),
+    );
+  }
+  function splitEnd() {
+    splitting = false;
+    document.removeEventListener("mousemove", splitMove);
+    document.removeEventListener("mouseup", splitEnd);
+  }
 
   // preview
   let previewText = $state("");
@@ -197,7 +242,8 @@
   // font-variation-settings.
   const previewFontStyle = $derived.by(() => {
     const f = selected;
-    if (!f) return { weight: 400, stretch: "100%", style: "normal", variation: "" };
+    if (!f)
+      return { weight: 400, stretch: "100%", style: "normal", variation: "" };
     let weight = f.weight;
     let stretch = "100%";
     let style = f.italic ? "italic" : "normal";
@@ -232,13 +278,16 @@
   const varFontFamily = $derived.by(() => {
     const f = selected;
     if (!f?.variable || !f.axes?.length) return "";
-    const base = f.path.replace(/[^A-Za-z0-9]/g, "") + "-" + (f.face_index ?? 0);
+    const base =
+      f.path.replace(/[^A-Za-z0-9]/g, "") + "-" + (f.face_index ?? 0);
     return "fogvar-" + base.slice(0, 60);
   });
   $effect(() => {
     const f = selected;
     const fam = varFontFamily;
-    const el = document.getElementById("fog-var-font") as HTMLStyleElement | null;
+    const el = document.getElementById(
+      "fog-var-font",
+    ) as HTMLStyleElement | null;
     if (!f?.variable || !fam) {
       if (el) el.textContent = "";
       return;
@@ -270,8 +319,18 @@
   // window chrome
   let x = $state(140);
   let y = $state(70);
-  let w = $state(Math.min(1240, (typeof window !== "undefined" ? window.innerWidth : 1240) - 32));
-  let h = $state(Math.min(820, (typeof window !== "undefined" ? window.innerHeight : 820) - 40));
+  let w = $state(
+    Math.min(
+      1240,
+      (typeof window !== "undefined" ? window.innerWidth : 1240) - 32,
+    ),
+  );
+  let h = $state(
+    Math.min(
+      820,
+      (typeof window !== "undefined" ? window.innerHeight : 820) - 40,
+    ),
+  );
   let dragging = $state(false);
   let dragStartX = $state(0);
   let dragStartY = $state(0);
@@ -432,7 +491,21 @@
     return m[main] ?? "The quick brown fox jumps over the lazy dog";
   }
 
-  const DOT_COLORS: string[] = ["#5c7cfa", "#e23d3d", "#2f9e44", "#e67700", "#ae3ec9", "#0ca678", "#d6336c", "#1971c2", "#f08c00", "#7048e8", "#12b886", "#e8590c", "#3bc9db"];
+  const DOT_COLORS: string[] = [
+    "#5c7cfa",
+    "#e23d3d",
+    "#2f9e44",
+    "#e67700",
+    "#ae3ec9",
+    "#0ca678",
+    "#d6336c",
+    "#1971c2",
+    "#f08c00",
+    "#7048e8",
+    "#12b886",
+    "#e8590c",
+    "#3bc9db",
+  ];
   function dotColor(tag: string): string {
     let h = 0;
     for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
@@ -442,12 +515,15 @@
   // Chapter colors: the header dot is colored by the Core Spec chapter that
   // documents the primary script (one color per chapter).
   const chapterMap = $derived(new Map(chapters.map((c) => [c.num, c])));
-  function chapterInfo(tg: Tag): { num: number; label: string; color: string } | undefined {
+  function chapterInfo(
+    tg: Tag,
+  ): { num: number; label: string; color: string } | undefined {
     if (tg.chapter == null) return undefined;
     return chapterMap.get(tg.chapter);
   }
   function mainDotColor(g: HyperGroup): string {
-    if (g.tags.length) return chapterInfo(g.tags[0])?.color ?? dotColor(g.tags[0].tag);
+    if (g.tags.length)
+      return chapterInfo(g.tags[0])?.color ?? dotColor(g.tags[0].tag);
     return dotColor(g.key);
   }
   function fmtInt(n: number): string {
@@ -459,10 +535,27 @@
   function buildGroups(): HyperGroup[] {
     const q = search.trim().toLowerCase();
     const filtered = fonts.filter((f) => {
-      const tags = f.tags?.length ? f.tags : [{ tag: f.main_script, label: f.main_label }];
-      if (scriptFilter && !tags.some((t) => t.tag === scriptFilter)) return false;
+      const tags = f.tags?.length
+        ? f.tags
+        : [{ tag: f.main_script, label: f.main_label }];
+      if (scriptFilter && !tags.some((t) => t.tag === scriptFilter))
+        return false;
       if (!q) return true;
-      return (f.family + " " + (f.hyper_family || "") + " " + f.subfamily + " " + f.file + " " + (f.ps_name || "") + " " + f.main_label).toLowerCase().includes(q);
+      return (
+        f.family +
+        " " +
+        (f.hyper_family || "") +
+        " " +
+        f.subfamily +
+        " " +
+        f.file +
+        " " +
+        (f.ps_name || "") +
+        " " +
+        f.main_label
+      )
+        .toLowerCase()
+        .includes(q);
     });
     const byHyper = new Map<string, Map<string, Face[]>>();
     for (const f of filtered) {
@@ -487,12 +580,18 @@
           hyper_family: hk,
           faces,
         }))
-        .sort((a, b) => a.family.localeCompare(b.family, undefined, { sensitivity: "base" }));
+        .sort((a, b) =>
+          a.family.localeCompare(b.family, undefined, { sensitivity: "base" }),
+        );
       const first = families[0]?.faces[0];
       out.push({
         key: hk,
         label: hk,
-        tags: first?.tags?.length ? first.tags : first ? [{ tag: first.main_script, label: first.main_label }] : [],
+        tags: first?.tags?.length
+          ? first.tags
+          : first
+            ? [{ tag: first.main_script, label: first.main_label }]
+            : [],
         scripts: first?.hyper_scripts ?? first?.tags?.length ?? 0,
         chars: first?.hyper_chars ?? first?.coverage ?? 0,
         glyphs: first?.hyper_glyphs ?? first?.glyph_count ?? first?.glyphs ?? 0,
@@ -500,7 +599,11 @@
         faceCount: families.reduce((n, f) => n + f.faces.length, 0),
       });
     }
-    out.sort((a, b) => (groupSort === "name" ? a.label.localeCompare(b.label, undefined, { sensitivity: "base" }) : b.faceCount - a.faceCount));
+    out.sort((a, b) =>
+      groupSort === "name"
+        ? a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+        : b.faceCount - a.faceCount,
+    );
     return out;
   }
 
@@ -511,7 +614,9 @@
     const perTag = new Map<string, { label: string; hypers: Set<string> }>();
     for (const f of fonts) {
       const hk = f.hyper_family || f.family;
-      const tags = f.tags?.length ? f.tags : [{ tag: f.main_script, label: f.main_label }];
+      const tags = f.tags?.length
+        ? f.tags
+        : [{ tag: f.main_script, label: f.main_label }];
       for (const t of tags) {
         let e = perTag.get(t.tag);
         if (!e) {
@@ -522,12 +627,23 @@
       }
     }
     return [...perTag.entries()]
-      .map(([tag, e]) => [tag, { label: e.label, count: e.hypers.size }] as [string, { label: string; count: number }])
-      .sort((a, b) => b[1].count - a[1].count || a[1].label.localeCompare(b[1].label));
+      .map(
+        ([tag, e]) =>
+          [tag, { label: e.label, count: e.hypers.size }] as [
+            string,
+            { label: string; count: number },
+          ],
+      )
+      .sort(
+        (a, b) =>
+          b[1].count - a[1].count || a[1].label.localeCompare(b[1].label),
+      );
   });
 
   const totalFamilies = $derived(new Set(fonts.map((f) => f.family)).size);
-  const totalHyper = $derived(new Set(fonts.map((f) => f.hyper_family || f.family)).size);
+  const totalHyper = $derived(
+    new Set(fonts.map((f) => f.hyper_family || f.family)).size,
+  );
 
   // ── selection / preview ──
   function select(f: Face) {
@@ -546,7 +662,11 @@
       if (first) select(first);
       return;
     }
-    const inView = g.some((gr) => gr.families.some((fam) => fam.faces.some((f) => key(f) === key(selected!))));
+    const inView = g.some((gr) =>
+      gr.families.some((fam) =>
+        fam.faces.some((f) => key(f) === key(selected!)),
+      ),
+    );
     if (!inView) {
       const first = g[0]?.families[0]?.faces[0];
       if (first) select(first);
@@ -578,15 +698,79 @@
   $effect(() => {
     if (show && !loaded) load();
   });
+  // Scan progress, fed by the SSE endpoint (/api/fonts/overview/stream):
+  // the backend reports SCAN events per font file before the final RESULT.
+  let scanDone = $state(0);
+  let scanTotal = $state(0);
+  let scanFile = $state("");
+  let scanStarted = $state(0);
+  let scanElapsed = $state(0);
+  const scanPct = $derived(
+    scanTotal > 0 ? Math.min(100, (scanDone / scanTotal) * 100) : 0,
+  );
+  // Keep the elapsed-time readout ticking while a scan is running.
+  $effect(() => {
+    if (!loading) return;
+    const t = setInterval(() => {
+      scanElapsed = (Date.now() - scanStarted) / 1000;
+    }, 200);
+    return () => clearInterval(t);
+  });
+
   async function load() {
     loading = true;
     err = "";
+    scanDone = 0;
+    scanTotal = 0;
+    scanFile = "";
+    scanStarted = Date.now();
+    scanElapsed = 0;
     try {
-      const r = await fetch(API + "/fonts/overview");
+      const r = await fetch(API + "/fonts/overview/stream");
       if (!r.ok) throw new Error(String(r.status));
-      const d = await r.json();
-      fonts = d.fonts ?? [];
-      chapters = d.chapters ?? [];
+      const reader = r.body?.getReader();
+      if (!reader) throw new Error("Stream not supported");
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let got = false;
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6);
+          if (payload === "[DONE]") continue;
+          if (payload.startsWith("SCAN ")) {
+            try {
+              const p = JSON.parse(payload.slice(5));
+              scanDone = p.done ?? 0;
+              scanTotal = p.total ?? 0;
+              scanFile = p.file ?? "";
+            } catch {
+              /* skip malformed */
+            }
+            continue;
+          }
+          if (payload.startsWith("ERROR ")) {
+            try {
+              throw new Error(JSON.parse(payload.slice(6)));
+            } catch (e: any) {
+              throw e instanceof Error ? e : new Error(String(e));
+            }
+          }
+          if (payload.startsWith("RESULT ")) {
+            const d = JSON.parse(payload.slice(7));
+            fonts = d.fonts ?? [];
+            chapters = d.chapters ?? [];
+            got = true;
+          }
+        }
+      }
+      if (!got) throw new Error("No data");
       loaded = true;
       collapsed = new Set();
       if (fonts.length && !selected) {
@@ -604,6 +788,113 @@
     selected = null;
     load();
   }
+
+  // ── Added fonts (uploaded via the registry) ────────────────────────
+  // These live OUTSIDE the system font directories, so the directory scan
+  // above never sees them.  They are listed at the bottom of the left column so
+  // Add / Remove and their font analysis sit next to the installed-font
+  // analysis.  The Composite Font dialog's entry editor reads the same registry.
+  let uploadErr = $state("");
+  let uploading = $state(false);
+  let addedFileInput = $state<HTMLInputElement>();
+  let analysis = $state<Record<string, any>>({});
+
+  async function onAddedFiles(files: FileList | null) {
+    if (!files?.length) return;
+    uploadErr = "";
+    uploading = true;
+    try {
+      for (const f of Array.from(files)) await uploadFont(f);
+      await loadUserFonts();
+    } catch (e: any) {
+      uploadErr = e.message || "Upload failed";
+    }
+    uploading = false;
+    if (addedFileInput) addedFileInput.value = "";
+  }
+
+  async function dropAdded(id: string) {
+    try {
+      await removeUserFont(id);
+    } catch (e: any) {
+      uploadErr = e.message || "Remove failed";
+    }
+  }
+
+  /** Lazily fetch the fontTools analysis for one added font. */
+  async function loadAnalysis(id: string) {
+    if (analysis[id]) return;
+    try {
+      const d = await fetch(
+        API_BASE + "/fonts/user/analyze?id=" + encodeURIComponent(id),
+      ).then((r) => r.json());
+      analysis = { ...analysis, [id]: d };
+    } catch {
+      analysis = { ...analysis, [id]: { error: "analysis failed" } };
+    }
+  }
+
+  /**
+   * The uploaded fonts, shaped exactly like the scanned list above so the two
+   * halves of the left column read the same way: a script-group header, then a
+   * family row with its faces as chips.
+   *
+   * The registry stores one entry per *file* (a `.ttc` may hold several faces),
+   * which is the same relation the scan uses between a family row and its
+   * faces — so a file here plays the role of a family.
+   */
+  const mineFamilies = $derived.by(() =>
+    fontStack.userFonts.map((uf) => {
+      const a = analysis[uf.id];
+      // Prefer the analysis (fresher, and it fills in the names for
+      // registrations made before this field existed), then the registry entry.
+      const styles: string[] = a?.subfamilies?.length
+        ? a.subfamilies
+        : uf.subfamilies?.length
+          ? uf.subfamilies
+          : [];
+      return { uf, a, styles };
+    }),
+  );
+
+  /**
+   * Sample glyph for an uploaded family, mirroring the scanned rows.
+   *
+   * The scan derives it from the family's primary script; the registry has no
+   * script data, so fall back to a letter of the family name — a character that
+   * is guaranteed to exist in the font.
+   */
+  function mineSample(uf: any): string {
+    return (uf.family || uf.name || "?").trim().charAt(0).toUpperCase() || "?";
+  }
+
+  /**
+   * The header's meta line, in the same shape the scanned groups use
+   * ("N scripts · M chars · K glyphs").
+   *
+   * Only analyzed fonts contribute script/character counts, so before any
+   * analysis this degrades to the glyph total the registry already knows.
+   */
+  const mineMeta = $derived.by(() => {
+    const fonts = fontStack.userFonts;
+    if (!fonts.length) return "no fonts added";
+    const glyphs = fonts.reduce((s, uf) => s + (uf.glyphs || 0), 0);
+    const analyzed = mineFamilies.map((m) => m.a).filter((a) => a && !a.error);
+    if (!analyzed.length) {
+      return `${fonts.length} files · ${fmtInt(glyphs)} glyphs`;
+    }
+    const scripts = new Set<string>();
+    let chars = 0;
+    for (const a of analyzed) {
+      chars += a.coverage || 0;
+      for (const b of a.blocks || []) scripts.add(b.name);
+    }
+    const parts = [`${scripts.size} blocks`, `${fmtInt(chars)} chars`];
+    if (analyzed.length < fonts.length) {
+      parts.push(`${analyzed.length}/${fonts.length} analyzed`);
+    }
+    return parts.join(" · ");
+  });
 
   // Split a metadata value into plain-text and URL segments so any web
   // address (Designer/License URL rows, or URLs embedded in Copyright,
@@ -653,7 +944,10 @@
       ["Version", f.version || "—"],
     ];
     if (f.variable) {
-      rows.push(["Variable axes", f.axes.map((a) => `${a.tag} ${a.min}–${a.max}`).join(", ") || "—"]);
+      rows.push([
+        "Variable axes",
+        f.axes.map((a) => `${a.tag} ${a.min}–${a.max}`).join(", ") || "—",
+      ]);
     }
     if (f.manufacturer) rows.push(["Manufacturer", f.manufacturer]);
     if (f.designer) rows.push(["Designer", f.designer]);
@@ -670,7 +964,8 @@
   // the fields that differ per language are repeated in each block.
   const langBlocks = $derived.by(() => {
     const f = selected;
-    if (!f?.meta_langs?.length) return [] as { label: string; rows: [string, string][] }[];
+    if (!f?.meta_langs?.length)
+      return [] as { label: string; rows: [string, string][] }[];
     const blocks: { label: string; rows: [string, string][] }[] = [];
     for (const lg of f.meta_langs.slice(1)) {
       const rows: [string, string][] = [];
@@ -696,21 +991,37 @@
 <svelte:window onkeydown={(e) => e.key === "Escape" && onClose()} />
 
 {#if show}
-  <div class="fog" class:dragging class:resizing style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;">
+  <div
+    class="fog"
+    class:dragging
+    class:resizing
+    style="left:{x}px; top:{y}px; width:{w}px; height:{h}px;"
+  >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="fog-header" onmousedown={onDragStart}>
       <Icon name="dice" size={15} />
       <span class="fog-title">Font Overview</span>
-      <span class="fog-sub">{totalHyper} hyper families · {totalFamilies} families · {fonts.length} faces</span>
+      <span class="fog-sub"
+        >{totalHyper} hyper families · {totalFamilies} families · {fonts.length}
+        faces</span
+      >
       <span class="fog-sp"></span>
-      <button class="fog-ic" onclick={refresh} title="Re-scan font directories"><Icon name="rewind" size={13} /></button>
-      <button class="fog-close" onclick={onClose} title="Close"><Icon name="close" size={14} /></button>
+      <button class="fog-ic" onclick={refresh} title="Re-scan font directories"
+        ><Icon name="rewind" size={13} /></button
+      >
+      <button class="fog-close" onclick={onClose} title="Close"
+        ><Icon name="close" size={14} /></button
+      >
     </div>
 
     <div class="fog-toolbar">
       <div class="fog-search">
         <Icon name="wavy" size={13} />
-        <input bind:value={search} placeholder="Search family, file, script…" spellcheck="false" />
+        <input
+          bind:value={search}
+          placeholder="Search family, file, script…"
+          spellcheck="false"
+        />
       </div>
       <select class="fog-sel" bind:value={scriptFilter}>
         <option value="">All writing systems</option>
@@ -727,12 +1038,33 @@
         <button class="fog-chip" onclick={collapseAll}>Collapse all</button>
       </div>
       <div class="fog-tools">
-        <label class="fog-check"><input type="checkbox" bind:checked={showFaces} />faces</label>
+        <label class="fog-check"
+          ><input type="checkbox" bind:checked={showFaces} />faces</label
+        >
       </div>
     </div>
 
     {#if loading}
-      <div class="fog-center"><div class="fog-empty">Scanning font directories…</div></div>
+      <div class="fog-center">
+        <div class="fog-scan">
+          <div class="fog-scan-title">Scanning font directories…</div>
+          <div class="fog-bar" class:indet={scanTotal === 0}>
+            <div class="fog-bar-fill" style="width:{scanPct}%"></div>
+          </div>
+          <div class="fog-scan-meta">
+            {#if scanTotal > 0}
+              <span class="fog-scan-count">{scanDone} / {scanTotal}</span>
+              <span class="fog-scan-pct">{scanPct.toFixed(0)}%</span>
+            {:else}
+              <span class="fog-scan-count">enumerating…</span>
+            {/if}
+            <span class="fog-scan-time">{scanElapsed.toFixed(1)}s</span>
+          </div>
+          <div class="fog-scan-file" title={scanFile}>
+            {scanFile || "\u00a0"}
+          </div>
+        </div>
+      </div>
     {:else if err}
       <div class="fog-center"><div class="fog-empty fog-err">{err}</div></div>
     {:else if fonts.length === 0}
@@ -741,43 +1073,213 @@
       <div class="fog-body">
         <!-- ── left: grouped list ── -->
         <div class="fog-list">
-          {#each groups as g (g.key)}
-            <section class="fog-script">
-              <button class="fog-shead" class:on={!collapsed.has(g.key)} onclick={() => toggleScript(g.key)}>
-                {#if collapsed.has(g.key)}
-                  <Icon name="chevron-right" size={13} />
-                {:else}
-                  <Icon name="chevron-down" size={13} />
-                {/if}
-                <span class="fog-dot" style:background={mainDotColor(g)}></span>
-                <span class="fog-slabel" title={g.key}>{g.label}</span>
-                <span class="fog-smeta" title="{g.scripts} scripts · {fmtInt(g.chars)} characters · {fmtInt(g.glyphs)} glyphs">
-                  {g.scripts} scripts · {fmtInt(g.chars)} chars · {fmtInt(g.glyphs)} glyphs
-                </span>
-                <span class="fog-scount">{g.faceCount}</span>
-              </button>
-              {#if !collapsed.has(g.key)}
+          <!-- ── the two panes are stacked and independently sized; the divider
+             between them is draggable so either half can grow. ── -->
+          <div class="fog-split" class:dragging={splitting} bind:this={splitEl}>
+            <div class="fog-groups">
+              {#each groups as g (g.key)}
+                <section class="fog-script">
+                  <button
+                    class="fog-shead"
+                    class:on={!collapsed.has(g.key)}
+                    onclick={() => toggleScript(g.key)}
+                  >
+                    {#if collapsed.has(g.key)}
+                      <Icon name="chevron-right" size={13} />
+                    {:else}
+                      <Icon name="chevron-down" size={13} />
+                    {/if}
+                    <span class="fog-dot" style:background={mainDotColor(g)}
+                    ></span>
+                    <span class="fog-slabel" title={g.key}>{g.label}</span>
+                    <span
+                      class="fog-smeta"
+                      title="{g.scripts} scripts · {fmtInt(
+                        g.chars,
+                      )} characters · {fmtInt(g.glyphs)} glyphs"
+                    >
+                      {g.scripts} scripts · {fmtInt(g.chars)} chars · {fmtInt(
+                        g.glyphs,
+                      )} glyphs
+                    </span>
+                    <span class="fog-scount">{g.faceCount}</span>
+                  </button>
+                  {#if !collapsed.has(g.key)}
+                    <div class="fog-famwrap">
+                      {#each g.families as fam (g.key + ":" + fam.family)}
+                        <div class="fog-family">
+                          <div class="fog-fhead">
+                            <span
+                              class="fog-sample"
+                              style:font-family={fam.faces[0].family}
+                              >{sampleChar(fam.faces[0].main_script)}</span
+                            >
+                            <span class="fog-fname" title={fam.family}
+                              >{fam.family}</span
+                            >
+                            <span class="fog-fcount">{fam.faces.length}</span>
+                          </div>
+                          {#if showFaces}
+                            <div class="fog-faces">
+                              {#each fam.faces as f (key(f))}
+                                <button
+                                  class="fog-face"
+                                  class:on={isSel(f)}
+                                  title="{f.full_name}\n{f.path}"
+                                  onclick={() => select(f)}
+                                  >{styleLabel(f)}</button
+                                >
+                              {/each}
+                            </div>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                </section>
+              {/each}
+            </div>
+
+            <!-- drag to resize the two panes -->
+            <div
+              class="fog-hsplit"
+              class:on={splitting}
+              onmousedown={splitStart}
+              role="slider"
+              aria-label="Resize My fonts"
+              aria-orientation="horizontal"
+              aria-valuenow={myHeight}
+              aria-valuemin={MIN_MINE}
+              tabindex="0"
+              title="Drag to resize"
+            >
+              <span></span>
+            </div>
+
+            <!-- ── left, bottom: the user's own fonts ──
+             This is a top-level group of its own ("My fonts"), one level ABOVE
+             the fonts it contains: the header is the group, and each uploaded
+             file is a family row beneath it — the same shape the scanned groups
+             use.  Uploaded fonts live outside the system font folders, so the
+             directory scan never sees them. -->
+            <section
+              class="fog-script fog-mine-group"
+              style="height:{myHeight}px"
+            >
+              <div class="fog-shead fog-mine-head">
+                <span class="fog-dot" style:background={dotColor("mine")}
+                ></span>
+                <span class="fog-slabel">My fonts</span>
+                <span class="fog-smeta" title={mineMeta}>{mineMeta}</span>
+                <span class="fog-scount">{fontStack.userFonts.length}</span>
+                <button
+                  class="fog-chip fog-mine-add"
+                  onclick={() => addedFileInput?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? "Uploading…" : "+ Add font…"}
+                </button>
+                <input
+                  type="file"
+                  accept=".ttf,.otf,.ttc,.otc,.woff,.woff2"
+                  multiple
+                  bind:this={addedFileInput}
+                  onchange={(e) =>
+                    onAddedFiles((e.target as HTMLInputElement).files)}
+                />
+              </div>
+              {#if uploadErr}<div class="fog-added-err">{uploadErr}</div>{/if}
+              {#if fontStack.userFonts.length === 0}
                 <div class="fog-famwrap">
-                  {#each g.families as fam (g.key + ":" + fam.family)}
+                  <div class="fog-empty">No added fonts yet.</div>
+                </div>
+              {:else}
+                <div class="fog-famwrap">
+                  {#each mineFamilies as { uf, a, styles } (uf.id)}
                     <div class="fog-family">
                       <div class="fog-fhead">
-                        <span class="fog-sample" style:font-family={fam.faces[0].family}>{sampleChar(fam.faces[0].main_script)}</span>
-                        <span class="fog-fname" title={fam.family}>{fam.family}</span>
-                        <span class="fog-fcount">{fam.faces.length}</span>
+                        <span
+                          class="fog-sample"
+                          style:font-family={uf.family || uf.name}
+                          >{mineSample(uf)}</span
+                        >
+                        <span class="fog-fname" title={uf.file}
+                          >{uf.family || uf.name}</span
+                        >
+                        <span class="fog-fcount"
+                          >{styles.length || uf.faces || 1}</span
+                        >
+                        <button
+                          class="fog-chip fog-mine-act"
+                          onclick={async () => {
+                            if (analysis[uf.id]) {
+                              const m = { ...analysis };
+                              delete m[uf.id];
+                              analysis = m;
+                            } else await loadAnalysis(uf.id);
+                          }}>{analysis[uf.id] ? "Hide" : "Analyze"}</button
+                        >
+                        <button
+                          class="fog-chip danger fog-mine-act"
+                          onclick={() => dropAdded(uf.id)}>Remove</button
+                        >
                       </div>
-                      {#if showFaces}
+                      <!-- Face chips appear under the same "faces" toggle the
+                         scanned families use, so a single-face font shows no
+                         redundant "Regular" pill. -->
+                      {#if showFaces && styles.length > 1}
                         <div class="fog-faces">
-                          {#each fam.faces as f (key(f))}
-                            <button class="fog-face" class:on={isSel(f)} title="{f.full_name}\n{f.path}" onclick={() => select(f)}>{styleLabel(f)}</button>
+                          {#each styles as s (s)}
+                            <span class="fog-face fog-face-static">{s}</span>
                           {/each}
                         </div>
+                      {/if}
+                      {#if a}
+                        {#if a.error}
+                          <div class="fog-added-err">{a.error}</div>
+                        {:else}
+                          <div class="fog-analysis">
+                            <span><b>Family</b> {a.family || "—"}</span>
+                            <span><b>File</b> {a.file || "—"}</span>
+                            <span><b>UPEM</b> {a.upem || "—"}</span>
+                            <span><b>Glyphs</b> {a.glyphs || 0}</span>
+                            <span
+                              ><b>Coverage</b> {fmtInt(a.coverage)} chars</span
+                            >
+                            <span
+                              ><b>Variable</b>
+                              {a.variable
+                                ? `yes (${a.axes?.length ?? 0} axes)`
+                                : "no"}</span
+                            >
+                            <span><b>Tables</b> {a.tables?.length ?? 0}</span>
+                            {#if a.ot_features?.length}<span
+                                ><b>OT features</b>
+                                {a.ot_features.slice(0, 8).join(" ")}{a
+                                  .ot_features.length > 8
+                                  ? " …"
+                                  : ""}</span
+                              >{/if}
+                            {#if a.blocks?.length}
+                              <span class="fog-analysis-blocks"
+                                ><b>Blocks</b>
+                                {a.blocks
+                                  .slice(0, 6)
+                                  .map((b: any) => `${b.name} (${b.covered})`)
+                                  .join(" · ")}{a.blocks.length > 6
+                                  ? " …"
+                                  : ""}</span
+                              >
+                            {/if}
+                          </div>
+                        {/if}
                       {/if}
                     </div>
                   {/each}
                 </div>
               {/if}
             </section>
-          {/each}
+          </div>
         </div>
 
         <!-- ── right: detail ── -->
@@ -788,9 +1290,15 @@
               <div class="fog-dsub">
                 {selected.subfamily || "Regular"}
                 {#if selected.source}
-                  <span class="fog-badge" class:user={selected.source === "User"}>{selected.source}</span>
+                  <span
+                    class="fog-badge"
+                    class:user={selected.source === "User"}
+                    >{selected.source}</span
+                  >
                 {/if}
-                {#if selected.variable}<span class="fog-badge fog-var">Variable</span>{/if}
+                {#if selected.variable}<span class="fog-badge fog-var"
+                    >Variable</span
+                  >{/if}
                 {#if selected.symbol}<span class="fog-badge">Symbol</span>{/if}
               </div>
             </div>
@@ -799,19 +1307,31 @@
             <div class="fog-previewwrap">
               <div
                 class="fog-preview"
-                style:font-family={selected.variable && varFontFamily ? `"${varFontFamily}"` : `'${selected.family}'`}
+                style:font-family={selected.variable && varFontFamily
+                  ? `"${varFontFamily}"`
+                  : `'${selected.family}'`}
                 style:font-size="{previewSize}px"
                 style:font-weight={previewFontStyle.weight}
                 style:font-stretch={previewFontStyle.stretch}
                 style:font-style={previewFontStyle.style}
                 style:font-feature-settings={featSettings || undefined}
-                style:font-variation-settings={previewFontStyle.variation || undefined}
+                style:font-variation-settings={previewFontStyle.variation ||
+                  undefined}
               >
                 {previewText || sampleChar(selected.main_script)}
               </div>
               <div class="fog-pcontrols">
-                <textarea bind:value={previewText} spellcheck="false" placeholder="Type a preview…"></textarea>
-                <input type="range" min="16" max="160" bind:value={previewSize} />
+                <textarea
+                  bind:value={previewText}
+                  spellcheck="false"
+                  placeholder="Type a preview…"
+                ></textarea>
+                <input
+                  type="range"
+                  min="16"
+                  max="160"
+                  bind:value={previewSize}
+                />
                 <span class="fog-sizev">{previewSize}px</span>
               </div>
               {#if selected.ot_features?.length}
@@ -822,7 +1342,9 @@
                       class:on={featState[tag] === "on"}
                       class:off={featState[tag] === "off"}
                       onclick={() => cycleFeat(tag)}
-                      title="{tag} · {featLabel(featState[tag] || 'default')} — click to cycle On → Off → Default">{tag}</button
+                      title="{tag} · {featLabel(
+                        featState[tag] || 'default',
+                      )} — click to cycle On → Off → Default">{tag}</button
                     >
                   {/each}
                 </div>
@@ -831,16 +1353,23 @@
                 <div class="fog-axes">
                   {#each selected.axes as a (a.tag)}
                     <div class="fog-axis">
-                      <span class="fog-axistag" title={a.tag}>{axisName(a.tag)}</span>
+                      <span class="fog-axistag" title={a.tag}
+                        >{axisName(a.tag)}</span
+                      >
                       <input
                         type="range"
                         min={a.min}
                         max={a.max}
                         step={a.step}
                         value={axisVals[a.tag] ?? a.default}
-                        oninput={(e) => (axisVals[a.tag] = Number((e.currentTarget as HTMLInputElement).value))}
+                        oninput={(e) =>
+                          (axisVals[a.tag] = Number(
+                            (e.currentTarget as HTMLInputElement).value,
+                          ))}
                       />
-                      <span class="fog-axisval">{axisVals[a.tag] ?? a.default}</span>
+                      <span class="fog-axisval"
+                        >{axisVals[a.tag] ?? a.default}</span
+                      >
                     </div>
                   {/each}
                 </div>
@@ -852,26 +1381,58 @@
               <div class="fog-sec-title">Script coverage</div>
               {#if selected.scripts?.length}
                 {#each selected.scripts as s}
-                  <button class="fog-covrow" class:open={covOpen.has(s.tag)} onclick={() => toggleCov(s.tag)}>
-                    <Icon name={covOpen.has(s.tag) ? "chevron-down" : "chevron-right"} size={11} />
+                  <button
+                    class="fog-covrow"
+                    class:open={covOpen.has(s.tag)}
+                    onclick={() => toggleCov(s.tag)}
+                  >
+                    <Icon
+                      name={covOpen.has(s.tag)
+                        ? "chevron-down"
+                        : "chevron-right"}
+                      size={11}
+                    />
                     <span class="fog-covlabel" title={s.label}>{s.label}</span>
-                    <span class="fog-covbar"><span class="fog-covfill" style:width="{Math.max(2, pct(s.ratio))}%"></span></span>
-                    <span class="fog-covval">{pct(s.ratio)}% · {s.covered.toLocaleString()}</span>
+                    <span class="fog-covbar"
+                      ><span
+                        class="fog-covfill"
+                        style:width="{Math.max(2, pct(s.ratio))}%"
+                      ></span></span
+                    >
+                    <span class="fog-covval"
+                      >{pct(s.ratio)}% · {s.covered.toLocaleString()}</span
+                    >
                   </button>
                   {#if covOpen.has(s.tag) && s.blocks?.length}
                     <div class="fog-covblocks">
                       {#each s.blocks as b (s.tag + ":" + b.start)}
-                        <div class="fog-covblock" title="{hex4(b.start)}–{hex4(b.end)}">
-                          <span class="fog-covblabel" title={b.name}>{b.name}</span>
-                          <span class="fog-covbbar"><span class="fog-covbfill" style:width="{Math.max(b.covered ? 1 : 0, pct(b.covered / Math.max(1, b.total)))}%"></span></span>
-                          <span class="fog-covbval">{b.covered.toLocaleString()}/{b.total.toLocaleString()}</span>
+                        <div
+                          class="fog-covblock"
+                          title="{hex4(b.start)}–{hex4(b.end)}"
+                        >
+                          <span class="fog-covblabel" title={b.name}
+                            >{b.name}</span
+                          >
+                          <span class="fog-covbbar"
+                            ><span
+                              class="fog-covbfill"
+                              style:width="{Math.max(
+                                b.covered ? 1 : 0,
+                                pct(b.covered / Math.max(1, b.total)),
+                              )}%"
+                            ></span></span
+                          >
+                          <span class="fog-covbval"
+                            >{b.covered.toLocaleString()}/{b.total.toLocaleString()}</span
+                          >
                         </div>
                       {/each}
                     </div>
                   {/if}
                 {/each}
                 <div class="fog-covtotal">
-                  {selected.coverage.toLocaleString()} code points covered in this font ·
+                  {selected.coverage.toLocaleString()} code points covered in this
+                  font ·
                   {pct(selected.coverage_pct)}% of the common repertoire
                 </div>
               {:else}
@@ -891,7 +1452,11 @@
                         <td class="fog-mv">
                           {#each linkify(v) as seg}
                             {#if seg.url}
-                              <a href={seg.url} target="_blank" rel="noopener noreferrer">{seg.text}</a>
+                              <a
+                                href={seg.url}
+                                target="_blank"
+                                rel="noopener noreferrer">{seg.text}</a
+                              >
                             {:else}
                               {seg.text}
                             {/if}
@@ -913,7 +1478,11 @@
                           <td class="fog-mv">
                             {#each linkify(v) as seg}
                               {#if seg.url}
-                                <a href={seg.url} target="_blank" rel="noopener noreferrer">{seg.text}</a>
+                                <a
+                                  href={seg.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer">{seg.text}</a
+                                >
                               {:else}
                                 {seg.text}
                               {/if}
@@ -927,7 +1496,9 @@
               {/each}
             </div>
           {:else}
-            <div class="fog-center"><div class="fog-empty">Select a font to inspect it.</div></div>
+            <div class="fog-center">
+              <div class="fog-empty">Select a font to inspect it.</div>
+            </div>
           {/if}
         </div>
       </div>
@@ -965,7 +1536,11 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: linear-gradient(135deg, var(--ac), color-mix(in srgb, var(--ac) 70%, #e23d3d));
+    background: linear-gradient(
+      135deg,
+      var(--ac),
+      color-mix(in srgb, var(--ac) 70%, #e23d3d)
+    );
     color: #fff;
     cursor: grab;
     flex-shrink: 0;
@@ -1070,6 +1645,94 @@
     padding: 18px;
     text-align: center;
   }
+  /* ── added fonts (uploaded registry) ── */
+  .fog-chip.danger:hover {
+    background: #e23d3d;
+    color: #fff;
+  }
+  .fog-added-err {
+    font-size: 11px;
+    color: #e23d3d;
+    padding: 4px 0;
+  }
+  .fog-analysis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 11px;
+    color: var(--fg2);
+    padding: 4px 8px 8px 14px;
+  }
+  .fog-analysis b {
+    color: var(--fg3);
+    font-weight: 600;
+    margin-right: 3px;
+  }
+  .fog-analysis-blocks {
+    flex-basis: 100%;
+  }
+  /* ── scan progress ── */
+  .fog-scan {
+    width: 320px;
+    max-width: 70%;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .fog-scan-title {
+    font-size: 12px;
+    color: var(--fg2);
+    text-align: center;
+  }
+  .fog-bar {
+    height: 6px;
+    background: var(--bg3);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .fog-bar-fill {
+    height: 100%;
+    background: var(--ac);
+    border-radius: 3px;
+    transition: width 0.15s ease;
+  }
+  /* before the file count is known the bar sweeps instead of filling */
+  .fog-bar.indet .fog-bar-fill {
+    width: 30% !important;
+    animation: fog-indet 1.1s ease-in-out infinite;
+  }
+  @keyframes fog-indet {
+    0% {
+      margin-left: -30%;
+    }
+    100% {
+      margin-left: 100%;
+    }
+  }
+  .fog-scan-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--fg3);
+    font-variant-numeric: tabular-nums;
+  }
+  .fog-scan-pct {
+    color: var(--fg2);
+  }
+  .fog-scan-time {
+    margin-left: auto;
+  }
+  .fog-scan-file {
+    font-size: 10px;
+    color: var(--fg3);
+    font-family: monospace;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.75;
+  }
   .fog-err {
     color: #e23d3d;
   }
@@ -1079,14 +1742,121 @@
     min-height: 0;
   }
 
-  /* ── left list ── */
+  /* ── left column ──
+     Two panes stacked vertically (scanned fonts, then My fonts) with a
+     draggable divider between them; ``.fog-split`` is the flex host that the
+     divider measures against. */
   .fog-list {
     width: 44%;
     min-width: 300px;
     border-right: 1px solid var(--bd);
-    overflow-y: auto;
     padding: 6px;
     background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .fog-split {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* The scanned groups take the remaining height and scroll internally. */
+  .fog-split > .fog-groups {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* ── my fonts ──
+     A top-level group whose children are the uploaded fonts: the header is the
+     group (same look as a scanned group header), and each file sits one level
+     below it as a family row.  Only the extras are styled here — the Add
+     button and the per-row Analyze / Remove actions. */
+  .fog-mine-group {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    /* a hairline top border separates this pane from the scanned list above,
+       whose scrollbar would otherwise run straight into the header */
+    border-top: 1px solid var(--bd);
+    padding-top: 5px;
+  }
+  .fog-mine-group > .fog-shead {
+    flex: none;
+  }
+  /* the family list scrolls inside the pane, so the header stays put */
+  .fog-mine-group > .fog-famwrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* one indent step deeper than the scanned groups' families, which makes
+       the extra level (group → font) visible at a glance */
+    padding-left: 14px;
+  }
+  /* the file picker is driven by the "+ Add font…" button */
+  .fog-mine-group input[type="file"] {
+    display: none;
+  }
+  /* the header is not a toggle here, so it must not look clickable */
+  .fog-mine-head {
+    cursor: default;
+  }
+  .fog-mine-head:hover {
+    border-color: var(--bd);
+  }
+  .fog-mine-add {
+    flex: none;
+  }
+  /* per-row actions: inline chips on the family row.  They are kept at a low
+     opacity rather than hidden so the row keeps the same visual weight as the
+     scanned families while the actions stay discoverable. */
+  .fog-mine-act {
+    flex: none;
+    opacity: 0.55;
+    transition: opacity 0.12s;
+  }
+  .fog-family:hover .fog-mine-act,
+  .fog-mine-act:focus-visible {
+    opacity: 1;
+  }
+  /* faces of an uploaded font are informational, not selectable */
+  .fog-face-static {
+    cursor: default;
+    opacity: 0.85;
+  }
+  .fog-face-static:hover {
+    border-color: transparent;
+  }
+
+  /* ── draggable divider between the two left panes ── */
+  .fog-hsplit {
+    flex: none;
+    height: 7px;
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+  }
+  .fog-hsplit span {
+    display: block;
+    width: 40px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--bd);
+  }
+  .fog-hsplit:hover span,
+  .fog-hsplit.on span {
+    background: var(--ac);
+  }
+  /* while dragging, don't let the pointer pick text or fire hovers */
+  .fog-split.dragging {
+    user-select: none;
+    cursor: row-resize;
   }
   .fog-script {
     margin-bottom: 4px;
@@ -1503,7 +2273,13 @@
     width: 18px;
     height: 18px;
     cursor: nwse-resize;
-    background: radial-gradient(circle at 100% 100%, transparent 12px, var(--fg3) 12.5px, var(--fg3) 13px, transparent 13.5px);
+    background: radial-gradient(
+      circle at 100% 100%,
+      transparent 12px,
+      var(--fg3) 12.5px,
+      var(--fg3) 13px,
+      transparent 13.5px
+    );
     opacity: 0.5;
   }
 </style>
