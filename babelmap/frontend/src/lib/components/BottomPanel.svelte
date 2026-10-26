@@ -10,7 +10,13 @@
     mode: string;
     glyph: boolean;
     colour: boolean;
-    fsize: number;
+    /** Font stack shared with the character grid (from CompositeFontDialog). */
+    stackFamily?: string;
+    /** Edit-buffer font size in px — independent of the grid size. */
+    /** Edit-buffer font size in px, or `null` for the original CSS sizing. */
+    bufSize?: number | null;
+    onBufSizeChange?: (n: number) => void;
+    onConfigureStack?: () => void;
     gv: string;
     sv: string;
     blocks: BlockInfo[];
@@ -34,7 +40,6 @@
     onCloseResults: () => void;
     onLoadMoreResults: () => void;
     onGoto: () => void;
-    onFontSizeChange: (size: number) => void;
     onModeChange: (m: string) => void;
     onGlyphToggle: (v: boolean) => void;
     onColourToggle: (v: boolean) => void;
@@ -51,7 +56,10 @@
     mode,
     glyph,
     colour,
-    fsize,
+    stackFamily = "",
+    bufSize = null,
+    onBufSizeChange = () => {},
+    onConfigureStack = () => {},
     gv,
     sv,
     blocks,
@@ -75,7 +83,6 @@
     onCloseResults,
     onLoadMoreResults,
     onGoto,
-    onFontSizeChange,
     onModeChange,
     onGlyphToggle,
     onColourToggle,
@@ -169,27 +176,6 @@
     onClose={onCloseResults}
     onLoadMore={onLoadMoreResults}
   />
-  <div class="br2">
-    <label class="rd"
-      ><input type="radio" name="fm" checked />
-      {t("font.composite_font")}</label
-    >
-    <button class="sb">{t("font.configure")}</button>
-    <label class="rd"
-      ><input type="radio" name="fm" /> {t("font.single_font")}</label
-    >
-    <select class="fsel"><option>Arial</option></select>
-    <input
-      type="number"
-      class="fsz"
-      value={fsize}
-      min="8"
-      max="72"
-      onchange={(e) =>
-        onFontSizeChange(parseInt((e.target as HTMLInputElement).value) || 16)}
-    />
-    <button class="sb" style="margin-left:auto">{t("font.show")}</button>
-  </div>
   <fieldset class="eb">
     <legend>{t("bottom.edit_buffer")}</legend>
     <textarea
@@ -197,8 +183,23 @@
       oninput={(e) => onBufChange((e.target as HTMLTextAreaElement).value)}
       rows={3}
       spellcheck={false}
+      style="font-family: {stackFamily || 'inherit'};{bufSize
+        ? ` font-size: ${bufSize}px;`
+        : ''}"
       placeholder="Click cells to add. Arrow keys navigate. Enter to add selected."
       oncontextmenu={(e) => onContextMenu(e)}
+      onwheel={(e: WheelEvent & { currentTarget: HTMLTextAreaElement }) => {
+        // Ctrl+wheel over the buffer changes the buffer font size (and must not
+        // scroll the page / the textarea's own text).  The first notch starts
+        // from the buffer's current rendered size, so zooming never jumps.
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        const cur =
+          bufSize ??
+          parseFloat(getComputedStyle(e.currentTarget).fontSize) ??
+          14;
+        onBufSizeChange(cur - Math.sign(e.deltaY));
+      }}
     ></textarea>
     <div class="ebc">
       <div class="ebr">
@@ -245,6 +246,9 @@
         {/each}
       </div>
       <div class="ebr ebtns">
+        <button class="sb" onclick={onConfigureStack}
+          >{t("font.configure")}…</button
+        >
         <button class="sb" onclick={onHideToggle}>{t("bottom.hide")}</button>
         <button class="sb" onclick={onSave}>{t("bottom.save")}</button>
         <button class="sb" onclick={onClear}>{t("bottom.clear")}</button>
@@ -404,12 +408,6 @@
     color: #fff;
     border-color: var(--ac);
   }
-  .br2 {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
   .rd {
     display: flex;
     align-items: center;
@@ -433,23 +431,18 @@
   .ck input {
     accent-color: var(--ac);
   }
-  .fsel {
-    width: 140px;
-  }
-  .fsz {
-    width: 50px;
-    text-align: center;
-    font-family: monospace;
-    background: var(--bg) !important;
-  }
   .eb textarea {
     width: 100%;
     flex: 1;
     resize: none;
     font-family: monospace;
     font-size: 12px;
-    min-height: 52px;
+    /* Ctrl+wheel changes the font size, which must NOT change the buffer's
+       height — otherwise zooming makes the panel grow/shrink. `height` (not
+       `min-height`) pins it, and the text scrolls inside instead. */
+    height: 52px;
     line-height: 1.5;
+    overflow-y: auto;
   }
   .ebc {
     margin-top: 3px;

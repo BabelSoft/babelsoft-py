@@ -16,6 +16,13 @@
   import EmojiLookupDialog from "./lib/components/EmojiLookupDialog.svelte";
   import OpenTypeTestDialog from "./lib/components/OpenTypeTestDialog.svelte";
   import FontOverviewDialog from "./lib/components/FontOverviewDialog.svelte";
+  import CompositeFontDialog from "./lib/components/CompositeFontDialog.svelte";
+  import {
+    fontStack,
+    stackFamily,
+    loadUserFonts,
+  } from "./lib/fontStack.svelte";
+  import { startCoverageScan, startScanTicker } from "./lib/coverage.svelte";
 
   let dark = $state(false);
   let grid = $state<GridPage | null>(null);
@@ -23,7 +30,6 @@
   let loading = $state(false);
   let plane = $state(0);
   let scroll = $state(0);
-  let fsize = $state(16);
   let buf = $state("");
   let mode = $state<"char" | "ncr_hex" | "ncr_dec" | "html" | "ucn">("char");
   let glyph = $state(true);
@@ -53,12 +59,41 @@
   let showEmojiLookup = $state(false);
   let showOpenTypeTest = $state(false);
   let showFontOverview = $state(false);
+  let showCompositeFont = $state(false);
   let charPropsCp = $state(-1);
   let ctxShow = $state(false);
   let ctxX = $state(0);
   let ctxY = $state(0);
   let ctxSel = $state(false);
   let _ebTextarea = $state<HTMLTextAreaElement | null>(null);
+
+  // ── Font stack (character grid + edit buffer share it) ───────────────
+  // The CompositeFontDialog owns the entries/CSS; this derived value is the
+  // `font-family` list both surfaces render with. It is empty until the stack
+  // is applied, so the default styling is untouched out of the box.
+  const stack = $derived(fontStack.applied ? stackFamily(fontStack.items) : "");
+
+  // The grid font size lives in the font stack (Ctrl+wheel over the grid).
+  // `null` = never zoomed → the grid keeps its original responsive
+  // `clamp(15px, 4vh, 56px)` sizing.  `fsize` is the number the status bar and
+  // RTF export read, so it falls back to the same nominal 16px used before.
+  const fsize = $derived(fontStack.gridSize ?? 16);
+
+  // Ctrl+wheel zoom.  One wheel notch = one pixel; `deltaY > 0` (scroll down)
+  // shrinks.  Clamped so the size never leaves a sane, usable range.
+  const MIN_SIZE = 8;
+  const MAX_SIZE = 96;
+  /** Where a zoom starts from when nothing has been set yet. */
+  function currentGridSize(): number {
+    if (fontStack.gridSize != null) return fontStack.gridSize;
+    const cell = document.querySelector(".gc2");
+    const px = cell ? parseFloat(getComputedStyle(cell).fontSize) : NaN;
+    return Number.isFinite(px) ? px : 16;
+  }
+  function zoomGrid(deltaY: number) {
+    const next = Math.round(currentGridSize()) - Math.sign(deltaY);
+    fontStack.gridSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, next));
+  }
 
   function showStatus(msg: string) {
     // StatusBar manages its own auto-dismiss timer via $effect
@@ -70,11 +105,15 @@
   // data (babelsoft.unicode.core → Unicode.get_plane_abbreviation), fetched
   // from /api/unicode/planes.  Nothing is hardcoded: the tab bar shows a
   // loading placeholder (in PlaneTabs) until the data arrives.
-  let planeMeta = $state<{ plane: number; name: string; abbreviation: string; reserved: boolean }[]>([]);
+  let planeMeta = $state<
+    { plane: number; name: string; abbreviation: string; reserved: boolean }[]
+  >([]);
   let PLANES = $derived.by(() => {
     if (planeMeta.length === 0) return [];
     if (_filterNoBlock) {
-      return planeMeta.filter((m) => !m.reserved && m.abbreviation).map((m) => ({ id: m.plane, l: m.abbreviation }));
+      return planeMeta
+        .filter((m) => !m.reserved && m.abbreviation)
+        .map((m) => ({ id: m.plane, l: m.abbreviation }));
     }
     return Array.from({ length: 17 }, (_, i) => {
       const m = planeMeta.find((x) => x.plane === i);
@@ -100,7 +139,9 @@
       err = "";
     }
     try {
-      grid = await get<GridPage>(`/grid/${plane}?scroll=${scroll}&filter_no_block=${_filterNoBlock}`);
+      grid = await get<GridPage>(
+        `/grid/${plane}?scroll=${scroll}&filter_no_block=${_filterNoBlock}`,
+      );
     } catch (e: any) {
       err = e.message;
     } finally {
@@ -116,7 +157,14 @@
   }
   async function loadPlanes() {
     try {
-      const data = await get<{ planes: { plane: number; name: string; abbreviation: string; reserved: boolean }[] }>("/unicode/planes");
+      const data = await get<{
+        planes: {
+          plane: number;
+          name: string;
+          abbreviation: string;
+          reserved: boolean;
+        }[];
+      }>("/unicode/planes");
       planeMeta = data.planes ?? [];
     } catch {}
   }
@@ -156,7 +204,10 @@
   }
   async function doGo() {
     if (!gv.trim()) return;
-    let cp = parseInt(gv.replace(/^(0x|U\+|\$|#)/i, ""), gv.startsWith("#") ? 10 : 16);
+    let cp = parseInt(
+      gv.replace(/^(0x|U\+|\$|#)/i, ""),
+      gv.startsWith("#") ? 10 : 16,
+    );
     if (isNaN(cp) || cp < 0 || cp > 0x10ffff) return;
     gv = "";
     await gotoCP(cp);
@@ -315,7 +366,11 @@
               name: string;
             };
             // Avoid duplicates from wrap-around
-            if (_sresults.length > 0 && item.codepoint <= _sresults[_sresults.length - 1].codepoint) continue;
+            if (
+              _sresults.length > 0 &&
+              item.codepoint <= _sresults[_sresults.length - 1].codepoint
+            )
+              continue;
             _sresults = [..._sresults, item];
           } catch {
             /* skip */
@@ -355,7 +410,9 @@
   }
   async function gotoCP(cp: number) {
     const np = Math.floor(cp / 0x10000);
-    const g = await get<GridPage>(`/grid/${np}/goto/${cp}?filter_no_block=${_filterNoBlock}`);
+    const g = await get<GridPage>(
+      `/grid/${np}/goto/${cp}?filter_no_block=${_filterNoBlock}`,
+    );
     if (g.not_found) {
       alert(`U+${cp.toString(16).toUpperCase()} ${t("general.not_assigned")}`);
       return;
@@ -369,10 +426,16 @@
 
   // ── Go to Han Ideograph ──────────────────────────────────────────
   async function doGotoHan() {
-    const ref = prompt(t("find.goto_han") + " — " + (lang.v === "zh" ? "输入源引用" : "Enter Source Reference"));
+    const ref = prompt(
+      t("find.goto_han") +
+        " — " +
+        (lang.v === "zh" ? "输入源引用" : "Enter Source Reference"),
+    );
     if (!ref?.trim()) return;
     try {
-      const r = await get<any[]>(`/search/han_source?q=${encodeURIComponent(ref.trim())}&limit=50`);
+      const r = await get<any[]>(
+        `/search/han_source?q=${encodeURIComponent(ref.trim())}&limit=50`,
+      );
       if (r.length > 0) {
         sv = "";
         _sresults = r.map((x: any) => ({
@@ -415,18 +478,34 @@
   function addToBuf(r: number, c: number) {
     if (grid) {
       const cell = grid.cells[r]?.[c];
-      if (cell && cell.codepoint > 0) buf += String.fromCodePoint(cell.codepoint);
+      if (cell && cell.codepoint > 0)
+        buf += String.fromCodePoint(cell.codepoint);
     }
   }
   function conv(): string {
     if (!buf) return "";
     const a = [...buf];
-    if (mode === "ncr_hex") return a.map((c) => `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`).join("");
-    if (mode === "ncr_dec") return a.map((c) => `&#${c.codePointAt(0)!};`).join("");
-    if (mode === "html") return a.map((c) => (c.codePointAt(0)! > 127 ? `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};` : c)).join("");
+    if (mode === "ncr_hex")
+      return a
+        .map((c) => `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`)
+        .join("");
+    if (mode === "ncr_dec")
+      return a.map((c) => `&#${c.codePointAt(0)!};`).join("");
+    if (mode === "html")
+      return a
+        .map((c) =>
+          c.codePointAt(0)! > 127
+            ? `&#x${c.codePointAt(0)!.toString(16).toUpperCase()};`
+            : c,
+        )
+        .join("");
     if (mode === "ucn")
       return a
-        .map((c) => (c.codePointAt(0)! <= 0xffff ? `\\u${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}` : `\\U${c.codePointAt(0)!.toString(16).toUpperCase().padStart(8, "0")}`))
+        .map((c) =>
+          c.codePointAt(0)! <= 0xffff
+            ? `\\u${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`
+            : `\\U${c.codePointAt(0)!.toString(16).toUpperCase().padStart(8, "0")}`,
+        )
         .join("");
     return buf;
   }
@@ -560,7 +639,12 @@
 
   /** Build a minimal RTF string wrapping the given text with current font settings */
   function buildRtf(text: string): string {
-    const escaped = text.replace(/\\/g, "\\\\").replace(/\{/g, "\\{").replace(/\}/g, "\\}").replace(/\n/g, "\\par\n").replace(/\r/g, "");
+    const escaped = text
+      .replace(/\\/g, "\\\\")
+      .replace(/\{/g, "\\{")
+      .replace(/\}/g, "\\}")
+      .replace(/\n/g, "\\par\n")
+      .replace(/\r/g, "");
     let body = "";
     for (const ch of escaped) {
       const cp = ch.codePointAt(0) ?? 63;
@@ -594,7 +678,9 @@
     if (cp != null && cp >= 0) {
       const cell = grid!.cells[sr]?.[sc];
       const reserved = cell?.reserved;
-      const nm = reserved ? "<reserved>" : selName() || `U+${cp.toString(16).toUpperCase()}`;
+      const nm = reserved
+        ? "<reserved>"
+        : selName() || `U+${cp.toString(16).toUpperCase()}`;
       return {
         hex: cp
           .toString(16)
@@ -609,7 +695,12 @@
   });
 
   function onKey(e: KeyboardEvent) {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement
+    )
+      return;
     if (e.key === "ArrowUp") {
       if (sr > 0) sr--;
       else if (scroll > 0) {
@@ -712,10 +803,16 @@
     else if (label === t("tools.opentype_test")) showOpenTypeTest = true;
     // Fonts menu
     else if (label === t("fonts.overview")) showFontOverview = true;
+    else if (label === t("fonts.composite_mapping")) showCompositeFont = true;
+    else if (label === t("font.configure")) showCompositeFont = true;
     // View menu
     else if (label === t("view.filter_no_block")) {
       _filterNoBlock = !_filterNoBlock;
-      showStatus(_filterNoBlock ? "Filter ON: unassigned blocks hidden" : "Filter OFF: showing full planes");
+      showStatus(
+        _filterNoBlock
+          ? "Filter ON: unassigned blocks hidden"
+          : "Filter OFF: showing full planes",
+      );
       load();
     }
   }
@@ -731,20 +828,50 @@
   load();
   loadBlocks();
   loadPlanes();
+  loadUserFonts();
   startBackend();
+
+  // Kick the (CPU-heavy) font analysis off right after the shell is up, so it
+  // overlaps with the user's first interactions instead of blocking the dialog
+  // they open it from.  Progress is shown in the status bar at the bottom, and
+  // in the dialog itself while it waits for the first result.
+  $effect(() => {
+    startScanTicker();
+    startCoverageScan();
+  });
 </script>
 
 <svelte:window onkeydown={onKey} />
 
 <div class="app" class:dark>
-  <MenuBar {dark} {showLang} filterNoBlock={_filterNoBlock} {onMenuAction} onDarkToggle={() => (dark = !dark)} onToggleLang={() => (showLang = !showLang)} onCloseLang={() => (showLang = false)} />
+  <MenuBar
+    {dark}
+    {showLang}
+    filterNoBlock={_filterNoBlock}
+    {onMenuAction}
+    onDarkToggle={() => (dark = !dark)}
+    onToggleLang={() => (showLang = !showLang)}
+    onCloseLang={() => (showLang = false)}
+  />
 
   <PlaneTabs {plane} planes={PLANES} onChange={goPlane} />
 
   <div class="main">
     <div class="gw">
       <GridHeader {loading} {err} {grid} />
-      <CharacterGrid {grid} {plane} {sr} {sc} onSelect={selectCell} onAddToBuffer={addToBuf} onDblClick={openCharProps} onWheel={(deltaY: number) => nav(deltaY > 0 ? 1 : -1)} />
+      <CharacterGrid
+        {grid}
+        {plane}
+        {sr}
+        {sc}
+        stackFamily={stack}
+        fontSize={fontStack.gridSize}
+        onSelect={selectCell}
+        onAddToBuffer={addToBuf}
+        onDblClick={openCharProps}
+        onWheel={(deltaY: number) => nav(deltaY > 0 ? 1 : -1)}
+        onZoom={(deltaY: number) => zoomGrid(deltaY)}
+      />
     </div>
 
     <NavPanel
@@ -781,7 +908,15 @@
     {mode}
     {glyph}
     {colour}
-    {fsize}
+    stackFamily={stack}
+    bufSize={fontStack.bufferSize}
+    onBufSizeChange={(n: number) => {
+      fontStack.bufferSize = Math.max(
+        MIN_SIZE,
+        Math.min(MAX_SIZE, Math.round(n)),
+      );
+    }}
+    onConfigureStack={() => (showCompositeFont = true)}
     {gv}
     {sv}
     {blocks}
@@ -805,10 +940,6 @@
     searchLoading={_searchLoading}
     onLoadMoreResults={loadMoreResults}
     onGoto={doGo}
-    onFontSizeChange={(v: number) => {
-      fsize = v;
-      load();
-    }}
     onModeChange={(m: string) => changeMode(m as any)}
     onGlyphToggle={(v: boolean) => (glyph = v)}
     onColourToggle={(v: boolean) => (colour = v)}
@@ -817,7 +948,8 @@
     onClear={doClear}
     onSave={openSaveDlg}
     onHideToggle={() => {}}
-    onContextMenu={(e: MouseEvent) => openCtxMenu(e, e.currentTarget as HTMLTextAreaElement)}
+    onContextMenu={(e: MouseEvent) =>
+      openCtxMenu(e, e.currentTarget as HTMLTextAreaElement)}
   />
 
   <StatusBar
@@ -851,7 +983,11 @@
     }}
   />
 
-  <CharacterPropertiesDialog show={showCharProps} cp={charPropsCp} onClose={() => (showCharProps = false)} />
+  <CharacterPropertiesDialog
+    show={showCharProps}
+    cp={charPropsCp}
+    onClose={() => (showCharProps = false)}
+  />
 
   <EmojiLookupDialog
     show={showEmojiLookup}
@@ -862,9 +998,20 @@
     }}
   />
 
-  <OpenTypeTestDialog show={showOpenTypeTest} onClose={() => (showOpenTypeTest = false)} />
+  <OpenTypeTestDialog
+    show={showOpenTypeTest}
+    onClose={() => (showOpenTypeTest = false)}
+  />
 
-  <FontOverviewDialog show={showFontOverview} onClose={() => (showFontOverview = false)} />
+  <FontOverviewDialog
+    show={showFontOverview}
+    onClose={() => (showFontOverview = false)}
+  />
+
+  <CompositeFontDialog
+    show={showCompositeFont}
+    onClose={() => (showCompositeFont = false)}
+  />
 
   <ContextMenu
     show={ctxShow}

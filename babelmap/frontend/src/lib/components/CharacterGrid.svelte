@@ -6,13 +6,34 @@
     plane: number;
     sr: number;
     sc: number;
+    /** Font stack (from CompositeFontDialog) — shared with the edit buffer. */
+    stackFamily?: string;
+    /**
+     * Grid font size in px, or `null`/`0` for the original responsive
+     * `clamp(15px, 4vh, 56px)` sizing (the default until Ctrl+wheel is used).
+     */
+    fontSize?: number | null;
     onSelect: (r: number, c: number) => void;
     onAddToBuffer: (r: number, c: number) => void;
     onWheel: (deltaY: number) => void;
+    /** Ctrl+wheel over the grid changes the grid font size. */
+    onZoom?: (deltaY: number) => void;
     onDblClick?: (r: number, c: number) => void;
   }
 
-  let { grid, plane, sr, sc, onSelect, onAddToBuffer, onWheel, onDblClick = () => {} }: Props = $props();
+  let {
+    grid,
+    plane,
+    sr,
+    sc,
+    stackFamily = "",
+    fontSize = null,
+    onSelect,
+    onAddToBuffer,
+    onWheel,
+    onZoom = () => {},
+    onDblClick = () => {},
+  }: Props = $props();
 
   // Double-click detection via click timer (more reliable than relying on the
   // browser's dblclick event, which some environments suppress).
@@ -22,12 +43,21 @@
 
   function rowLabel(row: GridCell[], ri: number): string {
     if (row.every((c) => c.codepoint < 0)) return "\u2014";
-    const base = plane * 0x10000 + (grid!.row_bases?.[ri] ?? (grid!.scroll_position + ri) * 16);
+    const base =
+      plane * 0x10000 +
+      (grid!.row_bases?.[ri] ?? (grid!.scroll_position + ri) * 16);
     return base.toString(16).toUpperCase().padStart(4, "0").slice(0, -1) + "_";
   }
 
-  function isRowVisible(row: GridCell[], ri: number, allRows: GridCell[][]): boolean {
-    return row.some((c) => c.codepoint >= 0) || allRows.slice(ri).every((r) => r.every((c) => c.codepoint < 0));
+  function isRowVisible(
+    row: GridCell[],
+    ri: number,
+    allRows: GridCell[][],
+  ): boolean {
+    return (
+      row.some((c) => c.codepoint >= 0) ||
+      allRows.slice(ri).every((r) => r.every((c) => c.codepoint < 0))
+    );
   }
 </script>
 
@@ -35,12 +65,18 @@
   class="gb"
   role="grid"
   tabindex="0"
+  style="--grid-font: {stackFamily || 'inherit'};{fontSize
+    ? `--grid-size: ${fontSize}px;`
+    : ''}"
   onwheel={(e: WheelEvent) => {
     e.preventDefault();
-    onWheel(e.deltaY);
+    if (e.ctrlKey) onZoom(e.deltaY);
+    else onWheel(e.deltaY);
   }}
   onclick={(e) => {
-    const b = (e.target as HTMLElement).closest("button[data-ri]") as HTMLElement | null;
+    const b = (e.target as HTMLElement).closest(
+      "button[data-ri]",
+    ) as HTMLElement | null;
     if (b) {
       const ri = +b.dataset.ri!;
       const ci = +b.dataset.ci!;
@@ -60,7 +96,13 @@
     }
   }}
   onkeydown={(e) => {
-    if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) e.preventDefault();
+    if (
+      !(
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+    )
+      e.preventDefault();
   }}
 >
   {#if grid}
@@ -70,7 +112,10 @@
         <span class="rl" class:bb={isBB}>{rowLabel(row, ri)}</span>
         {#each row as cell, ci (ci)}
           {@const s = sr === ri && sc === ci}
-          {@const nch = cell.codepoint > 0 && ((cell.codepoint & 0xfffe) === 0xfffe || (cell.codepoint >= 0xfdd0 && cell.codepoint <= 0xfdef))}
+          {@const nch =
+            cell.codepoint > 0 &&
+            ((cell.codepoint & 0xfffe) === 0xfffe ||
+              (cell.codepoint >= 0xfdd0 && cell.codepoint <= 0xfdef))}
           {@const filler = row.every((c) => c.codepoint < 0)}
           <button
             class="cel"
@@ -82,9 +127,14 @@
             class:bb={isBB}
             data-ri={ri}
             data-ci={ci}
-            title={cell.char_name || (cell.codepoint >= 0 ? `U+${cell.codepoint.toString(16).toUpperCase().padStart(4, "0")}` : "")}
+            title={cell.char_name ||
+              (cell.codepoint >= 0
+                ? `U+${cell.codepoint.toString(16).toUpperCase().padStart(4, "0")}`
+                : "")}
           >
-            {#if cell.codepoint >= 0}<span class="gc2">{String.fromCodePoint(cell.codepoint)}</span>{/if}
+            {#if cell.codepoint >= 0}<span class="gc2"
+                >{String.fromCodePoint(cell.codepoint)}</span
+              >{/if}
           </button>
         {/each}
       {/if}
@@ -153,7 +203,8 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: clamp(15px, 4vh, 56px);
+    font-size: var(--grid-size, clamp(15px, 4vh, 56px));
+    font-family: var(--grid-font, inherit);
     line-height: 1;
     color: inherit;
     pointer-events: none;
