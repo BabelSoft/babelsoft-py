@@ -17,27 +17,31 @@ Modern rebuild of the BabelSoft BabelMap tool using:
 
 ## Implementation Status
 
-| Area                        | Status                                                                                               |
-| --------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Backend REST/SSE API        | ✅ Core complete                                                                                     |
-| Character grid & navigation | ✅ Complete                                                                                          |
-| Expression search engine    | ✅ Complete (AST parser + SSE streaming)                                                             |
-| Edit buffer (modes, RTF)    | ✅ Complete                                                                                          |
-| Save dialog (encodings/BOM) | ✅ Complete                                                                                          |
-| Context menu (text editing) | ✅ Complete                                                                                          |
-| Menu bar                    | ⚠️ Structure complete; Tools/Fonts dialogs wired, rest vary                                          |
-| Plane tabs                  | ✅ Complete (7 fixed / 17 unfiltered)                                                                |
-| Block selector              | ✅ Complete                                                                                          |
-| Localization                | ✅ 7 languages                                                                                       |
-| Fonts toolbar               | ⚠️ Size (grid + buffer) settable; other font config is placeholder                                   |
-| Tools menu dialogs          | ✅ Unicode / Char Properties (+Extended/Ideographic/History/IVS) / Emoji Lookup / OpenType Test      |
-| Fonts Overview dialog       | ✅ Complete (families, scripts, coverage/analysis/info, axes, SSE)                                   |
-| Composite Font Mappings     | ✅ Complete (block coverage + Auto, stack entries, hand-written CSS + compile check, uploaded fonts) |
-| Options menu                | 🚫 No handlers (a few items map to capabilities elsewhere)                                           |
-| Bookmarks                   | 🚫 Not implemented                                                                                   |
-| Help / About                | 🚫 Not implemented                                                                                   |
-| Grid size (View/font)       | ⚠️ Numeric input in the bottom panel only                                                            |
-| Glyph rendering (PIL)       | ✅ `/api/glyph` available; grid uses text                                                            |
+| Area                        | Status                                                                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend REST/SSE API        | ✅ Core complete                                                                                                                                                                                                                      |
+| Character grid & navigation | ✅ Complete                                                                                                                                                                                                                           |
+| Expression search engine    | ✅ Complete (AST parser + SSE streaming)                                                                                                                                                                                              |
+| Edit buffer (modes, RTF)    | ✅ Complete                                                                                                                                                                                                                           |
+| Save dialog (encodings/BOM) | ✅ Complete                                                                                                                                                                                                                           |
+| Context menu (text editing) | ✅ Complete                                                                                                                                                                                                                           |
+| Menu bar                    | ✅ Structure complete; every menu group (Fonts, Options, Bookmarks, Help) is fully wired                                                                                                                                              |
+| Plane tabs                  | ✅ Complete (7 fixed / 17 unfiltered)                                                                                                                                                                                                 |
+| Block selector              | ✅ Complete                                                                                                                                                                                                                           |
+| Localization                | ✅ 7 languages                                                                                                                                                                                                                        |
+| Fonts toolbar               | ✅ Overview / Composite Mappings / Quality / Export Glyphs wired; size via menu presets or Ctrl+wheel                                                                                                                                 |
+| Tools menu dialogs          | ✅ Unicode / Char Properties (+Extended/Ideographic/History/IVS) / Emoji Lookup / OpenType Test / 5 lookup dialogs (Pinyin, Jyutping, Zhuang, Han radical, Yi radical)                                                                |
+| Fonts Overview dialog       | ✅ Complete (families, scripts, coverage/analysis/info, axes, SSE, My fonts add/remove)                                                                                                                                               |
+| Composite Font Mappings     | ✅ Complete (block coverage + Auto, entry appends with axes, generated read-only CSS)                                                                                                                                                 |
+| Fonts menu (all 4 groups)   | ✅ Single/Composite mode, all-styles + legacy enumeration, symbol mappings, 5 size presets, 7 quality modes, Quality & Export dialogs — all persisted                                                                                 |
+| Options menu                | ✅ All 15 entries wired: block order, aliases, goto base, alt representation, CJKV/Tangut readings, grid gestures, magnifier, 8 colour-coding modes, cut/copy defaults, 3 status-bar toggles, vertical rotation, colour editor, reset |
+| Bookmarks                   | ✅ 4 commands + one dynamic menu entry per bookmark (max 32), manage dialog, persisted                                                                                                                                                |
+| Help / About                | ✅ One window (F1): a version block from `/api/about` plus a shortcut reference generated from the menu bar                                                                                                                           |
+| File menu                   | ✅ Close to System Tray + Exit, both forwarded to the Tauri window |
+| Supplementary Information   | ✅ The original's CJKV / Tangut / hieroglyph dialogs are the **Supplementary** tab of Character Properties |
+| UCD data generation         | ✅ Core UCD table (`/api/ucd/generate`) + full XML download (`/api/ucd/xml`) |
+| Grid size (View/font)       | ✅ 5 menu presets × the two View size columns (`GridPointSize[][2]`) + Ctrl+wheel zoom, persisted                                                                                                                                     |
+| Glyph rasteriser (FreeType) | ✅ `/api/glyphs/*` — 7 selectable quality modes; grid uses the system renderer                                                                                                                                                        |
 
 ---
 
@@ -45,50 +49,60 @@ Modern rebuild of the BabelSoft BabelMap tool using:
 
 All endpoints implemented and working. Port **18080** (`http://127.0.0.1:18080`).
 
-| Endpoint                                         | Description                                        | Status |
-| ------------------------------------------------ | -------------------------------------------------- | ------ |
-| `GET /api/health`                                | Health check                                       | ✅     |
-| `GET /api/planes`                                | List Unicode planes (0–16)                         | ✅     |
-| `GET /api/blocks`                                | All blocks (valid planes, no surrogates)           | ✅     |
-| `GET /api/blocks/{plane}`                        | Blocks for a plane                                 | ✅     |
-| `GET /api/grid/{plane}?scroll=&filter_no_block=` | Character grid page (8×16)                         | ✅     |
-| `GET /api/grid/{plane}/goto/{cp}`                | Jump to codepoint (+`filter_no_block`)             | ✅     |
-| `GET /api/grid/{plane}/block/{name}`             | Jump to a block by name                            | ✅     |
-| `GET /api/grid/{plane}/navigate`                 | Grid navigation (page/block/plane)                 | ✅     |
-| `GET /api/codepoint/{cp}`                        | Codepoint info (GC, script, pinyin...)             | ✅     |
-| `GET /api/glyph/{cp}?font=&size=`                | Glyph PNG as base64 (Pillow)                       | ✅     |
-| `GET /api/search/name?q=`                        | Unified expression search                          | ✅     |
-| `GET /api/search/advanced?q=`                    | Alias of `/search/name`                            | ✅     |
-| `GET /api/search/name/stream`                    | SSE streaming search                               | ✅     |
-| `GET /api/search/han_source`                     | CJK IRG source-reference search                    | ✅     |
-| `GET /api/search/properties`                     | Property autocomplete list                         | ✅     |
-| `GET /api/emoji/search?q=`                       | Emoji search by name/keyword/codepoint             | ✅     |
-| `GET /api/emoji/list`                            | All RGI emoji in CLDR order (browse)               | ✅     |
-| `GET /api/fonts`                                 | List font names                                    | ✅     |
-| `GET /api/fonts/overview?dirs=`                  | Full font scan (families, scripts, cov.)           | ✅     |
-| `GET /api/fonts/overview/stream?dirs=`           | SSE scan progress, then the full payload           | ✅     |
-| `GET /api/fonts/raw?path=`                       | Serve a font file (for `@font-face`)               | ✅     |
-| `GET /api/fonts/user`                            | List user-added (uploaded) fonts                   | ✅     |
-| `POST /api/fonts/user`                           | Register an uploaded font                          | ✅     |
-| `POST /api/fonts/user/remove`                    | Unregister + delete a user font                    | ✅     |
-| `GET /api/fonts/user_file?id=`                   | Serve a user font (for `@font-face`)               | ✅     |
-| `GET /api/fonts/user/analyze?id=`                | fontTools analysis of a user font                  | ✅     |
-| `POST /api/fonts/composite/validate`             | Compile-validate composite-font CSS                | ✅     |
-| `GET /api/fonts/coverage?block=&dirs=`           | Per-block font coverage (+Auto winner)             | ✅     |
-| `GET /api/fonts/coverage/stream?block=&dirs=`    | SSE scan progress, then the coverage table         | ✅     |
-| `GET /api/fonts/coverage/auto?dirs=`             | Auto: best font for every block                    | ✅     |
-| `GET /api/fonts/coverage/chars?block=&dirs=`     | Full character list of one block, per-font support | ✅     |
-| `GET /api/convert/edit?text=&mode=`              | NCR/HTML/UCN conversion helpers                    | ✅     |
-| `GET /api/unicode/versions`                      | Unicode version history + block lists              | ✅     |
-| `GET /api/unicode/scripts`                       | Script summary (code, name, chars)                 | ✅     |
-| `GET /api/unicode/scripts/blocks?code=`          | Per-block breakdown for one script                 | ✅     |
-| `GET /api/unicode/planes`                        | Per-plane stats (blocks/chars/unassigned)          | ✅     |
-| `GET /api/unicode/planes/{plane}/blocks`         | Blocks contained in one plane                      | ✅     |
-| `GET /api/unicode/blocks?version=`               | Block table for a Unicode version                  | ✅     |
-| `GET /api/unicode/blocks/{name}/characters`      | Assigned characters inside one block               | ✅     |
-| `GET /api/unicode/blocks/{name}/unicodedata`     | UnicodeData rows for one block                     | ✅     |
-| `GET /api/unicode/diff?from=&to=`                | Block/character changes between versions           | ✅     |
-| `GET /api/unicode/history`                       | Per-version character history                      | ✅     |
+| Endpoint                                                                       | Description                                                            | Status |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------ |
+| `GET /api/health`                                                              | Health check                                                           | ✅     |
+| `GET /api/about`                                                               | Version block for Help ▸ About                                         | ✅     |
+| `GET /api/planes`                                                              | List Unicode planes (0–16)                                             | ✅     |
+| `GET /api/blocks`                                                              | All blocks (valid planes, no surrogates)                               | ✅     |
+| `GET /api/blocks/{plane}`                                                      | Blocks for a plane                                                     | ✅     |
+| `GET /api/grid/{plane}?scroll=&filter_no_block=`                               | Character grid page (8×16)                                             | ✅     |
+| `GET /api/grid/{plane}/goto/{cp}`                                              | Jump to codepoint (+`filter_no_block`)                                 | ✅     |
+| `GET /api/grid/{plane}/block/{name}`                                           | Jump to a block by name                                                | ✅     |
+| `GET /api/grid/{plane}/navigate`                                               | Grid navigation (page/block/plane)                                     | ✅     |
+| `GET /api/codepoint/{cp}`                                                      | Codepoint info (GC, script, pinyin...)                                 | ✅     |
+| `GET /api/lookup?kind=&q=`                                                     | Reverse lookups: pinyin / jyutping / zhuang / han_radical / yi_radical | ✅     |
+| `GET /api/supplementary/{cp}` | CJKV / Tangut / hieroglyph section list for Tools ▸ Supplementary Information | ✅ |
+| `GET /api/ucd/fields` | The 15 `Unicode::UCDFields` column titles | ✅ |
+| `GET /api/ucd/generate?start=&end=` | UCD table rows for a range (CJK/Hangul runs abbreviated to First/Last) | ✅ |
+| `GET /api/ucd/xml?start=&end=` | `ucd.nounihan.flat`-style XML for a range | ✅ |
+| `GET /api/glyph/{cp}?font=&size=`                                              | Glyph PNG as base64 (Pillow)                                           | ✅     |
+| `GET /api/search/name?q=`                                                      | Unified expression search                                              | ✅     |
+| `GET /api/search/advanced?q=`                                                  | Alias of `/search/name`                                                | ✅     |
+| `GET /api/search/name/stream`                                                  | SSE streaming search                                                   | ✅     |
+| `GET /api/search/han_source`                                                   | CJK IRG source-reference search                                        | ✅     |
+| `GET /api/search/properties`                                                   | Property autocomplete list                                             | ✅     |
+| `GET /api/emoji/search?q=`                                                     | Emoji search by name/keyword/codepoint                                 | ✅     |
+| `GET /api/emoji/list`                                                          | All RGI emoji in CLDR order (browse)                                   | ✅     |
+| `GET /api/fonts`                                                               | List font names                                                        | ✅     |
+| `GET /api/fonts/overview?dirs=`                                                | Full font scan (families, scripts, cov.)                               | ✅     |
+| `GET /api/fonts/overview/stream?dirs=`                                         | SSE scan progress, then the full payload                               | ✅     |
+| `GET /api/fonts/raw?path=`                                                     | Serve a font file (for `@font-face`)                                   | ✅     |
+| `GET /api/fonts/user`                                                          | List user-added (uploaded) fonts                                       | ✅     |
+| `POST /api/fonts/user`                                                         | Register an uploaded font                                              | ✅     |
+| `POST /api/fonts/user/remove`                                                  | Unregister + delete a user font                                        | ✅     |
+| `GET /api/fonts/user_file?id=`                                                 | Serve a user font (for `@font-face`)                                   | ✅     |
+| `GET /api/fonts/user/analyze?id=`                                              | fontTools analysis of a user font                                      | ✅     |
+| `POST /api/fonts/composite/validate`                                           | Compile-validate composite-font CSS                                    | ✅     |
+| `GET /api/fonts/coverage?block=&dirs=&all_styles=`                             | Per-block font coverage (+Auto winner)                                 | ✅     |
+| `GET /api/fonts/coverage/stream?block=&dirs=&all_styles=`                      | SSE scan progress, then the coverage table                             | ✅     |
+| `GET /api/fonts/coverage/auto?dirs=&all_styles=`                               | Auto: best font for every block                                        | ✅     |
+| `GET /api/fonts/coverage/chars?block=&dirs=&all_styles=`                       | Full character list of one block, per-font support                     | ✅     |
+| `GET /api/glyphs/qualities`                                                    | The seven `lfQuality` modes                                            | ✅     |
+| `GET /api/glyphs/preview?cp=&font=&size=&quality=&cell_w=&cell_h=&scale=&fmt=` | One glyph, rasterised at that quality, as an image                     | ✅     |
+| `GET /api/glyphs/sample?text=&font=&size=&quality=&scale=`                     | A sample line at that quality (Font Quality dialog)                    | ✅     |
+| `POST /api/glyphs/export`                                                      | Zip of one image per code point                                        | ✅     |
+| `GET /api/convert/edit?text=&mode=`                                            | NCR/HTML/UCN conversion helpers                                        | ✅     |
+| `GET /api/unicode/versions`                                                    | Unicode version history + block lists                                  | ✅     |
+| `GET /api/unicode/scripts`                                                     | Script summary (code, name, chars)                                     | ✅     |
+| `GET /api/unicode/scripts/blocks?code=`                                        | Per-block breakdown for one script                                     | ✅     |
+| `GET /api/unicode/planes`                                                      | Per-plane stats (blocks/chars/unassigned)                              | ✅     |
+| `GET /api/unicode/planes/{plane}/blocks`                                       | Blocks contained in one plane                                          | ✅     |
+| `GET /api/unicode/blocks?version=`                                             | Block table for a Unicode version                                      | ✅     |
+| `GET /api/unicode/blocks/{name}/characters`                                    | Assigned characters inside one block                                   | ✅     |
+| `GET /api/unicode/blocks/{name}/unicodedata`                                   | UnicodeData rows for one block                                         | ✅     |
+| `GET /api/unicode/diff?from=&to=`                                              | Block/character changes between versions                               | ✅     |
+| `GET /api/unicode/history`                                                     | Per-version character history                                          | ✅     |
 
 ### OpenType Test Framework endpoints
 
@@ -215,7 +229,7 @@ accepts collections/WOFF.
 | `PlaneTabs.svelte`                 | Plane tab bar                                            | ✅           |
 | `CharacterGrid.svelte`             | 16-col grid, reserved/nonchar/highlight                  | ✅           |
 | `GridHeader.svelte`                | Block title + column headers                             | ✅           |
-| `NavPanel.svelte`                  | Vertical slider + nav buttons (IVS disabled)             | ✅           |
+| `NavPanel.svelte`                  | Vertical slider + nav buttons (IVS opens Character Properties) | ✅           |
 | `BottomPanel.svelte`               | Block selector, AdvSearch, goto, edit buffer             | ✅           |
 | `AdvSearch.svelte`                 | Expression input + property autocomplete                 | ✅           |
 | `SearchResultsWindow.svelte`       | Draggable/resizable results window                       | ✅           |
@@ -311,7 +325,7 @@ character. Appending an entry therefore means “use this as a later fallback”
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Blocks**  | Per-block font coverage, in two columns: **blocks on the left**, the complete font list for the selected block on the right — plus the **Auto** best-font assignment. |
 | **Entries** | Point-and-click rows built from _font + style + weight + characters/range_, appended in order.                                                                        |
-| **CSS**     | Hand-written CSS, compile-checked by the backend with per-line error/warning markers.                                                                                 |
+| **CSS**     | Read-only view of the CSS generated from Blocks + Entries, with per-line error/warning markers from the backend validator.                                            |
 | **Fonts**   | The registry of uploaded fonts (add / remove / analyze).                                                                                                              |
 
 ### Blocks — coverage and Auto (`backend/font_coverage.py`)
@@ -562,7 +576,7 @@ semantics. Space-separated conditions (`a=1 b=2`) imply `AND`.
 ## Menu Bar --- complete inventory
 
 The menu **structure** mirrors the original BabelMap. The top bar contains
-**8 top-level menus** + **2 right-side controls** (language switcher, theme
+**9 top-level menus** + **2 right-side controls** (language switcher, theme
 toggle).
 
 Legend for the Status column:
@@ -573,28 +587,44 @@ Legend for the Status column:
   (Notes points to it); the menu entry itself does nothing.
 - 🚫 — placeholder only: no handler and no equivalent capability anywhere.
 
+### 0. File
+
+The original's File menu only holds the two window-shell commands, so
+this port keeps them in the same place rather than inventing new ones:
+
+| Item                 | Keys | Status | Notes |
+| -------------------- | ---- | ------ | ----- |
+| Close to System Tray | ---  | ✅     | ✓ mirrors `closeToTray`; calls Tauri's `getCurrentWindow().hide()` (a browser tab only says it needs the desktop shell) |
+| Exit                 | ---  | ✅     | Tauri `getCurrentWindow().close()` |
+
 ### 1. Edit
 
-| Item               | Keys          | Status | Notes                                                      |
-| ------------------ | ------------- | ------ | ---------------------------------------------------------- |
-| Clear              | ---           | ✅     | clears edit buffer                                         |
-| Cut (Plain)        | Shift+F4      | ✅     | copy then clear                                            |
-| Cut (RTF)          | Ctrl+Shift+F4 | ✅     | RTF + plain clipboard                                      |
-| Copy (Plain)       | F4            | ✅     | current-mode text                                          |
-| Copy (RTF)         | Ctrl+F4       | ✅     | RTF + plain clipboard                                      |
-| Paste              | ---           | ✅     | read clipboard                                             |
-| Save...            | Shift+F5      | ✅     | opens SaveDialog (UTF-8/16/32 + BOM + newline)             |
-| Copy Glyph         | F6            | 🚫     | placeholder — no image clipboard writer for a single glyph |
-| Copy Glyph Outline | Shift+F6      | 🚫     | placeholder                                                |
-| Glyph Mode         | Ctrl+0        | ✅     | buffer glyph display                                       |
-| Text Mode          | Ctrl+9        | ✅     | buffer text display                                        |
-| Colour Glyphs      | Ctrl+7        | ✅     | toggles colour flag                                        |
-| ▸ Character Mode   | ---           | ⚠️     | container                                                  |
-| ├ Char             | ---           | ✅     | `changeMode("char")`                                       |
-| ├ NCR Hex          | ---           | ✅     |                                                            |
-| ├ NCR Decimal      | ---           | ✅     |                                                            |
-| ├ HTML             | ---           | ✅     |                                                            |
-| └ UCN              | ---           | ✅     |                                                            |
+| Item               | Keys          | Status | Notes                                                                                                                                                                                                                      |
+| ------------------ | ------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clear              | ---           | ✅     | clears edit buffer                                                                                                                                                                                                         |
+| Cut (Plain)        | Shift+F4      | ✅     | copy then clear                                                                                                                                                                                                            |
+| Cut (RTF)          | Ctrl+Shift+F4 | ✅     | RTF + plain clipboard                                                                                                                                                                                                      |
+| Copy (Plain)       | F4            | ✅     | current-mode text                                                                                                                                                                                                          |
+| Copy (RTF)         | Ctrl+F4       | ✅     | RTF + plain clipboard                                                                                                                                                                                                      |
+| Paste              | ---           | ✅     | read clipboard                                                                                                                                                                                                             |
+| Save...            | Shift+F5      | ✅     | opens SaveDialog (UTF-8/16/32 + BOM + newline)                                                                                                                                                                             |
+| Copy Glyph         | F6            | ✅     | draws the selected character into a 10×-cell canvas (`m_nGlyphSize * 10`, the original's factor) using the same font stack as the grid and writes the PNG to the clipboard (`navigator.clipboard.write` + `ClipboardItem`) |
+| Copy Glyph Outline | Shift+F6      | ✅     | the same canvas with `strokeText` instead of `fillText` — `CopyGlyph(true)`'s `RenderGlyphOutline`                                                                                                                         |
+| Glyph Mode         | Ctrl+0        | ✅     | `DrawSimple`: every code point is measured on its own, padded to a cell (`cell = pad + ink + pad`, `pad = max(lsb, trailing)`, the GDI `GGO_METRICS` rule) and laid out left to right — no shaping, no kerning, no mark stacking, so combining marks and RTL letters each get their own cell. `GlyphText.svelte` draws that layout on a canvas over the (invisible) textarea, including its own caret and selection; **persisted** (`glyphMode`) |
+| Text Mode          | Ctrl+9        | ✅     | `DrawComplex`: the plain textarea with the browser's own shaping engine, same font size — the two items are one radio in the menu, persisted |
+| Colour Glyphs      | Ctrl+7        | ✅     | prefers the font's own colour glyphs (`bColour && IsColourFont() && IsColourGlyph()`): `font-variant-emoji` in text mode, `U+FE0E` suppression in glyph mode; **persisted** (`colourGlyphs`) |
+| ▸ Character Mode   | ---           | ✅     | container; the active mode carries a checkmark                                                                                                                                                                             |
+| ├ Char             | ---           | ✅     | `changeMode("char")` — **persisted** (`editMode`, the original's `Map Mode`)                                                                                                                                               |
+| ├ NCR Hex          | ---           | ✅     | persisted                                                                                                                                                                                                                  |
+| ├ NCR Decimal      | ---           | ✅     | persisted                                                                                                                                                                                                                  |
+| ├ HTML             | ---           | ✅     | persisted                                                                                                                                                                                                                  |
+| └ UCN              | ---           | ✅     | persisted                                                                                                                                                                                                                  |
+
+> These four (Glyph/Text, Colour Glyphs, Character Mode, and the buffer's
+> visibility) are the only _state_ in the Edit menu — everything else is an
+> action. They live in `settings.svelte.ts` next to the Fonts preferences, so one
+> `localStorage` key holds the whole session state, and both the Edit menu and the
+> bottom-panel radios read/write the same values.
 
 ### 2. Find
 
@@ -610,101 +640,178 @@ Legend for the Status column:
 
 > **Note:** _Advanced Character Search_ and _Han Ideograph Search_ need no
 > separate menu dialog — both are already implemented by the **Expression
-> Search** box in the bottom panel. The same box also replaces the
-> Mandarin (Pinyin), Cantonese (Jyutping), Han Radical, Yi Radical and
-> Tangut References lookups via `pinyin=`, `cantonese=`, `cjkradical=`,
-> `residualstroke=`, `yiradical=` and the Tangut reference fields
-> (`lifanwen2008=`, `lifanwen1997=`, `kychanov2006=`, `sofronov1968=`,
-> `nishida1966=`).
+> Search** box in the bottom panel (`pinyin=`, `cjkradical=`,
+> `residualstroke=` … reach the same tables).
 
-| Item                             | Keys     | Status | Notes                                                                                                                                                                                                 |
-| -------------------------------- | -------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unicode...                       | ---      | ✅     | unified window: version selector + Planes/Blocks/Scripts/Compare views + character grid (click → main grid)                                                                                           |
-| Emoji Lookup...                  | Shift+F8 | ✅     | Emojipedia-style: live search by name/keyword/codepoint; colored grid with CLDR names, groups & emoji version                                                                                         |
-| Character Properties...          | F9       | ✅     | C++-mirrored: summary bar + grouped Unicode properties (identity, block/script/version, general, decomposition/numeric, joining, case mappings, encodings) + Copy + per-version Character History tab |
-| Extended Character Properties... | Shift+F9 | ✅     | lives inside Character Properties as the **Extended Properties** tab (`view="extended"`)                                                                                                              |
-| Ideographic Properties...        | Ctrl+F9  | ✅     | lives inside Character Properties as the **Ideographic Properties** tab (shown when the char has ideographic data)                                                                                    |
-| Character History...             | ---      | ✅     | inside Character Properties (F9 / double-click a cell)                                                                                                                                                |
-| Unicode Variation Sequences...   | ---      | ✅     | IVS for the current character listed in the Character Properties tab (`info.ideographic_variants`); the nav-panel **IVS** button is still disabled                                                    |
-| Generate Core UCD Data...        | ---      | 🚫     |                                                                                                                                                                                                       |
-| Generate Full UCD XML Data...    | ---      | 🚫     |                                                                                                                                                                                                       |
-| OpenType Test Framework...       | ---      | ✅     | engine picker (HarfBuzz / HarfRust / BabelScript / Graphite / Yudit / Uniscribe / DirectWrite / ICU / FreeType), face picker, per-lookup trace, SVG preview (see the shaping-engine section)          |
+| Item                             | Keys      | Status | Notes                                                                                                                                                                                                 |
+| -------------------------------- | --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unicode...                       | ---       | ✅     | unified window: version selector + Planes/Blocks/Scripts/Compare views + character grid (click → main grid)                                                                                           |
+| Mandarin (Pinyin) Lookup...      | F12       | ✅     | `LookupDialog` in `pinyin` mode — syllable + tone (any/1–5), one row per character, click to jump                                                                                                     |
+| Cantonese (Jyutping) Lookup...   | Shift+F12 | ✅     | same window, `jyutping` mode                                                                                                                                                                          |
+| Zhuang Lookup...                 | ---       | ✅     | same window, `zhuang` mode                                                                                                                                                                            |
+| Han Radical Lookup...            | F11       | ✅     | same window, `han_radical` mode — a radical character (`水`) or its IRG number (`85`) plus an extra-stroke count                                                                                      |
+| Yi Radical Lookup...             | Shift+F11 | ✅     | same window, `yi_radical` mode — a Liangshan radical character or its number                                                                                                                          |
+| Emoji Lookup...                  | Shift+F8  | ✅     | Emojipedia-style: live search by name/keyword/codepoint; colored grid with CLDR names, groups & emoji version                                                                                         |
+| Character Properties...          | F9        | ✅     | C++-mirrored: summary bar + grouped Unicode properties (identity, block/script/version, general, decomposition/numeric, joining, case mappings, encodings) + Copy + per-version Character History tab |
+| Supplementary Information        | ---       | ✅     | opens **Character Properties** on its **Supplementary** tab — `OnToolsSupplementaryInformation`'s CJKV (`CDialogCJKV`) / Tangut (`CDialogTangut`) / hieroglyph (`CDialogHieroglyph`) data from `GET /api/supplementary/{cp}` |
+| Extended Character Properties... | Shift+F9  | ✅     | lives inside Character Properties as the **Extended Properties** tab (`view="extended"`)                                                                                                              |
+| Ideographic Properties...        | Ctrl+F9   | ✅     | lives inside Character Properties as the **Ideographic Properties** tab (shown when the char has ideographic data)                                                                                    |
+| Character History...             | ---       | ✅     | inside Character Properties (F9 / double-click a cell)                                                                                                                                                |
+| Unicode Variation Sequences...   | ---       | ✅     | every IVS / emoji / standardized sequence is listed in Character Properties (**Unicode Properties** page); the nav panel's **IVS** button opens that dialog (`OnButtonUnicodeVariationSequences` → `CDialogUVS`), and clicking a sequence inserts base + VS into the edit buffer |
+| Generate Core UCD Data...        | ---       | ✅     | `UcdDialog` — block picker + hex range + the two algorithmic-run checkboxes, over the 15 `Unicode::UCDFields` columns; Generate / Copy (TSV) / Save, rows from `GET /api/ucd/generate` |
+| Generate Full UCD XML Data...    | ---       | ✅     | downloads `ucd.nounihan.flat.babelmap.xml` from `GET /api/ucd/xml` — `OnToolsXMLData`'s own file name |
+| OpenType Test Framework...       | ---       | ✅     | engine picker (HarfBuzz / HarfRust / BabelScript / Graphite / Yudit / Uniscribe / DirectWrite / ICU / FreeType), face picker, per-lookup trace, SVG preview (see the shaping-engine section)          |
 
-### 4. Fonts --- ⚠️ partial
+### 4. Fonts --- ✅ implemented
 
-| Item                                                                                      | Keys     | Status | Notes                                                                                                                    |
-| ----------------------------------------------------------------------------------------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Single Font                                                                               | Ctrl+1   | 🚫     |                                                                                                                          |
-| Composite Font                                                                            | Ctrl+2   | 🚫     |                                                                                                                          |
-| List All Font Styles                                                                      | ---      | 🚫     |                                                                                                                          |
-| Legacy Font Enum                                                                          | ---      | 🚫     |                                                                                                                          |
-| Show Symbol Mappings                                                                      | ---      | 🚫     |                                                                                                                          |
-| ▸ Grid Font Size                                                                          | ---      | ⚠️     | size works only via bottom-panel numeric input                                                                           |
-| ├ Very Small / Small / Medium / Large / Very Large                                        | ---      | 🚫     |                                                                                                                          |
-| ▸ Quality                                                                                 | ---      | 🚫     |                                                                                                                          |
-| ├ Default / Draft / Proof / Non-antialiased / Antialiased / ClearType / ClearType Natural | ---      | 🚫     |                                                                                                                          |
-| Add Fonts                                                                                 | ---      | ✅     | registers a font from outside the system font folders (inside Fonts Overview / Composite Font)                           |
-| Remove Fonts                                                                              | ---      | ✅     | unregisters an added font (inside Fonts Overview / Composite Font)                                                       |
-| Fonts Overview                                                                            | ---      | ✅     | opens `FontOverviewDialog` (SSE scan progress, see below)                                                                |
-| Font Analysis                                                                             | F7       | ✅     | per-face classification (hyper family, primary script, coverage, OpenType langs/features) is shown inside Fonts Overview |
-| Font Coverage                                                                             | ---      | ✅     | per-face and per-script/per-block coverage is shown inside Fonts Overview                                                |
-| Font Information                                                                          | Ctrl+F7  | ✅     | full per-face metadata (identity/legal/metrics/axes/tables) is shown inside Fonts Overview                               |
-| Export Glyphs                                                                             | ---      | 🚫     |                                                                                                                          |
-| Composite Mapping                                                                         | Shift+F7 | ✅     | opens `CompositeFontDialog` (block coverage + Auto, font stack entries, hand-written CSS, uploaded fonts)                |
+All three surfaces the original had are now wired, and the menu mirrors the
+persisted settings (a checkmark/radio dot per item, exactly like
+`OnUpdateOptionsFonts`). Preferences live in
+`frontend/src/lib/settings.svelte.ts` and are mirrored to `localStorage`
+(`babelmap.settings.v1`), so they survive a reload.
 
-### 5. Options --- 🚫 all placeholders
+| Item                                                                                      | Keys     | Status | Notes                                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------- | -------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single Font                                                                               | Ctrl+1   | ✅     | one family for everything: the grid / buffer use `fontStack.singleFamily` (picker in the edit buffer), nothing is injected as `@font-face`. `Alt+1` also works — a tabbed browser swallows Ctrl+1 |
+| Composite Font                                                                            | Ctrl+2   | ✅     | back to block assignments + the point-and-click stack; an empty stack leaves `font-family` untouched                                                                                              |
+| List All Font Styles                                                                      | ---      | ✅     | off (default) keeps one primary face per family, on enumerates every face — both in the Overview list and in the coverage/Auto analysis (`?all_styles=true`)                                      |
+| Legacy Font Enum                                                                          | ---      | ✅     | shows the GDI names (name ID 1/2, e.g. `Alegreya Black` / `Regular`) instead of the typographic ones (ID 16/17). Both sets are stored by the scan, so toggling never re-scans                     |
+| Show Symbol Mappings                                                                      | ---      | ✅     | U+F020–U+F0FF (a symbol font's real `cmap` range) is displayed as the ASCII/CP1252 character it stands for: `U+F080 → €`; the cell is tinted and the tooltip shows both code points               |
+| ▸ Grid Font Size                                                                          | ---      | ✅     | the five presets set the grid size directly (Ctrl+wheel still works and leaves every preset unchecked)                                                                                            |
+| ├ Very Small / Small / Medium / Large / Very Large                                        | ---      | ✅     | 12 / 16 / 20 / 24 / 28 px — the original's `GridPointSize[][2]` table                                                                                                                             |
+| ▸ Quality                                                                                 | ---      | ✅     | picks the rasterisation mode; a checkmark follows `settings.fontQuality`                                                                                                                          |
+| ├ Default / Draft / Proof / Non-antialiased / Antialiased / ClearType / ClearType Natural | ---      | ✅     | the seven `LOGFONT.lfQuality` modes, implemented for real (see below)                                                                                                                             |
+| Font Quality...                                                                           | ---      | ✅     | opens `FontQualityDialog` — a live seven-way comparison of the same sample                                                                                                                        |
+| Fonts Overview                                                                            | ---      | ✅     | opens `FontOverviewDialog` (SSE scan progress, see below)                                                                                                                                         |
+| Export Glyphs                                                                             | ---      | ✅     | opens `ExportGlyphsDialog` — a zip of one image per code point                                                                                                                                    |
+| Composite Mapping                                                                         | Shift+F7 | ✅     | opens `CompositeFontDialog` (block coverage + Auto, entry appends with variable axes, generated CSS view)                                                                                         |
 
-> The menu lists these items but **none of them is wired to a handler** — they
-> all fall through `App.onMenuAction()`. Where an equivalent capability exists
-> elsewhere it is noted below.
+> Add / Remove Fonts, Font Analysis, Font Coverage and Font Information are **not
+> menu entries** any more: clicking them could only close the menu, because the
+> three-view detail panel they described lives inside **Fonts → Fonts Overview**
+> (left column for add/remove, right column for analysis/coverage/metadata). The
+> menu now lists only entries that do something.
 
-| Item                | Status | Notes                                                                                 |
-| ------------------- | ------ | ------------------------------------------------------------------------------------- |
-| Unicode Blocks      | 🚫     | block order is presentational only; the block list comes from `/api/blocks`           |
-| Name Search         | 🚫     | matching is owned by the Expression Search engine (see below)                         |
-| Go To Code Points   | ⚠️     | the bottom-panel _Go to code point_ input already does this                           |
-| Alt Representation  | ⚠️     | the Edit → Character Mode submenu (`char/ncr_hex/ncr_dec/html/ucn`) covers most of it |
-| CJKV Readings       | ⚠️     | readings are searchable (`pinyin=`, `cantonese=`) and shown in Character Properties   |
-| Tangut Readings     | ⚠️     | the Tangut reference fields (`lifanwen2008=` …) are searchable                        |
-| Character Grid      | 🚫     |                                                                                       |
-| Popup Magnification | 🚫     |                                                                                       |
-| Colour Coding       | 🚫     | no by-GC/BC/script colouring in the grid                                              |
-| Cut/Copy Defaults   | 🚫     | the edit buffer has explicit Plain/RTF buttons instead                                |
-| Status Bar          | 🚫     |                                                                                       |
-| Other               | 🚫     |                                                                                       |
-| Font Config         | 🚫     | only the grid font **size** is settable (bottom panel)                                |
-| Customize Colours   | 🚫     |                                                                                       |
-| Reset               | 🚫     |                                                                                       |
+#### Quality is real, and it is honest about its scope
 
-### 6. Bookmarks --- 🚫 placeholders
+`lfQuality` is a GDI concept: the application asks Windows _how_ to turn an
+outline into pixels. A browser cannot be asked that — WebView2 owns the text
+pipeline, so the character grid always uses the system's own rasterisation.
+Rather than fake it, the quality modes are produced by rasterising ourselves in
+`backend/glyph_render.py` with **FreeType** (the library GDI and Chrome both sit
+on top of) and exposing the results:
 
-| Item                | Keys        | Status |
-| ------------------- | ----------- | ------ |
-| Manage Bookmarks... | ---         | 🚫     |
-| Add Bookmark        | Insert      | 🚫     |
-| Remove Bookmark     | Ctrl+Delete | 🚫     |
-| Clear All Bookmarks | ---         | 🚫     |
+| `lfQuality`         | FreeType settings                                  | `draft`/`non-aa` difference  |
+| ------------------- | -------------------------------------------------- | ---------------------------- |
+| 0 DEFAULT           | `FT_LOAD_TARGET_LIGHT` (light hinting + grayscale) | —                            |
+| 1 DRAFT             | `TARGET_MONO` + `NO_HINTING` (1-bit, unhinted)     | 2 colours only               |
+| 2 PROOF             | `TARGET_NORMAL` + `NO_HINTING` (exact outlines)    | —                            |
+| 3 NONANTIALIASED    | `TARGET_MONO` (hinted 1-bit)                       | 2 colours only               |
+| 4 ANTIALIASED       | `TARGET_NORMAL` (hinted grayscale)                 | —                            |
+| 5 CLEARTYPE         | `TARGET_LCD` + `FT_LCD_FILTER_DEFAULT`             | RGB subpixel fringes         |
+| 6 CLEARTYPE_NATURAL | `TARGET_LCD` + `FT_LCD_FILTER_NONE` + no hinting   | unfiltered, natural advances |
+
+Measured on the same string: rows 1/3 come back with **2** distinct colours,
+rows 5/6 with ~430 (per-channel subpixel coverage) — the modes genuinely differ.
+The selection therefore governs the **Font Quality dialog** and **Export Font
+Glyphs**; the grid keeps system rendering, and both the dialog and this table
+say so instead of implying otherwise.
+
+Endpoints: `GET /api/glyphs/qualities`, `GET /api/glyphs/preview?cp=&font=&size=&quality=&cell_w=&cell_h=&scale=`,
+`GET /api/glyphs/sample?text=&font=&size=&quality=&scale=` (all return an image),
+and `POST /api/glyphs/export` → `application/zip` with one `U+XXXX.png/bmp/gif/jpg`
+per code point.
+
+### 5. Options --- ✅ implemented
+
+Every entry is wired, persisted in `settings.svelte.ts` (one `localStorage`
+key for the whole app) and shows a radio dot / checkmark for its current value,
+exactly like the original's `OnUpdateOptions*` handlers. Defaults follow the
+original's `Main/Registry.cpp` tables.
+
+| Item                                                 | Status | Effect / notes                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Unicode Blocks ▸ Alphabetical / Code Point           | ✅     | sorts the block dropdown (alphabetical is the original's default)                                                                                                                                                                                                  |
+| Name Search ▸ Match Aliases                          | ✅     | `/api/search/name?aliases=1` — searches also match the `NameAliases.txt` entries                                                                                                                                                                                   |
+| Go To Code Points ▸ Hexadecimal / Decimal            | ✅     | the bottom-panel input parses in the chosen base (an explicit `$`/`0x`/`U+` or `#` still wins), and its placeholder follows the setting                                                                                                                            |
+| Alt Representation (8)                               | ✅     | the info-bar field next to the character name — `Decimal N`, `\uXXXX`/`\UXXXXXXXX`, surrogate pairs, `&#xXXXX;`, `&#N;`, HTML entity, `\xXX` bytes, `\NNN` bytes. Shared with Edit ▸ Character Mode (`src/lib/altRepr.ts`)                                         |
+| CJKV Readings (6) + Upper case + Tone numbers        | ✅     | appends `[reading]` to the description via `GET /api/readings/{cp}`; the flags are the same global switches the C++ uses (`Lookup::UseUpperCaseReadings`, `UseToneNumbers`)                                                                                        |
+| Tangut Readings (6) + Tone numbers                   | ✅     | same endpoint; `gong2008` is published from the Li Fanwen 2008 table (the menu says so), and Miyake 2012/2015 select the two Miyake variants                                                                                                                       |
+| Character Grid ▸ Single/Double click, Copy on select | ✅     | single-click mode selects + appends to the buffer; double-click mode requires a double click, so a stray click never changes the selection; copy-on-select puts the character on the clipboard                                                                     |
+| Popup Magnification ▸ 36/72/108/144                  | ✅     | **Ctrl + hover** a cell → that glyph only, drawn at twice the chosen point size (72–288 px), floating above the grid and clamped to the viewport; a plain hover does nothing and the cells underneath keep their own hover state |
+| Colour Coding (8)                                    | ✅     | paints every cell from the code point's General Category / Bidi Class / Bidi Mirroring / Decomposition Type / Numeric Type / Script / Unicode version. The grid endpoint computes those attributes on the page (`?attrs=1`), so nothing is paid when coding is off |
+| Cut and Copy Button Defaults                         | ✅     | the edit buffer's **Copy** / **Cut** buttons produce plain text or RTF — the original's item is literally about those buttons                                                                                                                                      |
+| Status Bar ▸ 3 toggles                               | ✅     | _Show algorithmic character names_ / _Show CJK source references_ / _Show Tangut source references_ are three independent checkboxes (not a radio): each one decides whether that piece appears in the description                                                 |
+| Other ▸ Convert Basic Latin                          | ✅     | when on, printable ASCII is escaped too when the edit buffer converts; when off (default) it stays literal                                                                                                                                                         |
+| Other ▸ Rotate Vertical Scripts                      | ✅     | Mongolian and Phags-pa glyphs are rendered with `writing-mode: vertical-lr` (`text-orientation: sideways`). Default is **off** here — the original defaults it on, but that would change the grid for those blocks out of the box                                  |
+| Other ▸ Close to System Tray                         | ⚠️     | the flag is persisted but only a desktop shell can honour it; the browser build has no tray                                                                                                                                                                        |
+| Font Configuration Options…                          | ✅     | opens the Composite Font dialog (the font stack _is_ the font configuration)                                                                                                                                                                                       |
+| Customize Colours…                                   | ✅     | `ColourCodingDialog` — per-value background colour for every coding mode, stored as `colourOverrides[mode:value]`                                                                                                                                                  |
+| Reset Options…                                       | ✅     | confirmation, then every preference returns to its default (the original's `m_pRegistry->Reset()`), with no reload needed                                                                                                                                          |
+
+#### Colour coding: what is faithful and what is generated
+
+The original keeps hand-tuned colour tables, one entry per value, including one
+per **script** (≈170 of them). `src/lib/colourCoding.ts` reproduces that intent
+in two layers:
+
+- **curated** colours for the values people actually look at — all 30 General
+  Categories, all 23 Bidi Classes, both Mirroring states, the 17 Decomposition
+  Types, the 4 Numeric Types, the ~33 major scripts and a 17-step version
+  gradient;
+- **derived** colours for the long tail (mostly minor scripts), where the hue
+  comes from a stable hash of the script name — so a script always gets the same
+  colour, but it is not the original's hand-picked one.
+
+Anything can then be overridden per value in **Customize Colours…**.
+
+### 6. Bookmarks --- ✅ implemented
+
+The original keeps a bookmark list in its registry (`Registry::AddBookmark`,
+capped at `CDialogBookmarks::MaxBookmarks = 32`) and **rebuilds the menu from it**
+so each bookmark becomes its own menu entry. `src/lib/bookmarks.svelte.ts`
+reproduces that on top of the same persisted settings object.
+
+| Item                | Keys        | Status | Notes                                                                                                                                                                                                          |
+| ------------------- | ----------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manage Bookmarks... | ---         | ✅     | `BookmarksDialog` — Code Point / Character Name list with sortable columns, Add / Remove / Remove All, double-click a row to jump. Removing or sorting writes the list back, exactly like `ReorderBookmarks()` |
+| Add Bookmark        | Insert      | ✅     | bookmarks the selected character (silent when it is already bookmarked or the list is full)                                                                                                                    |
+| Remove Bookmark     | Ctrl+Delete | ✅     | removes the selected character's bookmark                                                                                                                                                                      |
+| Clear All Bookmarks | ---         | ✅     | empties the list (the dialog's _Remove All_ asks first, the menu item does not — same as the original)                                                                                                         |
+| _(dynamic entries)_ | ---         | ✅     | one `U+XXXX NAME` entry per bookmark below the separator, clicking one jumps to that code point                                                                                                                |
+
+> The dialog's **Add** resolves each typed code point's character name through
+> `/api/codepoint/{cp}` so the menu can show `U+4E00 CJK UNIFIED IDEOGRAPH-4E00`
+> without a lookup on every menu render.
 
 ### 7. View
 
-| Item                     | Keys | Status | Notes                                                             |
-| ------------------------ | ---- | ------ | ----------------------------------------------------------------- |
-| Medium Size              | ---  | ⚠️     | grid size is set via the bottom-panel numeric input               |
-| Large Size               | ---  | ⚠️     | same as above                                                     |
-| Filter Unassigned Blocks | ---  | ✅     | ✓ indicator; on = assigned blocks only, off = all 17 planes       |
-| Hide Reserved Planes     | ---  | 🚫     | placeholder                                                       |
-| Show Edit Buffer         | ---  | ⚠️     | the edit buffer has its own hide/show control in the bottom panel |
-| Keep on Top              | ---  | 🚫     | placeholder                                                       |
+| Item                   | Keys | Status | Notes                                                                                                                                                                                           |
+| ---------------------- | ---- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Medium Size            | ---  | ✅     | radio dot; selects the **Medium** column of the original's `GridPointSize[][2]` table (10/12/16/20/24 px), **persisted** (`viewSize`) — it scales the grid, not the dialogs                     |
+| Large Size             | ---  | ✅     | the **Large** column (12/16/20/24/28 px)                                                                                                                                                        |
+| Hide Unassigned Ranges | ---  | ✅     | ✓ indicator; on = assigned blocks only, off = unassigned ranges too; **persisted** (`showReservedRanges`)                                                                                       |
+| Hide Reserved Planes   | ---  | ✅     | ✓ indicator; off = the 7 assigned planes on the tab bar, on = all 17 (planes 4–13 as `Plane 4`…); falls back to the BMP when the current plane disappears; **persisted** (`showReservedPlanes`) |
+| Show Edit Buffer       | ---  | ✅     | View ▸ Show Edit Buffer toggles the buffer (and the bottom panel's **Hide** button), checkmark reflects the state, **persisted** (`editBufferVisible`, the original's `Show Edit Buffer`)       |
+| Keep on Top            | ---  | ✅     | ✓ indicator, **persisted** (`keepOnTop`); calls Tauri's `setAlwaysOnTop` in the desktop shell and only remembers the flag in a browser tab                                                      |
 
 > Zoom-in / zoom-out and theme switching are **not** in this menu: the theme
 > toggle is the ☀ / ☾ control on the right of the menu bar.
 
-### 8. Help --- 🚫 placeholders
+### 8. Help --- ✅ implemented
 
-| Item              | Keys | Status |
-| ----------------- | ---- | ------ |
-| Online Help       | F1   | 🚫     |
-| About BabelMap... | ---  | 🚫     |
+| Item              | Keys | Status | Notes                                                                                                                                                                                                                                                    |
+| ----------------- | ---- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Online Help       | F1   | ✅     | `HelpDialog.svelte` — the shortcut reference is generated from `localizedMenus()`, so it always lists exactly the accelerators the menu bar advertises (every item that carries a `k`), grouped by menu                                                  |
+| About BabelMap... | ---  | ✅     | same window — product version, the Unicode release the bundled data supports, how many Unicode versions are on disk, and the backend/Python versions from `GET /api/about` (the original's `CDialogAbout` reads these from the Windows version resource) |
+
+> The original's About box also shows the IVD date, the Emoji version and the
+> Uniscribe `usp10.dll` version. This port shows the first two when the data
+> directory exposes them and `—` otherwise; Uniscribe is Windows-only and has no
+> meaning for the browser/Svelte renderer.
+>
+> `F1` is also handled in `App.svelte`'s `onKey`, but a browser tab swallows the
+> real key — in the Tauri window it works as advertised.
 
 ### Right-side controls
 
@@ -725,6 +832,11 @@ Legend for the Status column:
 | `F2` / `Ctrl+G` / `Shift+F2` | Locate / Goto CP / Han              |
 | `F3` / `Shift+F3`            | Next / Prev search result           |
 | `F9` / `Shift+F8`            | Character Properties / Emoji Lookup |
+| `F6` / `Shift+F6`            | Copy Glyph / Copy Glyph Outline     |
+| `F11` / `Shift+F11`          | Han / Yi radical lookup             |
+| `F12` / `Shift+F12`          | Mandarin / Cantonese lookup         |
+| `Insert` / `Ctrl+Delete`     | Add / remove bookmark               |
+| `F1`                         | Online Help (Help + About window)   |
 | `Arrow` / `PgUp` / `PgDn`    | Grid navigation                     |
 | `Enter`                      | Add selected char to buffer         |
 
