@@ -10,8 +10,12 @@
     show: boolean;
     cp: number;
     onClose: () => void;
+    /** Which page to open on (Tools ▸ Supplementary Information asks for one). */
+    initialView?: View;
+    /** Clicking a variation sequence inserts it into the edit buffer. */
+    onInsert?: (text: string) => void;
   }
-  let { show, cp, onClose }: Props = $props();
+  let { show, cp, onClose, initialView = "props", onInsert }: Props = $props();
 
   const API = "http://127.0.0.1:18080/api";
 
@@ -285,7 +289,26 @@
   let rows = $state<HistRow[]>([]);
   let loading = $state(false);
   let err = $state("");
-  let view = $state<"props" | "extended" | "ideographic" | "history">("props");
+  type View =
+    | "props"
+    | "extended"
+    | "ideographic"
+    | "history"
+    | "supplementary";
+  let view = $state<View>("props");
+
+  // Tools ▸ Supplementary Information lands on the Supplementary tab instead of
+  // its own window — `OnToolsSupplementaryInformation` opened CDialogCJKV /
+  // CDialogTangut / CDialogHieroglyph, which are exactly "more about this
+  // character", i.e. one more page of this dialog.
+  interface SuppSection {
+    title: string;
+    rows: [string, string][];
+  }
+  let supp = $state<{ kind: string; sections: SuppSection[] }>({
+    kind: "none",
+    sections: [],
+  });
 
   // ── Drag / position state ──
   let x = $state(240);
@@ -366,11 +389,17 @@
     if (show && cp >= 0) load();
   });
 
+  // Opening the dialog always lands on the requested page.
+  $effect(() => {
+    if (show) view = initialView;
+  });
+
   async function load() {
     loading = true;
     err = "";
     info = null;
     rows = [];
+    supp = { kind: "none", sections: [] };
     try {
       const r1 = await fetch(API + "/codepoint/" + cp);
       if (r1.ok) info = await r1.json();
@@ -380,6 +409,11 @@
         rows = d.rows ?? [];
       } else {
         err = String(r2.status);
+      }
+      const r3 = await fetch(API + "/supplementary/" + cp);
+      if (r3.ok) {
+        const d = await r3.json();
+        supp = { kind: d.kind ?? "none", sections: d.sections ?? [] };
       }
     } catch (e: any) {
       err = e.message;
@@ -571,6 +605,12 @@
             onclick={() => (view = "history")}
             >Character History ({rows.length})</button
           >
+          {#if supp.sections.length}
+            <button
+              class:on={view === "supplementary"}
+              onclick={() => (view = "supplementary")}>Supplementary</button
+            >
+          {/if}
         </div>
 
         {#if view === "props"}
@@ -641,7 +681,12 @@
                     <table class="cpd-ptable">
                       <tbody>
                         {#each info!.standardized_variants as [vs, desc]}
-                          <tr>
+                          <tr
+                            class="cpd-vs-row"
+                            onclick={() =>
+                              onInsert?.(glyph + String.fromCodePoint(vs))}
+                            title="Insert into the edit buffer"
+                          >
                             <td class="cpd-k cpd-vs"
                               >{glyph}{String.fromCodePoint(vs)}</td
                             >
@@ -657,7 +702,12 @@
                           </tr>
                         {/each}
                         {#each info!.emoji_variants as [vs, style]}
-                          <tr>
+                          <tr
+                            class="cpd-vs-row"
+                            onclick={() =>
+                              onInsert?.(glyph + String.fromCodePoint(vs))}
+                            title="Insert into the edit buffer"
+                          >
                             <td class="cpd-k cpd-vs"
                               >{glyph}{String.fromCodePoint(vs)}</td
                             >
@@ -685,7 +735,12 @@
                     <table class="cpd-ptable">
                       <tbody>
                         {#each info!.ideographic_variants as [vs, coll, ref]}
-                          <tr>
+                          <tr
+                            class="cpd-vs-row"
+                            onclick={() =>
+                              onInsert?.(glyph + String.fromCodePoint(vs))}
+                            title="Insert into the edit buffer"
+                          >
                             <td class="cpd-k cpd-vs"
                               >{glyph}{String.fromCodePoint(vs)}</td
                             >
@@ -845,6 +900,30 @@
                 </tbody>
               </table>
             </div>
+          </div>
+        {:else if view === "supplementary"}
+          <!-- Tools ▸ Supplementary Information: the original's CDialogCJKV /
+               CDialogTangut / CDialogHieroglyph, as one more page here. -->
+          <div class="cpd-props">
+            {#if supp.sections.length === 0}
+              <div class="cpd-empty">No supplementary data.</div>
+            {:else}
+              {#each supp.sections as s (s.title)}
+                <div class="cpd-sec">
+                  <div class="cpd-sec-title">{s.title}</div>
+                  <table class="cpd-ptable">
+                    <tbody>
+                      {#each s.rows as r (r[0])}
+                        <tr>
+                          <td class="cpd-k">{r[0]}</td>
+                          <td class="mono">{r[1]}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {/each}
+            {/if}
           </div>
         {:else}
           <div class="cpd-h">
@@ -1137,6 +1216,13 @@
     line-height: 1.2;
     color: var(--fg, #e4e6f0);
     white-space: nowrap;
+  }
+  /* Variation sequences are clickable: click inserts base+VS into the buffer. */
+  .cpd-vs-row {
+    cursor: pointer;
+  }
+  .cpd-vs-row:hover td {
+    background: var(--bg3, #f3f4f6);
   }
   .cpd-vs-t {
     display: flex;
