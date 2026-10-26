@@ -17,25 +17,28 @@ Modern rebuild of the BabelSoft BabelMap tool using:
 
 ## Implementation Status
 
-| Area                        | Status                                                       |
-| --------------------------- | ------------------------------------------------------------ |
-| Backend REST/SSE API        | ✅ Core complete                                             |
-| Character grid & navigation | ✅ Complete                                                  |
-| Expression search engine    | ✅ Complete (AST parser + SSE streaming)                     |
-| Edit buffer (modes, RTF)    | ✅ Complete                                                  |
-| Save dialog (encodings/BOM) | ✅ Complete                                                  |
-| Context menu (text editing) | ✅ Complete                                                  |
-| Menu bar                    | ⚠️ Menu structure complete, most items 🚫                    |
-| Plane tabs                  | ✅ Complete (7 fixed / 17 unfiltered)                        |
-| Block selector              | ✅ Complete                                                  |
-| Localization                | ✅ 7 languages                                               |
-| Fonts toolbar               | ⚠️ Size only; font config is placeholder                     |
-| Tools menu dialogs          | ⚠️ Unicode / Character Properties / Emoji Lookup ✅; rest 🚫 |
-| Options menu                | 🚫 Not implemented                                           |
-| Bookmarks                   | 🚫 Not implemented                                           |
-| Help / About                | 🚫 Not implemented                                           |
-| Zoom (View)                 | 🚫 Menu item only                                            |
-| Glyph rendering (PIL)       | ✅ `/api/glyph` available; grid uses text                    |
+| Area                        | Status                                                             |
+| --------------------------- | ------------------------------------------------------------------ |
+| Backend REST/SSE API        | ✅ 35 routes implemented                                           |
+| Character grid & navigation | ✅ Complete                                                        |
+| Expression search engine    | ✅ Complete (AST parser + SSE streaming)                           |
+| Edit buffer (modes, RTF)    | ✅ Complete                                                        |
+| Save dialog (encodings/BOM) | ✅ Complete                                                        |
+| Context menu (text editing) | ✅ Complete                                                        |
+| Menu bar                    | ⚠️ Structure complete; Edit/Find/Tools\(3)/Fonts\(1)/View\(2) live |
+| Plane tabs                  | ✅ Complete (7 fixed / 17 unfiltered)                              |
+| Block selector              | ✅ Complete                                                        |
+| Localization                | ✅ 7 languages                                                     |
+| Fonts toolbar               | ⚠️ Size only; most Fonts-menu items 🚫                             |
+| Tools menu dialogs          | ✅ Unicode / Emoji Lookup / Character Properties / OpenType Test   |
+| OpenType Test Framework     | ✅ Full shaping debugger (`/api/opentype/*`, 9 engines)            |
+| Emoji Lookup                | ✅ `/api/emoji/*` (search + browse by CLDR group)                  |
+| Font Overview               | ✅ `/api/fonts/overview` + `/api/fonts/raw`                        |
+| Unicode window (Unicode...) | ✅ Versions / Planes / Blocks / Scripts / Compare diff             |
+| Options menu                | 🚫 Not implemented                                                 |
+| Bookmarks                   | 🚫 Menu items only (no handler)                                    |
+| Help / About                | 🚫 Not implemented                                                 |
+| Glyph rendering (PIL)       | ✅ `/api/glyph` available; grid uses text                          |
 
 ---
 
@@ -43,25 +46,44 @@ Modern rebuild of the BabelSoft BabelMap tool using:
 
 All endpoints implemented and working. Port **18080** (`http://127.0.0.1:18080`).
 
-| Endpoint                                         | Description                              | Status |
-| ------------------------------------------------ | ---------------------------------------- | ------ |
-| `GET /api/health`                                | Health check                             | ✅     |
-| `GET /api/planes`                                | List Unicode planes (0–16)               | ✅     |
-| `GET /api/blocks`                                | All blocks (valid planes, no surrogates) | ✅     |
-| `GET /api/blocks/{plane}`                        | Blocks for a plane                       | ✅     |
-| `GET /api/grid/{plane}?scroll=&filter_no_block=` | Character grid page (8×16)               | ✅     |
-| `GET /api/grid/{plane}/goto/{cp}`                | Jump to codepoint (+`filter_no_block`)   | ✅     |
-| `GET /api/grid/{plane}/block/{name}`             | Jump to a block by name                  | ✅     |
-| `GET /api/grid/{plane}/navigate`                 | Grid navigation (page/block/plane)       | ✅     |
-| `GET /api/codepoint/{cp}`                        | Codepoint info (GC, script, pinyin...)   | ✅     |
-| `GET /api/glyph/{cp}?font=&size=`                | Glyph PNG as base64 (Pillow)             | ✅     |
-| `GET /api/search/name?q=`                        | Unified expression search                | ✅     |
-| `GET /api/search/advanced?q=`                    | Alias of `/search/name`                  | ✅     |
-| `GET /api/search/name/stream`                    | SSE streaming search                     | ✅     |
-| `GET /api/search/han_source`                     | CJK IRG source-reference search          | ✅     |
-| `GET /api/search/properties`                     | Property autocomplete list               | ✅     |
-| `GET /api/fonts`                                 | List font names                          | ✅     |
-| `GET /api/convert/edit?text=&mode=`              | NCR/HTML/UCN conversion helpers          | ✅     |
+| Endpoint                                         | Description                                              | Status |
+| ------------------------------------------------ | -------------------------------------------------------- | ------ |
+| `GET /api/health`                                | Health check                                             | ✅     |
+| `GET /api/planes`                                | List Unicode planes (0–16)                               | ✅     |
+| `GET /api/blocks`                                | All blocks (valid planes, no surrogates)                 | ✅     |
+| `GET /api/blocks/{plane}`                        | Blocks for a plane                                       | ✅     |
+| `GET /api/grid/{plane}?scroll=&filter_no_block=` | Character grid page (8×16)                               | ✅     |
+| `GET /api/grid/{plane}/goto/{cp}`                | Jump to codepoint (+`filter_no_block`)                   | ✅     |
+| `GET /api/grid/{plane}/block/{name}`             | Jump to a block by name                                  | ✅     |
+| `GET /api/grid/{plane}/navigate`                 | Grid navigation (page/block/plane)                       | ✅     |
+| `GET /api/codepoint/{cp}`                        | Codepoint info (GC, script, pinyin...)                   | ✅     |
+| `GET /api/glyph/{cp}?font=&size=`                | Glyph PNG as base64 (Pillow)                             | ✅     |
+| `GET /api/search/name?q=`                        | Unified expression search                                | ✅     |
+| `GET /api/search/advanced?q=`                    | Alias of `/search/name`                                  | ✅     |
+| `GET /api/search/name/stream`                    | SSE streaming search                                     | ✅     |
+| `GET /api/search/han_source`                     | CJK IRG source-reference search                          | ✅     |
+| `GET /api/search/properties`                     | Property autocomplete list                               | ✅     |
+| `GET /api/fonts`                                 | List font names                                          | ✅     |
+| `GET /api/fonts/overview?dirs=`                  | Full font inventory: families, faces, features, coverage | ✅     |
+| `GET /api/fonts/raw?path=`                       | Raw font file bytes (Font Overview preview)              | ✅     |
+| `GET /api/emoji/search?q=&limit=`                | Emoji name/keyword/codepoint search                      | ✅     |
+| `GET /api/emoji/list?limit=`                     | Emoji browse list (CLDR groups)                          | ✅     |
+| `GET /api/unicode/versions`                      | Unicode version list                                     | ✅     |
+| `GET /api/unicode/scripts`                       | Script list with block counts                            | ✅     |
+| `GET /api/unicode/scripts/blocks?code=`          | Blocks of a script                                       | ✅     |
+| `GET /api/unicode/planes`                        | Plane stats (assigned/blocks/scripts)                    | ✅     |
+| `GET /api/unicode/planes/{plane}/blocks`         | Blocks of a plane                                        | ✅     |
+| `GET /api/unicode/blocks?version=`               | Blocks for a Unicode version                             | ✅     |
+| `GET /api/unicode/blocks/{name}/characters`      | Characters of a block (+`version`)                       | ✅     |
+| `GET /api/unicode/blocks/{name}/unicodedata`     | UnicodeData rows of a block (+`version`)                 | ✅     |
+| `GET /api/unicode/diff?from=&to=`                | Two-version diff (chars/blocks added/removed)            | ✅     |
+| `GET /api/unicode/history?cp=`                   | Character history across versions                        | ✅     |
+| `GET /api/opentype/fonts`                        | Font list for the OpenType Test dialog                   | ✅     |
+| `POST /api/opentype/font_faces`                  | Container/face enumeration (TTC/OTC/WOFF)                | ✅     |
+| `GET /api/opentype/meta`                         | Engine list + capabilities                               | ✅     |
+| `POST /api/opentype/shape`                       | Shape a run with a chosen engine                         | ✅     |
+| `POST /api/opentype/render`                      | Render shaped glyphs to an image                         | ✅     |
+| `GET /api/convert/edit?text=&mode=`              | NCR/HTML/UCN conversion helpers                          | ✅     |
 
 ---
 
@@ -171,22 +193,27 @@ accepts collections/WOFF.
 
 ## Frontend Components --- `frontend/src/lib/components/`
 
-| Component                    | Purpose                                       | Status       |
-| ---------------------------- | --------------------------------------------- | ------------ |
-| `App.svelte`                 | Root layout, state, menu actions, search glue | ✅           |
-| `MenuBar.svelte`             | Dropdown menus, submenus, ✓ states, theme     | ⚠️ see below |
-| `PlaneTabs.svelte`           | Plane tab bar                                 | ✅           |
-| `CharacterGrid.svelte`       | 16-col grid, reserved/nonchar/highlight       | ✅           |
-| `GridHeader.svelte`          | Block title + column headers                  | ✅           |
-| `NavPanel.svelte`            | Vertical slider + nav buttons (IVS disabled)  | ✅           |
-| `BottomPanel.svelte`         | Block selector, AdvSearch, goto, edit buffer  | ✅           |
-| `AdvSearch.svelte`           | Expression input + property autocomplete      | ✅           |
-| `SearchResultsWindow.svelte` | Draggable/resizable results window            | ✅           |
-| `InfoBar.svelte`             | U+XXXX char name + decimal                    | ✅           |
-| `StatusBar.svelte`           | Status messages, plane/font/row info          | ✅           |
-| `SaveDialog.svelte`          | Save with encoding/BOM/newline                | ✅           |
-| `ContextMenu.svelte`         | Textarea edit menu (undo/case/normalize...)   | ✅           |
-| `LangSwitcher.svelte`        | Language picker                               | ✅           |
+| Component                          | Purpose                                                     | Status       |
+| ---------------------------------- | ----------------------------------------------------------- | ------------ |
+| `App.svelte`                       | Root layout, state, menu actions, search glue               | ✅           |
+| `MenuBar.svelte`                   | Dropdown menus, submenus, ✓ states, theme                   | ⚠️ see below |
+| `PlaneTabs.svelte`                 | Plane tab bar                                               | ✅           |
+| `CharacterGrid.svelte`             | 16-col grid, reserved/nonchar/highlight                     | ✅           |
+| `GridHeader.svelte`                | Block title + column headers                                | ✅           |
+| `NavPanel.svelte`                  | Vertical slider + nav buttons (IVS disabled)                | ✅           |
+| `BottomPanel.svelte`               | Block selector, AdvSearch, goto, edit buffer                | ✅           |
+| `AdvSearch.svelte`                 | Expression input + property autocomplete                    | ✅           |
+| `SearchResultsWindow.svelte`       | Draggable/resizable results window                          | ✅           |
+| `InfoBar.svelte`                   | U+XXXX char name + decimal                                  | ✅           |
+| `StatusBar.svelte`                 | Status messages, plane/font/row info                        | ✅           |
+| `SaveDialog.svelte`                | Save with encoding/BOM/newline                              | ✅           |
+| `ContextMenu.svelte`               | Textarea edit menu (undo/case/normalize...)                 | ✅           |
+| `LangSwitcher.svelte`              | Language picker                                             | ✅           |
+| `UnicodeDialog.svelte`             | Unicode window: versions/planes/blocks/scripts/compare diff | ✅           |
+| `CharacterPropertiesDialog.svelte` | C++-mirrored properties + history tab                       | ✅           |
+| `EmojiLookupDialog.svelte`         | Emojipedia-style emoji browser/search                       | ✅           |
+| `FontOverviewDialog.svelte`        | Installed-font inventory, features, coverage                | ✅           |
+| `OpenTypeTestDialog.svelte`        | Crowbar-style shaping debugger (9 engines)                  | ✅           |
 
 ---
 
@@ -319,29 +346,29 @@ toggle). ✅ = handled in `App.onMenuAction()`, 🚫 = placeholder (no handler),
 | Unicode Variation Sequences...   | ---      | 🚫     |                                                                                                                                                                                                       |
 | Generate Core UCD Data...        | ---      | 🚫     |                                                                                                                                                                                                       |
 | Generate Full UCD XML Data...    | ---      | 🚫     |                                                                                                                                                                                                       |
-| OpenType Test Framework...       | ---      | 🚫     |                                                                                                                                                                                                       |
+| OpenType Test Framework...       | ---      | ✅     | Crowbar-style shaping debugger: 9 engines, per-lookup trace, face picker, glyph render                                                                                                                |
 
 ### 4. Fonts --- ⚠️ partial
 
-| Item                                                                                      | Keys     | Status | Notes                                          |
-| ----------------------------------------------------------------------------------------- | -------- | ------ | ---------------------------------------------- |
-| Single Font                                                                               | Ctrl+1   | 🚫     |                                                |
-| Composite Font                                                                            | Ctrl+2   | 🚫     |                                                |
-| List All Font Styles                                                                      | ---      | 🚫     |                                                |
-| Legacy Font Enum                                                                          | ---      | 🚫     |                                                |
-| Show Symbol Mappings                                                                      | ---      | 🚫     |                                                |
-| ▸ Grid Font Size                                                                          | ---      | ⚠️     | size works only via bottom-panel numeric input |
-| ├ Very Small / Small / Medium / Large / Very Large                                        | ---      | 🚫     |                                                |
-| ▸ Quality                                                                                 | ---      | 🚫     |                                                |
-| ├ Default / Draft / Proof / Non-antialiased / Antialiased / ClearType / ClearType Natural | ---      | 🚫     |                                                |
-| Add Fonts                                                                                 | ---      | 🚫     |                                                |
-| Remove Fonts                                                                              | ---      | 🚫     |                                                |
-| Fonts Overview                                                                            | ---      | 🚫     |                                                |
-| Font Analysis                                                                             | F7       | 🚫     |                                                |
-| Font Coverage                                                                             | ---      | 🚫     |                                                |
-| Font Information                                                                          | Ctrl+F7  | 🚫     |                                                |
-| Export Glyphs                                                                             | ---      | 🚫     |                                                |
-| Composite Mapping                                                                         | Shift+F7 | 🚫     |                                                |
+| Item                                                                                      | Keys     | Status | Notes                                                                          |
+| ----------------------------------------------------------------------------------------- | -------- | ------ | ------------------------------------------------------------------------------ |
+| Single Font                                                                               | Ctrl+1   | 🚫     |                                                                                |
+| Composite Font                                                                            | Ctrl+2   | 🚫     |                                                                                |
+| List All Font Styles                                                                      | ---      | 🚫     |                                                                                |
+| Legacy Font Enum                                                                          | ---      | 🚫     |                                                                                |
+| Show Symbol Mappings                                                                      | ---      | 🚫     |                                                                                |
+| ▸ Grid Font Size                                                                          | ---      | ⚠️     | size works only via bottom-panel numeric input                                 |
+| ├ Very Small / Small / Medium / Large / Very Large                                        | ---      | 🚫     |                                                                                |
+| ▸ Quality                                                                                 | ---      | 🚫     |                                                                                |
+| ├ Default / Draft / Proof / Non-antialiased / Antialiased / ClearType / ClearType Natural | ---      | 🚫     |                                                                                |
+| Add Fonts                                                                                 | ---      | 🚫     |                                                                                |
+| Remove Fonts                                                                              | ---      | 🚫     |                                                                                |
+| Fonts Overview                                                                            | ---      | ✅     | installed-font inventory: families, faces, GSUB/GPOS features, script coverage |
+| Font Analysis                                                                             | F7       | 🚫     |                                                                                |
+| Font Coverage                                                                             | ---      | 🚫     | (coverage is shown inside Fonts Overview)                                      |
+| Font Information                                                                          | Ctrl+F7  | 🚫     |                                                                                |
+| Export Glyphs                                                                             | ---      | 🚫     |                                                                                |
+| Composite Mapping                                                                         | Shift+F7 | 🚫     |                                                                                |
 
 ### 5. Options --- 🚫 all placeholders
 
@@ -365,19 +392,26 @@ toggle). ✅ = handled in `App.onMenuAction()`, 🚫 = placeholder (no handler),
 
 ### 6. Bookmarks --- 🚫 placeholders
 
-| Item         | Status |
-| ------------ | ------ |
-| Add Bookmark | 🚫     |
-| Manage       | 🚫     |
+| Item            | Keys        | Status |
+| --------------- | ----------- | ------ |
+| Manage          | ---         | 🚫     |
+| Add Bookmark    | Insert      | 🚫     |
+| Remove Bookmark | Ctrl+Delete | 🚫     |
+| Clear           | ---         | 🚫     |
 
 ### 7. View
 
-| Item                     | Keys   | Status | Notes                                                       |
-| ------------------------ | ------ | ------ | ----------------------------------------------------------- |
-| Zoom In                  | Ctrl++ | 🚫     | placeholder                                                 |
-| Zoom Out                 | Ctrl+- | 🚫     | placeholder                                                 |
-| Filter Unassigned Blocks | ---    | ✅     | ✓ indicator; on = assigned blocks only, off = all 17 planes |
-| Toggle Theme             | ---    | ✅     | light/dark                                                  |
+| Item                     | Keys | Status | Notes                                                       |
+| ------------------------ | ---- | ------ | ----------------------------------------------------------- |
+| Medium Size              | ---  | 🚫     | placeholder                                                 |
+| Large Size               | ---  | 🚫     | placeholder                                                 |
+| Filter Unassigned Blocks | ---  | ✅     | ✓ indicator; on = assigned blocks only, off = all 17 planes |
+| Hide Reserved Planes     | ---  | 🚫     | placeholder                                                 |
+| Show Edit Buffer         | ---  | 🚫     | placeholder                                                 |
+| Keep On Top              | ---  | 🚫     | placeholder                                                 |
+
+> The **Toggle Theme** control lives on the right side of the menu bar, not in
+> the View menu.
 
 ### 8. Help --- 🚫 placeholders
 
@@ -395,17 +429,21 @@ toggle). ✅ = handled in `App.onMenuAction()`, 🚫 = placeholder (no handler),
 
 ---
 
-## Keyboard shortcuts (implemented)
+## Keyboard shortcuts
 
-| Keys                         | Action                      |
-| ---------------------------- | --------------------------- |
-| `F4` / `Ctrl+F4`             | Copy plain / RTF            |
-| `Shift+F4` / `Ctrl+Shift+F4` | Cut plain / RTF             |
-| `Shift+F5`                   | Save                        |
-| `F2` / `Ctrl+G` / `Shift+F2` | Locate / Goto CP / Han      |
-| `F3` / `Shift+F3`            | Next / Prev search result   |
-| `Arrow` / `PgUp` / `PgDn`    | Grid navigation             |
-| `Enter`                      | Add selected char to buffer |
+Only the keys below are actually bound by the global `onKey` handler in
+`App.svelte` — the shortcut hints shown beside menu items are **display labels
+only** and are not wired to key events.
+
+| Keys                                                                                                                                                                                                                              | Action                      | Status |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------ |
+| `F4` / `Ctrl+F4`                                                                                                                                                                                                                  | Copy plain / RTF            | ✅     |
+| `Shift+F4` / `Ctrl+Shift+F4`                                                                                                                                                                                                      | Cut plain / RTF             | ✅     |
+| `F9`                                                                                                                                                                                                                              | Character Properties        | ✅     |
+| `Shift+F8`                                                                                                                                                                                                                        | Emoji Lookup                | ✅     |
+| `Arrow` / `PgUp` / `PgDn`                                                                                                                                                                                                         | Grid navigation             | ✅     |
+| `Enter`                                                                                                                                                                                                                           | Add selected char to buffer | ✅     |
+| `Shift+F5` Save, `F2` / `Ctrl+G` / `Shift+F2` / `F3` / `Shift+F3` search, `F1` Help, `F6` / `Shift+F6` glyph copy, `Ctrl+0` / `Ctrl+9` / `Ctrl+7` modes, `Ctrl+1` / `Ctrl+2` fonts, `F7` / `Ctrl+F7` / `Shift+F7` — **not bound** | 🚫                          |
 
 ---
 
