@@ -995,6 +995,13 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
 
     family = _name(tt, 16, 1) or os.path.basename(path)
     subfamily = _name(tt, 17, 2) or "Regular"
+    # Legacy (GDI) names: name ID 1/2 are what Windows' own font enumeration
+    # returns and what LOGFONT.lfFaceName receives — the original's
+    # ``GetFontFamilyName(bLegacyEnum)`` switches between the two sets.  Both
+    # are always recorded so the menu toggle becomes a pure display choice and
+    # never requires a re-scan.
+    legacy_family = _name(tt, 1) or family
+    legacy_subfamily = _name(tt, 2) or subfamily
 
     return {
         "path": path,
@@ -1003,8 +1010,10 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
         "face_index": index,
         "source": source,
         "family": family,
+        "legacy_family": legacy_family,
         "hyper_family": _hyper_family(family),
         "subfamily": subfamily,
+        "legacy_subfamily": legacy_subfamily,
         "full_name": _name(tt, 4) or f"{family} {subfamily}",
         "ps_name": _name(tt, 6) or "",
         "version": _name(tt, 5) or "",

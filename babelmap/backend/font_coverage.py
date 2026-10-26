@@ -184,7 +184,7 @@ def _covered_in_block(cps: list[int], block: dict) -> int:
     return min(n, block["count"]) if block["count"] else n
 
 
-def block_chars(block_name: str, scan: dict | None = None) -> dict | None:
+def block_chars(block_name: str, scan: dict | None = None, *, all_styles: bool = False) -> dict | None:
     """Every character of one block, annotated with per-font support.
 
     This feeds the dialog's preview grid: the grid shows **all** of the block's
@@ -223,7 +223,7 @@ def block_chars(block_name: str, scan: dict | None = None) -> dict | None:
     hi = bisect.bisect_right(assigned, block["end"])
     cps = [cp for cp in assigned[lo:hi] if _gc_code(cp) not in _EXCLUDED_GC]
 
-    faces = _load_faces(scan)
+    faces = _load_faces(scan, all_styles)
     indexes: list[int] = []
     masks: list[str] = []
     for f in faces:
@@ -255,7 +255,12 @@ def block_chars(block_name: str, scan: dict | None = None) -> dict | None:
     return result
 
 
-def block_coverage(scan: dict | None = None, *, block_name: str | None = None) -> dict:
+def block_coverage(
+    scan: dict | None = None,
+    *,
+    block_name: str | None = None,
+    all_styles: bool = False,
+) -> dict:
     """Per-block font-coverage report — the modern port of the dialog's block list.
 
     Body:
@@ -272,7 +277,7 @@ def block_coverage(scan: dict | None = None, *, block_name: str | None = None) -
     ``font_overview.scan_fonts``); when omitted the directories are scanned.
     Passing ``block_name`` returns just that one row (much cheaper to render).
     """
-    faces = _load_faces(scan)
+    faces = _load_faces(scan, all_styles)
     rows, _ = _blocks()
     wanted = [b for b in rows if block_name is None or b["name"] == block_name]
 
@@ -391,13 +396,17 @@ def _preview_for(block: dict, best: dict | None, faces: list[dict]) -> str:
     return "".join(out)
 
 
-def _load_faces(scan: dict | None) -> list[dict]:
+def _load_faces(scan: dict | None, all_styles: bool = False) -> list[dict]:
     """Normalise a font scan into the flat face list the analysis needs.
 
     Only faces the original would consider are kept: primary style (the regular
     face of a family, not the bold/italic companions) and not rotated.  Each
     face carries ``_all_cps`` — every code point its cmap maps — which is what
     makes per-block counting cheap.
+
+    ``all_styles`` is the Fonts ▸ List All Styles of Fonts toggle: when set,
+    every face of a family participates instead of only its primary style, so
+    "Arial Bold" can win a block on its own.
     """
     if scan is None:
         from babelmap.backend.font_overview import scan_fonts
@@ -406,7 +415,7 @@ def _load_faces(scan: dict | None) -> list[dict]:
     src = scan.get("fonts") if isinstance(scan, dict) else scan
     out: list[dict] = []
     for i, f in enumerate(src or []):
-        if not _is_candidate(f):
+        if not _is_candidate(f, all_styles):
             continue
         cps = f.get("_all_cps")
         if cps is None:
@@ -433,22 +442,26 @@ def _load_faces(scan: dict | None) -> list[dict]:
                 "_all_cps": cps,
             }
         )
-    return _primary_style_only(out)
+    return out if all_styles else _primary_style_only(out)
 
 
-def _is_candidate(f: dict) -> bool:
+def _is_candidate(f: dict, all_styles: bool = False) -> bool:
     """Faces the original would consider (``IsPrimaryStyle`` / ``IsRotatedFont``).
 
     The subfamily test below is only a pre-filter: variants like ``Bold`` /
     ``Italic`` are dropped here, and the remaining faces are then reduced to
     **one per family** by :func:`_primary_style_only` — which is what
     ``IsPrimaryStyle()`` actually means (a per-family, not per-face, decision).
+
+    With ``all_styles`` set both of those steps are skipped, leaving one entry
+    per physical face.
     """
-    sub = (f.get("subfamily") or "Regular").lower()
-    if any(k in sub for k in ("bold", "italic", "oblique", "light", "thin", "black", "semibold")):
-        return False
-    if f.get("italic"):
-        return False
+    if not all_styles:
+        sub = (f.get("subfamily") or "Regular").lower()
+        if any(k in sub for k in ("bold", "italic", "oblique", "light", "thin", "black", "semibold")):
+            return False
+        if f.get("italic"):
+            return False
     # Rotated fonts (the original's IsRotatedFont) are vertical-only designs.
     if f.get("rotated"):
         return False
@@ -647,7 +660,7 @@ def _most_regular(w1: int, w2: int) -> bool:
     return abs(w2 - 400) < abs(w1 - 400)
 
 
-def auto_assign(scan: dict | None = None) -> dict:
+def auto_assign(scan: dict | None = None, *, all_styles: bool = False) -> dict:
     """Assign the best font to every block — the dialog's **Auto** button.
 
     Returns ``{assignments, summary, imported}`` where each assignment is
@@ -655,7 +668,7 @@ def auto_assign(scan: dict | None = None) -> dict:
     ``reason`` records which criterion decided it, so the UI can explain the
     choice instead of just showing a name.
     """
-    faces = _load_faces(scan)
+    faces = _load_faces(scan, all_styles)
     # Pre-compute each face's global counters once (the tie-breakers need them).
     block_rows, _ = _blocks()
     for f in faces:

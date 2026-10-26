@@ -297,7 +297,12 @@ def _build_plane_rows(plane: int, filter_no_block: bool = True):
 
 
 @app.get("/api/grid/{plane}")
-def get_grid(plane: int, scroll: int = Query(0, ge=0), filter_no_block: bool = Query(True)):
+def get_grid(
+    plane: int,
+    scroll: int = Query(0, ge=0),
+    filter_no_block: bool = Query(True),
+    attrs: bool = Query(False),
+):
     if plane not in VALID_PLANES:
         return JSONResponse({"error": f"Invalid plane {plane}"}, 400)
     key = (plane, filter_no_block)
@@ -306,6 +311,11 @@ def get_grid(plane: int, scroll: int = Query(0, ge=0), filter_no_block: bool = Q
     scroll = max(0, min(scroll, _plane_max_scroll[key]))
     page = rows[scroll : scroll + GRID_ROWS]
     cells = [r["cells"] for r in page]
+    if attrs:
+        # Options ▸ Colour Coding needs the character's properties per cell.
+        # Only 8×16 cells are sent, so this is computed on the page rather than
+        # stored with every row of the plane (4096 rows × 16).
+        cells = _with_cell_attrs(cells)
     row_bases = [(r["row_start"] - plane * 0x10000) if r["row_start"] >= 0 else -1 for r in page]
     block_boundaries = [i for i, r in enumerate(page) if r["block_boundary"]]
     first = page[0]
@@ -328,6 +338,52 @@ def _safe_name(Unicode, cp: int) -> str | None:
     """Get character name, including algorithmic names (CJK, Tangut, etc.)."""
     n = Unicode.get_character_name(cp)
     return n if n else None
+
+
+def _with_cell_attrs(cells: list[list[dict]]) -> list[list[dict]]:
+    """Annotate one page of grid cells with the properties colour coding needs.
+
+    The short codes match the tables the frontend indexes with — `gc` is the
+    two-letter General Category, `bc` the Bidi Class, `dt` the Decomposition
+    Type, `nt` the Numeric Type, `bm` the Bidi Mirrored flag, `sc` the ISO 15924
+    script code and `ver` the Unicode version the character was introduced in.
+    `Unicode.get_*` returns an *enum* for the category-like getters, so the
+    name has to be taken from `.name` rather than the object itself.
+    """
+    from babelsoft.unicode.core import Unicode
+
+    def code(fn, cp):
+        try:
+            v = fn(cp)
+            if v is None:
+                return ""
+            return getattr(v, "name", None) or str(v)
+        except Exception:
+            return ""
+
+    out: list[list[dict]] = []
+    for row in cells:
+        nrow = []
+        for cell in row:
+            cp = cell.get("codepoint", -1)
+            if cp is None or cp < 0:
+                nrow.append(cell)
+                continue
+            c = dict(cell)
+            c["gc"] = code(Unicode.get_general_category, cp)
+            c["bc"] = code(Unicode.get_bidi_class, cp)
+            c["dt"] = code(Unicode.get_decomposition_type, cp)
+            c["nt"] = code(Unicode.get_numeric_type, cp)
+            # NOTE: `get_script_code()` returns a 4-letter code that does not
+            # match the character (it answers "Phag" for U+0040), so the long
+            # script name from `get_script()` is used as the key instead.
+            c["sc"] = code(Unicode.get_script, cp)
+            c["bm"] = code(Unicode.get_bidi_mirrored, cp)
+            age = code(Unicode.get_character_age, cp)
+            c["ver"] = age.split(".")[0] if age[:1].isdigit() else age
+            nrow.append(c)
+        out.append(nrow)
+    return out
 
 
 @app.get("/api/grid/{plane}/goto/{cp}")
@@ -382,6 +438,120 @@ def grid_nav(plane: int, scroll: int = 0, direction: str = "page_next", filter_n
         else:
             ns = max(0, min(ms, scroll + dir_int * GRID_ROWS * 2))
     return get_grid(plane, ns, filter_no_block)
+
+
+@app.get("/api/readings/{cp}")
+def codepoint_readings(
+    cp: int,
+    cjkv: str = "mandarin",
+    tangut: str = "gong2008",
+    upper: bool = False,
+    tones: bool = False,
+    tangut_tones: bool = False,
+):
+    """CJKV / Tangut readings for one code point — Options ▸ CJKV Readings.
+
+    The original drives these through process-wide switches
+    (`Lookup::UseUpperCaseReadings`, `UseToneNumbers`, `ConvertTones`), so the
+    same three flags are applied here before reading.  Returns the strings the
+    description line appends, already formatted:
+
+    ``[reading]`` for CJKV, the Tangut reading, and the source-reference lists
+    that Options ▸ Status Bar can hide.
+
+    ``cjkv`` is one of mandarin / cantonese / korean / quoc_ngu / viqr / zhuang;
+    ``tangut`` is one of gong2008 (Li Fanwen 2008) / kychanov / sofronov /
+    nishida / miyake2012 / miyake2015.
+    """
+    from babelsoft.unicode.core import Unicode
+
+    if not Unicode.is_valid_code_point(cp) or Unicode.is_surrogate(cp):
+        return JSONResponse({"error": "Invalid"}, 400)
+
+    out: dict = {"cjkv": "", "tangut": "", "cjk_refs": "", "tangut_refs": "", "cjk": False, "tangut_char": False}
+
+    # The flags are global in the library, exactly as in the C++ (Lookup::…).
+    try:
+        from babelsoft.cjkv.jyutping import Jyutping
+        from babelsoft.cjkv.korean import Korean
+        from babelsoft.cjkv.pinyin import Pinyin
+        from babelsoft.cjkv.vietnamese import Vietnamese
+        from babelsoft.cjkv.zhuang import Zhuang
+
+        for cls in (Pinyin, Jyutping, Korean, Vietnamese, Zhuang):
+            cls.use_upper_case_readings(bool(upper))
+            cls.use_tone_numbers(bool(tones))
+    except Exception:
+        pass
+
+    # ── CJKV reading ────────────────────────────────────────────────
+    try:
+        from babelsoft.cjkv.cjk import CJK
+
+        if CJK(cp).is_cjk_ideograph():
+            out["cjk"] = True
+            if cjkv == "cantonese":
+                from babelsoft.cjkv.jyutping import Jyutping
+
+                out["cjkv"] = Jyutping.get_jyutping_for_char(cp)
+            elif cjkv == "korean":
+                from babelsoft.cjkv.korean import Korean
+
+                out["cjkv"] = Korean.get_korean_for_char(cp)
+            elif cjkv in ("quoc_ngu", "viqr"):
+                from babelsoft.cjkv.vietnamese import Vietnamese
+
+                out["cjkv"] = Vietnamese.get_vietnamese_for_char(cp, use_viqr=(cjkv == "viqr"))
+            elif cjkv == "zhuang":
+                from babelsoft.cjkv.zhuang import Zhuang
+
+                out["cjkv"] = Zhuang.get_zhuang_for_char(cp)
+            else:
+                from babelsoft.cjkv.pinyin import Pinyin
+
+                out["cjkv"] = Pinyin.get_pinyin_for_char(cp)
+    except Exception:
+        pass
+
+    # ── CJK source references (Options ▸ Status Bar) ────────────────
+    try:
+        from babelsoft.cjkv.cjk import CJK
+
+        # `GetSourceRefs()` in the original: the IRG source list joined by
+        # spaces ("G0-523B HB1-A440 J0-306C …"), skipping the empty ones.
+        sources = (CJK(cp).ideographic_properties() or {}).get("sources") or []
+        out["cjk_refs"] = " ".join(str(ref) for _label, ref in sources if ref)
+    except Exception:
+        pass
+
+    # ── Tangut reading + references ─────────────────────────────────
+    try:
+        from babelsoft.scripts.tangut import Tangut
+
+        if Tangut.is_tangut_ideograph(cp):
+            out["tangut_char"] = True
+            # Gonq Hwang-cherng (2008) is published from the Li Fanwen 2008
+            # table, which is what babellib carries — see the menu label.
+            if tangut == "kychanov":
+                out["tangut"] = Tangut.get_kychanov_reading(cp, b_tone=tangut_tones)
+            elif tangut == "sofronov":
+                out["tangut"] = Tangut.get_sofronov_reading(cp, b_tone=tangut_tones)
+            elif tangut == "nishida":
+                out["tangut"] = Tangut.get_nishida_reading(cp, b_tone=tangut_tones)
+            elif tangut == "miyake2012":
+                out["tangut"] = Tangut.get_miyake_reading(cp, b_2012=True, b_tone=tangut_tones)
+            elif tangut == "miyake2015":
+                out["tangut"] = Tangut.get_miyake_reading(cp, b_2012=False, b_tone=tangut_tones)
+            else:
+                out["tangut"] = Tangut.get_li_fanwen_reading(cp, b_tone=tangut_tones)
+            try:
+                out["tangut_refs"] = Tangut.get_merged_source(cp) or ""
+            except Exception:
+                out["tangut_refs"] = ""
+    except Exception:
+        pass
+
+    return out
 
 
 @app.get("/api/codepoint/{cp}")
@@ -522,6 +692,136 @@ def _mapping_str(v: int, src: int) -> str:
 @app.get("/api/glyph/{cp}")
 def glyph(cp: int, font: str = "Arial", size: int = 16):
     return {"codepoint": cp, "glyph_b64": _render_glyph(cp, font, size)}
+
+
+# ── Rasterised glyphs (Fonts ▸ Quality / Export Font Glyphs) ─────────
+# These are the only endpoints that control *how* a glyph becomes pixels.
+# CSS cannot select a rasteriser inside WebView2, so the grid keeps the
+# system's rendering while these expose the seven LOGFONT.lfQuality modes.
+
+
+@app.get("/api/glyphs/qualities")
+def glyph_qualities():
+    """The quality modes, in menu order (index == lfQuality value)."""
+    from babelmap.backend.glyph_render import QUALITY_KEYS
+
+    return {"qualities": [{"index": i, "key": k} for i, k in enumerate(QUALITY_KEYS)]}
+
+
+@app.get("/api/glyphs/preview")
+def glyph_preview(
+    cp: int = 0x41,
+    font: str = "Arial",
+    style: str = "",
+    size: int = 40,
+    quality: int = 4,
+    fg: str = "#000000",
+    bg: str = "#ffffff",
+    cell_w: int = 0,
+    cell_h: int = 0,
+    scale: int = 1,
+    fmt: str = "png",
+):
+    """One code point, rasterised at the requested quality, as an image."""
+    from fastapi.responses import Response
+
+    from babelmap.backend.glyph_render import preview_png
+
+    cell = (cell_w, cell_h) if cell_w > 0 and cell_h > 0 else None
+    try:
+        data = preview_png(
+            cp=cp,
+            family=font,
+            style=style,
+            size=size,
+            quality=quality,
+            fg=fg,
+            bg=bg,
+            cell=cell,
+            scale=scale,
+            fmt=fmt,
+        )
+    except KeyError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+    media = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "bmp": "image/bmp",
+        "gif": "image/gif",
+    }.get(fmt.lower(), "image/png")
+    return Response(content=data, media_type=media)
+
+
+@app.get("/api/glyphs/sample")
+def glyph_sample(
+    text: str = "Hamburgefonstiv 123",
+    font: str = "Arial",
+    style: str = "",
+    size: int = 28,
+    quality: int = 4,
+    fg: str = "#000000",
+    bg: str = "#ffffff",
+    scale: int = 2,
+):
+    """A whole sample line at the requested quality (Font Quality dialog)."""
+    from fastapi.responses import Response
+
+    from babelmap.backend.glyph_render import text_png
+
+    try:
+        data = text_png(
+            text=text,
+            family=font,
+            style=style,
+            size=size,
+            quality=quality,
+            fg=fg,
+            bg=bg,
+            scale=scale,
+        )
+    except KeyError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    except Exception as e:  # pragma: no cover - defensive
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+    return Response(content=data, media_type="image/png")
+
+
+@app.post("/api/glyphs/export")
+def glyph_export(payload: dict):
+    """Zip of one image per code point — Fonts ▸ Export Font Glyphs."""
+    from babelmap.backend.glyph_render import export_zip, parse_codepoints
+
+    cps = payload.get("codepoints") or []
+    if isinstance(cps, str):
+        cps = parse_codepoints(cps)
+    cps = [int(c) for c in cps if isinstance(c, int) or str(c).isdigit()][:20000]
+    if not cps:
+        return JSONResponse({"error": "No code points selected"}, status_code=400)
+    fmt = str(payload.get("format") or "png").lower()
+    cw, ch = int(payload.get("cell_w") or 0), int(payload.get("cell_h") or 0)
+    try:
+        data = export_zip(
+            cps,
+            family=str(payload.get("font") or "Arial"),
+            style=str(payload.get("style") or ""),
+            size=int(payload.get("size") or 32),
+            quality=int(payload.get("quality") or 4),
+            fg=str(payload.get("fg") or "#000000"),
+            bg=str(payload.get("bg") or "#ffffff"),
+            cell=(cw, ch) if cw > 0 and ch > 0 else None,
+            fmt=fmt,
+            scale=max(1, int(payload.get("scale") or 1)),
+        )
+    except KeyError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    name = (payload.get("name") or "glyphs").replace('"', "")
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{name}.zip"'},
+    )
 
 
 # ── Unified Search by Name ──────────────────────────────────────────
@@ -874,23 +1174,24 @@ def composite_validate(payload: dict):
 
 
 @app.get("/api/fonts/coverage")
-def fonts_coverage(block: str = "", dirs: str = ""):
+def fonts_coverage(block: str = "", dirs: str = "", all_styles: bool = False):
     """Per-block font coverage: one row per Unicode block with every font that
     covers it, the best font, and the overall coverage summary.
 
     ``block`` limits the answer to one block (much cheaper to render);
-    ``dirs`` adds extra font directories to the scan.
+    ``dirs`` adds extra font directories to the scan; ``all_styles`` enumerates
+    every face of a family instead of only its primary style.
     """
     from babelmap.backend.font_coverage import block_coverage
     from babelmap.backend.font_overview import scan_fonts
 
     extra = [d.strip() for d in dirs.split("|") if d.strip()]
     scan = {"fonts": scan_fonts(extra_dirs=extra)}
-    return block_coverage(scan, block_name=block or None)
+    return block_coverage(scan, block_name=block or None, all_styles=all_styles)
 
 
 @app.get("/api/fonts/coverage/stream")
-def fonts_coverage_stream(block: str = "", dirs: str = ""):
+def fonts_coverage_stream(block: str = "", dirs: str = "", all_styles: bool = False):
     """Streaming variant of ``/api/fonts/coverage``.
 
     The scan is the expensive part, so it reuses the same SSE shape as the
@@ -924,7 +1225,7 @@ def fonts_coverage_stream(block: str = "", dirs: str = ""):
         def run():
             try:
                 scan = {"fonts": scan_fonts(extra_dirs=extra, progress=progress)}
-                box["result"] = block_coverage(scan, block_name=block or None)
+                box["result"] = block_coverage(scan, block_name=block or None, all_styles=all_styles)
             except Exception as exc:  # pragma: no cover - defensive
                 box["error"] = str(exc)
 
@@ -953,7 +1254,7 @@ def fonts_coverage_stream(block: str = "", dirs: str = ""):
 
 
 @app.get("/api/fonts/coverage/auto")
-def fonts_coverage_auto(dirs: str = ""):
+def fonts_coverage_auto(dirs: str = "", all_styles: bool = False):
     """Run the **Auto** assignment: the best font for every block.
 
     → ``{assignments, summary, imported}``; each assignment explains which
@@ -963,11 +1264,11 @@ def fonts_coverage_auto(dirs: str = ""):
     from babelmap.backend.font_overview import scan_fonts
 
     extra = [d.strip() for d in dirs.split("|") if d.strip()]
-    return auto_assign({"fonts": scan_fonts(extra_dirs=extra)})
+    return auto_assign({"fonts": scan_fonts(extra_dirs=extra)}, all_styles=all_styles)
 
 
 @app.get("/api/fonts/coverage/chars")
-def fonts_coverage_chars(block: str = Query(..., min_length=1), dirs: str = ""):
+def fonts_coverage_chars(block: str = Query(..., min_length=1), dirs: str = "", all_styles: bool = False):
     """Every character of one block, annotated with the fonts that map it.
 
     → ``{name, start, end, plane, total, cps, fonts, masks}`` where ``fonts``
@@ -982,7 +1283,7 @@ def fonts_coverage_chars(block: str = Query(..., min_length=1), dirs: str = ""):
     from babelmap.backend.font_overview import scan_fonts
 
     extra = [d.strip() for d in dirs.split("|") if d.strip()]
-    result = block_chars(block, {"fonts": scan_fonts(extra_dirs=extra)})
+    result = block_chars(block, {"fonts": scan_fonts(extra_dirs=extra)}, all_styles=all_styles)
     if result is None:
         return JSONResponse({"error": f"Unknown block '{block}'"}, status_code=404)
     return result
@@ -1011,6 +1312,57 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/about")
+def about():
+    """Version block for Help ▸ About — the port of `CDialogAbout`.
+
+    The original reads its numbers from the Windows version resource
+    (`VersionInfo`); here they come from what this stack actually knows: the
+    FastAPI app version, the Python runtime, and the newest Unicode release in
+    the bundled data set.
+    """
+    import platform
+
+    info: dict = {
+        "backend": app.version,
+        "python": platform.python_version(),
+        "unicode": "",
+        "unicode_versions": 0,
+        "ivd": "",
+        "emoji": "",
+    }
+    try:
+        from babelmap.backend.version import all_versions
+
+        vs = all_versions()
+        info["unicode_versions"] = len(vs)
+        info["unicode"] = vs[-1].get("version", "") if vs else ""
+    except Exception:
+        pass
+    # The IVD date is the directory name under data/ivd (e.g. 2022-09-13), and
+    # the emoji version is in the emoji-test.txt header — neither is exposed by
+    # a library helper, so read them defensively.
+    try:
+        from babelsoft.utils_.dirs import Dirs
+
+        ivd_dir = Dirs.DATA / "ivd"
+        dates = sorted(p.name for p in ivd_dir.iterdir() if p.is_dir())
+        info["ivd"] = dates[-1] if dates else ""
+    except Exception:
+        pass
+    try:
+        from babelsoft.utils_.dirs import Dirs
+
+        text = (Dirs.DATA / "scripts" / "emoji-test.txt").read_text(encoding="utf-8", errors="replace")[:400]
+        for line in text.splitlines():
+            if line.startswith("# Version:"):
+                info["emoji"] = line.split(":", 1)[1].strip()
+                break
+    except Exception:
+        pass
+    return info
+
+
 @app.get("/api/unicode/versions")
 def unicode_versions():
     """Unicode version history + per-version block lists."""
@@ -1020,6 +1372,541 @@ def unicode_versions():
     blocks_by_version = {v["version"]: blocks_for_version(v["version"]) for v in versions}
     history = get_version_history()
     return {"versions": versions, "blocks_by_version": blocks_by_version, "history": history}
+
+
+@app.get("/api/lookup")
+def lookup(kind: str, q: str, tone: int = 0, strokes: int = -1, limit: int = 500):
+    """Reverse lookups — the port of the Tools ▸ … Lookup dialogs.
+
+    `CDialogMandarin`, `CDialogCantonese`, `CDialogZhuang`, `CDialogHanRadical`
+    and `CDialogYiRadical` all answer the same question in a different domain:
+    "which characters have this property?".  One endpoint serves them all
+    because the answer shape is identical.
+
+    * `kind=pinyin` / `jyutping` / `zhuang` — `q` is the syllable, `tone` the
+      tone number (0 = any).
+    * `kind=han_radical` — `q` is a Kangxi radical (a character, or its IRG
+      radical number), `strokes` the extra strokes (−1 = every count).
+    * `kind=yi_radical` — `q` is a Liangshan Yi radical (character or number).
+    """
+    kind = kind.strip().lower()
+    q = q.strip()
+    if not q:
+        return {"kind": kind, "query": q, "count": 0, "results": []}
+
+    cps: list[int] = []
+
+    if kind in ("pinyin", "jyutping", "zhuang"):
+        try:
+            if kind == "pinyin":
+                from babelsoft.cjkv.pinyin import Pinyin as _L
+            elif kind == "jyutping":
+                from babelsoft.cjkv.jyutping import Jyutping as _L
+            else:
+                from babelsoft.cjkv.zhuang import Zhuang as _L
+            if kind == "pinyin":
+                cps = list(_L.find_pinyin(q.lower(), tone))
+            elif kind == "jyutping":
+                cps = list(_L.find_jyutping(q.lower(), tone))
+            else:
+                cps = list(_L.find_zhuang(q.lower(), tone))
+        except Exception:
+            cps = []
+
+    elif kind == "han_radical":
+        try:
+            from babelsoft.cjkv.cjk import CJK, CJKLoader
+
+            radical_no = 0
+            flag = 0
+            try:
+                radical_no = int(q)
+            except ValueError:
+                ch = ord(q[0])
+                # Kangxi radicals are numbered 1..214 from U+2F00, and the
+                # radical-block characters map one-to-one, so a typed
+                # "⽔"/U+2FB5 resolves without a table lookup.
+                if 0x2F00 <= ch <= 0x2FD5:
+                    radical_no = ch - 0x2F00 + 1
+                else:
+                    for rad_cp, number, fl in CJKLoader.load_radical_mappings():
+                        if rad_cp == ch:
+                            radical_no, flag = number, fl
+                            break
+                if not radical_no:
+                    # An ordinary ideograph typed as the radical (水 for 85):
+                    # its own ideographic data carries the radical number.
+                    try:
+                        strokes_text = str(CJK(ch).ideographic_properties()["radical"]["strokes"])
+                        radical_no = int(float(strokes_text))
+                    except Exception:
+                        radical_no = 0
+            if radical_no:
+                found = CJK.find_ideographs_for_radical(
+                    radical_no,
+                    flag,
+                    strokes,
+                    all_strokes=strokes < 0,
+                )
+                cps = [int(c) for c in found]
+        except Exception:
+            cps = []
+
+    elif kind == "yi_radical":
+        try:
+            from babelsoft.scripts.yi import RADICAL_FIRST, YiRadical
+
+            radical_no = 0
+            try:
+                radical_no = int(q)
+            except ValueError:
+                ch = ord(q[0])
+                if RADICAL_FIRST <= ch <= RADICAL_FIRST + 115:
+                    radical_no = ch - RADICAL_FIRST + 1
+                else:
+                    radical_no = YiRadical.radical_number_for_glyph(ch) or 0
+            if radical_no:
+                # The Yi syllable block is 1 160 characters, so a scan beats
+                # building an index that one dialog would use.
+                for cp in range(0xA000, 0xA4D0):
+                    try:
+                        pairs = YiRadical.get_radical_stroke(cp)
+                    except Exception:
+                        continue
+                    if any(n == radical_no for n, _ in pairs):
+                        cps.append(cp)
+        except Exception:
+            cps = []
+
+    cps = cps[: max(1, limit)]
+    from babelsoft.unicode.core import Unicode
+
+    results = []
+    for cp in cps:
+        name = ""
+        try:
+            name = Unicode.get_character_name(cp) or ""
+        except Exception:
+            name = ""
+        results.append({"cp": cp, "char": chr(cp), "name": name})
+    return {"kind": kind, "query": q, "count": len(results), "results": results}
+
+
+def _hex(cp: int) -> str:
+    return "%04X" % cp
+
+
+@app.get("/api/supplementary/{cp}")
+def supplementary(cp: int):
+    """Tools ▸ Supplementary Information.
+
+    `OnToolsSupplementaryInformation` dispatches on the character's script and
+    opens `CDialogCJKV`, `CDialogTangut` or `CDialogHieroglyph`.  They are three
+    views of the same idea — "everything this character knows about itself that
+    the property list does not show" — so one endpoint returns the same
+    section/row shape for all three and the dialog just renders it.
+    """
+    from babelsoft.unicode.core import Unicode
+
+    out: dict = {
+        "cp": cp,
+        "char": chr(cp) if Unicode.is_valid_code_point(cp) else "",
+        "name": "",
+        "kind": "none",
+        "sections": [],
+    }
+    try:
+        out["name"] = Unicode.get_character_name(cp) or ""
+    except Exception:
+        pass
+
+    def section(title: str, rows: list) -> None:
+        rows = [[k, v] for k, v in rows if v not in (None, "", [])]
+        if rows:
+            out["sections"].append({"title": title, "rows": rows})
+
+    # ── CJK ideographs: CDialogCJKV ──────────────────────────────────
+    try:
+        from babelsoft.cjkv.cjk import CJK
+
+        if CJK(cp).is_cjk_ideograph():
+            out["kind"] = "cjk"
+            info = CJK(cp)
+            props = {}
+            try:
+                props = info.ideographic_properties() or {}
+            except Exception:
+                props = {}
+
+            rad = props.get("radical") or {}
+            glyph = (rad.get("glyph") or {}).get("char", "")
+            strokes = rad.get("strokes", "")
+            try:
+                strokes = str(int(float(strokes)))
+            except Exception:
+                pass
+            section(
+                "Radical & Strokes",
+                [
+                    ("Radical", ("%s (%s)" % (glyph, strokes)).strip() if rad else ""),
+                    ("Type", rad.get("type", "")),
+                    ("Equivalent", chr(info.to_equivalent()) if info.to_equivalent() else ""),
+                ],
+            )
+            section("IDS", [("Ideographic Description", props.get("ids", ""))])
+
+            rel = props.get("related") or {}
+            section(
+                "Variants",
+                [
+                    ("Simplified Chinese", rel.get("simplified_chinese") or ""),
+                    ("Traditional Chinese", rel.get("traditional") or ""),
+                    ("Simplified Japanese", rel.get("simplified_japanese") or ""),
+                    ("To simplified", chr(info.to_simplified()) if info.to_simplified() else ""),
+                    ("To traditional", chr(info.to_traditional()) if info.to_traditional() else ""),
+                ],
+            )
+
+            readings = props.get("readings") or {}
+            section(
+                "Readings",
+                [
+                    ("Mandarin", readings.get("mandarin", "")),
+                    ("Cantonese", readings.get("cantonese", "")),
+                    ("Korean", readings.get("korean", "")),
+                    ("Vietnamese", readings.get("vietnamese", "")),
+                    ("Zhuang", readings.get("zhuang", "")),
+                ],
+            )
+
+            try:
+                # `ideographic_properties()["sources"]` is the same table the
+                # status bar's ref column is built from; `source_refs()` only
+                # covers entries that carry an explicit reference object.
+                sources = props.get("sources") or []
+                section(
+                    "Source References",
+                    [(row[0], row[1]) for row in sources if len(row) >= 2],
+                )
+            except Exception:
+                pass
+            try:
+                ivs = CJK(cp).ivs_sequences() or []
+                section(
+                    "Variation Sequences",
+                    [("IVS", " ".join("U+%s" % _hex(x) for x in ivs) if ivs else "")],
+                )
+            except Exception:
+                pass
+            return out
+    except Exception:
+        pass
+
+    # ── Tangut: CDialogTangut ───────────────────────────────────────
+    try:
+        from babelsoft.scripts.tangut import Tangut
+
+        if Tangut.is_tangut_ideograph(cp):
+            out["kind"] = "tangut"
+            section(
+                "Radical & Strokes",
+                [
+                    (
+                        "Radical",
+                        "%s (%s)"
+                        % (
+                            chr(Tangut.get_radical_for_character(cp)),
+                            Tangut.get_radical_number(cp),
+                        ),
+                    ),
+                    ("Radical strokes", Tangut.get_radical_stroke(cp)),
+                    ("Total strokes", Tangut.get_total_stroke_count(cp)),
+                    ("Additional strokes", Tangut.get_additional_stroke_count(cp)),
+                ],
+            )
+            section("IDS", [("Ideographic Description", Tangut.get_ids(cp))])
+            section(
+                "Readings",
+                [
+                    ("Gong Hwang-cherng (Li Fanwen 2008)", Tangut.get_li_fanwen_reading(cp)),
+                    ("Kychanov (2006)", Tangut.get_kychanov_reading(cp)),
+                    ("Sofronov (1968)", Tangut.get_sofronov_reading(cp)),
+                    ("Nishida (1966)", Tangut.get_nishida_reading(cp)),
+                ],
+            )
+            section(
+                "Source References",
+                [
+                    ("Li Fanwen 2008", Tangut.get_li_fanwen_number(cp)),
+                    ("Li Fanwen 1997", Tangut.get_li_fanwen_1997_number(cp)),
+                    ("Kychanov 2006", Tangut.get_kychanov_number(cp)),
+                    ("Sofronov 1968", Tangut.get_sofronov_number(cp)),
+                    ("Nishida 1966", Tangut.get_nishida_reference(cp)),
+                    ("Merged", Tangut.get_merged_source(cp)),
+                ],
+            )
+            if Tangut.has_variants(cp):
+                section("Variants", [("Variants", Tangut.get_variants(cp))])
+            return out
+    except Exception:
+        pass
+
+    # ── Egyptian hieroglyphs: CDialogHieroglyph ─────────────────────
+    try:
+        from babelsoft.scripts.hieroglyphs import Hieroglyphs
+
+        if Hieroglyphs.is_egyptian_hieroglyph(cp):
+            out["kind"] = "hieroglyph"
+            section(
+                "Catalogs",
+                [
+                    ("Gardiner", Hieroglyphs.get_catalog(cp)),
+                    ("Hieroglyphica", Hieroglyphs.get_hieroglyphica(cp)),
+                    ("JSesh", Hieroglyphs.get_jsesh(cp)),
+                    ("Unikemet", Hieroglyphs.get_unikemet(cp)),
+                    ("IFAO", Hieroglyphs.get_ifao(cp)),
+                ],
+            )
+            section(
+                "Description",
+                [
+                    ("Description", Hieroglyphs.get_description(cp)),
+                    ("Function", Hieroglyphs.get_function(cp)),
+                    ("Function value", Hieroglyphs.get_function_value(cp)),
+                ],
+            )
+            section(
+                "Behaviour",
+                [
+                    ("Mirroring", "No" if Hieroglyphs.is_no_mirror(cp) else "Yes"),
+                    ("Rotation", "No" if Hieroglyphs.is_no_rotate(cp) else "Yes"),
+                    ("Alternate sequence", Hieroglyphs.get_alternate_sequence(cp)),
+                ],
+            )
+            return out
+    except Exception:
+        pass
+
+    return out
+
+
+# ── Tools ▸ Generate UCD data ────────────────────────────────────────
+# `CDialogUCD` builds UnicodeData.txt-style lines for a range or a block set,
+# and `OnToolsXMLData` writes a `ucd.nounihan.flat` XML file.  Both walk the
+# same repertoire, so the field list lives here once.
+
+UCD_FIELDS = [
+    "Code Point",
+    "Character Name",
+    "General Category",
+    "Canonical Combining Class",
+    "Bidi Class",
+    "Decomposition",
+    "Numeric Value (1)",
+    "Numeric Value (2)",
+    "Numeric Value (3)",
+    "Bidi Mirrored",
+    "Unicode 1.0 Name",
+    "ISO Comment",
+    "Upper Case Mapping",
+    "Lower Case Mapping",
+    "Title Case Mapping",
+]
+
+
+def _ucd_row(cp: int) -> list[str]:
+    """One row of the UCD table — the 15 columns of `Unicode::UCDFields`."""
+    from babelsoft.unicode.core import Unicode
+
+    def s(fn, default=""):
+        try:
+            v = fn(cp)
+            return default if v is None else str(v)
+        except Exception:
+            return default
+
+    def enum(fn, default=""):
+        try:
+            v = fn(cp)
+            return v.name if hasattr(v, "name") else str(v)
+        except Exception:
+            return default
+
+    def mapping(fn):
+        try:
+            v = fn(cp)
+            # UnicodeData.txt leaves the field empty when the mapping is the
+            # character itself (which is what every CJK/Hangul row would
+            # otherwise echo back).
+            if not v or int(v) == cp:
+                return ""
+            return "%04X" % int(v)
+        except Exception:
+            return ""
+
+    decomp = ""
+    try:
+        dt = Unicode.get_decomposition_type(cp)
+        dt_name = getattr(dt, "name", "")
+        parts = Unicode.get_decomposition_mapping(cp) or []
+        body = " ".join("%04X" % int(p) for p in parts)
+        if dt_name and dt_name not in ("Canonical", "None", "NONE"):
+            decomp = ("<%s> %s" % (dt_name.lower(), body)).strip()
+        else:
+            decomp = body
+    except Exception:
+        decomp = ""
+
+    num1 = s(Unicode.get_numeric_value_str)
+    return [
+        "%04X" % cp,
+        s(Unicode.get_character_name),
+        enum(Unicode.get_general_category),
+        s(Unicode.get_canonical_combining_class, "0"),
+        enum(Unicode.get_bidi_class),
+        decomp,
+        num1,
+        "",
+        "",
+        "Y" if Unicode.get_bidi_mirrored(cp) else "N",
+        s(Unicode.get_unicode1_name),
+        "",
+        mapping(Unicode.get_simple_uppercase),
+        mapping(Unicode.get_simple_lowercase),
+        mapping(Unicode.get_simple_titlecase),
+    ]
+
+
+def _ucd_repertoire(start: int, end: int, all_cjk: bool, all_hangul: bool) -> list[tuple[int, str]]:
+    """Walk a range as `CDialogUCD` does.
+
+    Returns `(codepoint, name_override)` pairs.  `UnicodeData.txt` abbreviates
+    the algorithmic runs as `<CJK Ideograph, First>` / `<CJK Ideograph, Last>`
+    pairs unless every character is asked for, and the dialog's two checkboxes
+    are exactly that switch.
+    """
+    from babelsoft.unicode.core import Unicode
+
+    out: list[tuple[int, str]] = []
+    run: str | None = None
+    run_start = 0
+    last_cp = -1
+
+    def close_run() -> None:
+        nonlocal run
+        if run is not None:
+            out.append((run_start, "<%s, First>" % run))
+            out.append((last_cp, "<%s, Last>" % run))
+            run = None
+
+    for cp in range(max(0, start), min(0x10FFFF, end) + 1):
+        if Unicode.is_surrogate(cp):
+            close_run()
+            continue
+        try:
+            assigned = _is_assigned(cp)
+            name = (Unicode.get_character_name(cp) or "") if assigned else ""
+        except Exception:
+            assigned, name = False, ""
+        if not assigned:
+            close_run()
+            continue
+
+        kind = None
+        if name.startswith("CJK UNIFIED IDEOGRAPH-"):
+            kind = "CJK Ideograph"
+        elif name.startswith("HANGUL SYLLABLE "):
+            kind = "Hangul Syllable"
+
+        abbreviate = kind is not None and (
+            (kind == "CJK Ideograph" and not all_cjk) or (kind == "Hangul Syllable" and not all_hangul)
+        )
+        if abbreviate:
+            if run != kind:
+                close_run()
+                run = kind
+                run_start = cp
+            last_cp = cp
+            continue
+
+        close_run()
+        out.append((cp, ""))
+    close_run()
+    return out
+
+
+def _ucd_rows_for(
+    start: int,
+    end: int,
+    all_cjk: bool,
+    all_hangul: bool,
+    limit: int,
+) -> tuple[int, list[list[str]]]:
+    reps = _ucd_repertoire(start, end, all_cjk, all_hangul)
+    rows: list[list[str]] = []
+    for cp, override in reps[: max(1, limit)]:
+        row = _ucd_row(cp)
+        if override:
+            row[1] = override
+        rows.append(row)
+    return len(reps), rows
+
+
+@app.get("/api/ucd/fields")
+def ucd_fields():
+    return {"fields": UCD_FIELDS}
+
+
+@app.get("/api/ucd/generate")
+def ucd_generate(
+    start: int = 0,
+    end: int = 0xFFFF,
+    all_cjk: bool = False,
+    all_hangul: bool = False,
+    limit: int = 20000,
+):
+    """UCD rows for a range — `CDialogUCD`'s Generate button."""
+    total, rows = _ucd_rows_for(start, end, all_cjk, all_hangul, limit)
+    return {"total": total, "shown": len(rows), "rows": rows}
+
+
+@app.get("/api/ucd/xml")
+def ucd_xml(start: int = 0, end: int = 0xFFFF, all_cjk: bool = False, all_hangul: bool = False):
+    """`ucd.nounihan.flat`-style XML — Tools ▸ Generate Full UCD XML Data."""
+    from fastapi.responses import PlainTextResponse
+
+    from babelsoft.unicode.core import Unicode
+
+    cps = _ucd_repertoire(start, end, all_cjk, all_hangul)
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<ucd version="%s">' % _uv()]
+    escape = lambda t: t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    for cp, override in cps:
+        name = override
+        gc = ""
+        try:
+            if not override:
+                name = Unicode.get_character_name(cp) or ""
+            gc = Unicode.get_general_category(cp).name
+        except Exception:
+            pass
+        parts.append('  <char cp="%04X" na="%s" gc="%s"/>' % (cp, escape(name), gc))
+    parts.append("</ucd>")
+    return PlainTextResponse("\n".join(parts), media_type="application/xml")
+
+
+def _uv() -> str:
+    from babelsoft.unicode.core import Unicode
+
+    try:
+        return Unicode.get_latest_version()
+    except Exception:
+        try:
+            from babelmap.backend.version import all_versions
+
+            vs = all_versions()
+            return vs[-1].get("version", "") if vs else ""
+        except Exception:
+            return ""
 
 
 @app.get("/api/unicode/scripts")
