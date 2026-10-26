@@ -3,7 +3,10 @@
  */
 import type { BlockInfo, CodepointInfo, GridPage, PlaneInfo } from "./types";
 
-const BASE = "http://127.0.0.1:17890/api";
+/** Shared backend API base — every module (dialogs, font stack, …) uses this. */
+export const API_BASE = "http://127.0.0.1:18080/api";
+
+const BASE = API_BASE;
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
