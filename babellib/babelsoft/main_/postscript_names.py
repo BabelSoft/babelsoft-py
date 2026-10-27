@@ -8,6 +8,8 @@ glyph names and Unicode codepoints, as used in OpenType 'post' tables.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 
 class PostScriptNames:
     """Standard PostScript glyph name ↔ Unicode codepoint mapping.
@@ -19,7 +21,7 @@ class PostScriptNames:
     # Standard glyph names indexed by glyph ID (MacRoman encoding order).
     # Glyph 0 = .notdef, Glyph 1 = .null (U+0000), Glyph 2 = CR (U+000D),
     # Glyph 3 = space (U+0020), etc.
-    _STANDARD_NAMES: list[tuple[str, int]] = [
+    _STANDARD_NAMES: ClassVar[list[tuple[str, int]]] = [
         (".notdef", 0x0000),  # Glyph 0
         (".null", 0x0000),  # Glyph 1
         ("CR", 0x000D),  # Glyph 2
@@ -243,7 +245,7 @@ class PostScriptNames:
         Returns empty string if no standard name is defined.
         """
         cls._build_maps()
-        return cls._cp_to_name.get(cp, "")
+        return (cls._cp_to_name or {}).get(cp, "")
 
     @classmethod
     def get_codepoint_for_name(cls, name: str) -> int:
@@ -252,7 +254,7 @@ class PostScriptNames:
         Returns 0 if the name is not recognized.
         """
         cls._build_maps()
-        return cls._name_to_cp.get(name, 0)
+        return (cls._name_to_cp or {}).get(name, 0)
 
     @classmethod
     def get_name_for_glyph_id(cls, glyph_id: int) -> str:

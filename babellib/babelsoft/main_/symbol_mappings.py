@@ -7,6 +7,8 @@ used by the classic Symbol font) and standard ASCII/Unicode characters.
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 
 class SymbolMappings:
     """Symbol font encoding ↔ Unicode mapping.
@@ -23,7 +25,7 @@ class SymbolMappings:
     # Symbol font PUA codepoint mapping table (U+F020–U+F0FF).
     # Each entry corresponds to an ASCII byte 0x20–0xFF mapped to a
     # Unicode codepoint representing the glyph actually displayed.
-    _SYMBOL_FONT_MAPPING: list[int] = [
+    _SYMBOL_FONT_MAPPING: ClassVar[list[int]] = [
         0x0020,
         0x0021,
         0x2200,

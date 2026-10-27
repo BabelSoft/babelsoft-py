@@ -3,14 +3,12 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.main_ import BabelString, CharList, SCSU  # noqa: E402
-from babelsoft.main_.symbol_mappings import SymbolMappings  # noqa: E402
-from babelsoft.main_.postscript_names import PostScriptNames  # noqa: E402
+from babelsoft.main_ import SCSU, BabelString, CharList
+from babelsoft.main_.postscript_names import PostScriptNames
+from babelsoft.main_.symbol_mappings import SymbolMappings
 
 # ═════════════════════  BabelString  ═════════════════════
 
@@ -365,7 +363,6 @@ class TestBabelStringExtended:
 
     def test_go_up_down(self):
         text = "line1\nline2\nline3"
-        pos_end_l1 = 5  # position at end of "line1"
         result = BabelString.go_down(text, 2)
         assert result > 0  # moved down
 
@@ -380,7 +377,7 @@ class TestBabelStringExtended:
         assert BabelString.delete_at("ABC", 0, 2) == "C"
 
     def test_delete_line_break(self):
-        text, pos, length = BabelString.delete_line_break("A\nB", 1, before=False)
+        text, _pos, length = BabelString.delete_line_break("A\nB", 1, before=False)
         assert text == "AB"
         assert length == 1
 
@@ -430,6 +427,6 @@ class TestBabelStringExtended:
         assert (start, end) == (0, 5)
 
     def test_get_next_word(self):
-        word, wlen, pos = BabelString.get_next_word("hello world", 0)
+        word, wlen, _pos = BabelString.get_next_word("hello world", 0)
         assert word == "hello"
         assert wlen == 5

@@ -9,7 +9,8 @@ Handles Unicode text operations:
 """
 
 import unicodedata
-from .class_ import Language, EInput, FF_16, ZERO_16, ZERO_32
+
+from .class_ import EInput, Language
 
 
 class Unicode(Language):
@@ -269,7 +270,7 @@ class Unicode(Language):
         return EInput.CHARACTER
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """Perform Unicode conversion based on menu_id."""
         if end is None:
@@ -489,6 +490,7 @@ class Unicode(Language):
         Equivalent to C++ LanguageUnicode::ConvertNameToCharacter.
         """
         import re
+
         from babelsoft.unicode.core import Unicode
 
         def replace_name(match):

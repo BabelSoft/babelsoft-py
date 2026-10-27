@@ -16,8 +16,13 @@ from __future__ import annotations
 import base64
 import glob
 import io
+import logging
 import os
 import re
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 FONT_DIRS = [
     r"C:\Windows\Fonts",
@@ -113,8 +118,8 @@ def _font_family(path: str) -> str:
             n = tt["name"].getDebugName(nid)
             if n:
                 return n
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_font_family: ignoring recoverable error", exc_info=True)
     return os.path.basename(path)
 
 
@@ -126,7 +131,7 @@ def _face_count(path: str) -> int:
         with open(path, "rb") as f:
             head = f.read(4096)  # a ttcf header is tiny; this is enough
         return face_count(head)
-    except Exception:
+    except PROBE_ERRORS:
         return 1
 
 
@@ -251,12 +256,12 @@ def _build_trace_stages(rows: list[dict], show_all_lookups: bool = False) -> tup
     start_bufs: list[str] = []
     for ix, r in enumerate(rows):
         m = r["m"]
-        if m.startswith("start lookup") or m.startswith("recursing to lookup"):
+        if m.startswith(("start lookup", "recursing to lookup")):
             depth += 1
             start_ids.append(ix)
             start_bufs.append(_json.dumps(r["glyphs"]))
         r["depth"] = depth
-        if m.startswith("end lookup") or m.startswith("recursed to lookup"):
+        if m.startswith(("end lookup", "recursed to lookup")):
             depth -= 1
             if start_ids:
                 sid = start_ids.pop()
@@ -333,8 +338,8 @@ def shape_trace(
     if language:
         try:
             buf.language = language
-        except Exception:
-            pass
+        except PROBE_ERRORS:
+            logger.debug("shape_trace: ignoring recoverable error", exc_info=True)
     level = CLUSTER_LEVELS.get(cluster_level, "MONOTONE_GRAPHEMES")
     buf.cluster_level = getattr(hb.BufferClusterLevel, level)
 
@@ -348,8 +353,8 @@ def shape_trace(
     if variations:
         try:
             font.set_variations(variations)
-        except Exception:
-            pass
+        except PROBE_ERRORS:
+            logger.debug("shape_trace: ignoring recoverable error", exc_info=True)
 
     preshape = _snapshot(buf)
 
@@ -431,8 +436,8 @@ def shape_flat(
     if language:
         try:
             buf.language = language
-        except Exception:
-            pass
+        except PROBE_ERRORS:
+            logger.debug("shape_flat: ignoring recoverable error", exc_info=True)
     level = CLUSTER_LEVELS.get(cluster_level, "MONOTONE_GRAPHEMES")
     buf.cluster_level = getattr(hb.BufferClusterLevel, level)
 
@@ -480,29 +485,30 @@ def _glyph_names(data: bytes, gids: set[int]) -> dict[int, str]:
                     n = f"gid{gid}"
                 out[gid] = n
         return out
-    except Exception:
+    except PROBE_ERRORS:
         return {}
 
 
 def _parse_debg(data: bytes) -> dict | None:
     """Best-effort parse of fontmake's ``Debg`` table (lookup debug info)."""
     try:
-        from fontTools.ttLib import TTFont
-
         import json
         import struct
 
+        from fontTools.ttLib import TTFont
+
         tt = TTFont(io.BytesIO(data), lazy=True)
-        if "Debg" not in tt.reader.tables:
+        reader = tt.reader
+        if reader is None or "Debg" not in reader.tables:
             return None
-        raw = tt.reader["Debg"]
+        raw = reader["Debg"]
         try:
             n = struct.unpack(">L", raw[:4])[0]
             blob = raw[4 : 4 + n]
-        except Exception:
+        except PROBE_ERRORS:
             blob = raw[4:]
         return json.loads(blob.decode("utf-8", "replace"))
-    except Exception:
+    except PROBE_ERRORS:
         return None
 
 
@@ -524,8 +530,8 @@ def font_info(data: bytes) -> dict:
         for a in face.axis_infos:
             axes.append({"tag": a.tag, "min": a.min_value, "default": a.default_value, "max": a.max_value})
         info["axes"] = axes
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("font_info: ignoring recoverable error", exc_info=True)
     try:
         from fontTools.ttLib import TTFont
 
@@ -541,12 +547,12 @@ def font_info(data: bytes) -> dict:
                     if ss and getattr(ss, "LangSysRecord", None):
                         for lr in ss.LangSysRecord:
                             langs.add(lr.LangSysTag)
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("font_info: ignoring recoverable error", exc_info=True)
         info["supported_scripts"] = sorted(scripts)
         info["supported_languages"] = sorted(langs)
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("font_info: ignoring recoverable error", exc_info=True)
     info["debg"] = _parse_debg(data)
     return info
 
@@ -643,7 +649,7 @@ def feature_tags(data: bytes) -> dict:
         try:
             recs = tt[table].table.FeatureList.FeatureRecord
             out[table.lower()] = sorted({r.FeatureTag for r in recs})
-        except Exception:
+        except PROBE_ERRORS:
             out[table.lower()] = []
     return out
 
@@ -662,8 +668,8 @@ def _glyph_advance(tt, gname: str, upem: int) -> int:
         adv = tt["hmtx"].metrics[gname][0]
         if adv:
             return adv
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_glyph_advance: ignoring recoverable error", exc_info=True)
     return max(1, upem // 10)
 
 
@@ -694,8 +700,8 @@ def render_svg(
     if variations:
         try:
             tt.set_variations(variations)
-        except Exception:
-            pass
+        except PROBE_ERRORS:
+            logger.debug("render_svg: ignoring recoverable error", exc_info=True)
     gs = tt.getGlyphSet()
     order = tt.getGlyphOrder()
     scale = size / upem
@@ -712,7 +718,7 @@ def render_svg(
         pen = SVGPathPen(gs)
         try:
             gs[gname].draw(pen)
-        except Exception:
+        except PROBE_ERRORS:
             x += adv * scale
             continue
         d = pen.getCommands()

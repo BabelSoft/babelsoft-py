@@ -6,7 +6,6 @@ Provides global settings for upper-case readings, tone numbers, and tone convers
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import ClassVar
 
 from babelsoft.utils_.dirs import Dirs

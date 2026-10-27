@@ -11,17 +11,15 @@ Covers the expression fields added for the search dialog:
 import sys
 from pathlib import Path
 
-import pytest
-
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelmap.backend.adv_search import (  # noqa: E402
+from babelmap.backend.adv_search import (
     BinOp,
     Cond,
+    _tokenize,
     evaluate,
     parse_query,
-    _tokenize,
 )
 
 

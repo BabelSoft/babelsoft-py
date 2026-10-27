@@ -14,34 +14,33 @@ Covers all language modules:
 - text_input.py
 """
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add babellib to path (package root lives at babellib/babelsoft/)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from babelsoft.languages import (
-    Language,
-    EInput,
-    ELanguage,
-    Yi,
-    Manchu,
-    Mongolian,
-    PhagsPa,
-    Tibetan,
-    Uyghur,
-    Unicode,
-    Default,
-    Input,
-    InputType,
-    StatusType,
-    InputMethod,
-    CASE_OFFSET,
-    MAX_MONGOLIAN_WORD,
     FF_16,
     ZERO_16,
     ZERO_32,
+    Default,
+    EInput,
+    ELanguage,
+    Input,
+    InputMethod,
+    InputType,
+    Language,
+    Manchu,
+    Mongolian,
+    PhagsPa,
+    StatusType,
+    Tibetan,
+    Unicode,
+    Uyghur,
+    Yi,
 )
 
 # ============================================================================
@@ -178,10 +177,10 @@ class TestLanguage:
 
     def test_enums(self):
         """Test enum values are distinct."""
-        values = set(e.value for e in InputType)
+        values = {e.value for e in InputType}
         assert len(values) == len(InputType)
 
-        lang_values = set(e.value for e in ELanguage)
+        lang_values = {e.value for e in ELanguage}
         assert len(lang_values) == len(ELanguage)
 
 
@@ -259,7 +258,7 @@ class TestLanguageYi:
 
     def test_find_radical_stroke(self):
         """Test radical/stroke lookup."""
-        radical, strokes = Yi.find_radical_stroke_for_syllable(0xA000)
+        radical, _strokes = Yi.find_radical_stroke_for_syllable(0xA000)
         # With simplified tables, may return None
         assert radical is None or isinstance(radical, int)
 
@@ -303,13 +302,13 @@ class TestLanguageYi:
     def test_convert_latin_to_yi(self):
         """Test Latin to Yi conversion."""
         yi = Yi()
-        result, count = yi._convert_latin_to_yi("b", 0, 1)
+        result, _count = yi._convert_latin_to_yi("b", 0, 1)
         assert isinstance(result, str)
 
     def test_convert_yi_to_latin(self):
         """Test Yi to Latin conversion."""
         yi = Yi()
-        result, count = yi._convert_yi_to_latin(chr(0xA000), 0, 1)
+        result, _count = yi._convert_yi_to_latin(chr(0xA000), 0, 1)
         assert isinstance(result, str)
 
 
@@ -386,7 +385,7 @@ class TestLanguageManchu:
     def test_do_conversion_basic(self):
         """Test basic Latin to Manchu conversion."""
         manchu = Manchu()
-        result, count = manchu.do_conversion(0, "a", 0, 1)
+        result, _count = manchu.do_conversion(0, "a", 0, 1)
         assert isinstance(result, str)
 
 
@@ -439,7 +438,7 @@ class TestLanguageMongolian:
     def test_do_conversion_basic(self):
         """Test basic Latin to Mongolian conversion."""
         mong = Mongolian()
-        result, count = mong.do_conversion(0, "a", 0, 1)
+        result, _count = mong.do_conversion(0, "a", 0, 1)
         assert isinstance(result, str)
 
 
@@ -491,7 +490,7 @@ class TestLanguagePhagsPa:
     def test_do_conversion_basic(self):
         """Test basic Latin to Phags-pa conversion."""
         pp = PhagsPa()
-        result, count = pp.do_conversion(0, "ka", 0, 2)
+        result, _count = pp.do_conversion(0, "ka", 0, 2)
         assert isinstance(result, str)
 
 
@@ -556,7 +555,7 @@ class TestLanguageTibetan:
     def test_do_conversion_basic(self):
         """Test basic Wylie to Tibetan conversion."""
         tib = Tibetan()
-        result, count = tib.do_conversion(0, "ka", 0, 2)
+        result, _count = tib.do_conversion(0, "ka", 0, 2)
         assert isinstance(result, str)
 
 
@@ -596,25 +595,25 @@ class TestLanguageUyghur:
     def test_convert_arabic_to_latin(self):
         """Test Arabic to Latin conversion."""
         uy = Uyghur()
-        result, count = uy._convert_to_latin(chr(0x0627), 0, 1)
+        result, _count = uy._convert_to_latin(chr(0x0627), 0, 1)
         assert isinstance(result, str)
 
     def test_convert_latin_to_arabic(self):
         """Test Latin to Arabic conversion."""
         uy = Uyghur()
-        result, count = uy._convert_to_arabic("a", 0, 1)
+        result, _count = uy._convert_to_arabic("a", 0, 1)
         assert isinstance(result, str)
 
     def test_do_conversion_arabic_to_latin(self):
         """Test Arabic->Latin via do_conversion."""
         uy = Uyghur()
-        result, count = uy.do_conversion(0, chr(0x0627), 0, 1)
+        result, _count = uy.do_conversion(0, chr(0x0627), 0, 1)
         assert isinstance(result, str)
 
     def test_do_conversion_latin_to_arabic(self):
         """Test Latin->Arabic via do_conversion."""
         uy = Uyghur()
-        result, count = uy.do_conversion(1, "a", 0, 1)
+        result, _count = uy.do_conversion(1, "a", 0, 1)
         assert isinstance(result, str)
 
 
@@ -820,8 +819,23 @@ class TestLanguageDefault:
 
     def test_caesar_wraparound(self):
         """Test Caesar cipher wrap-around."""
-        result, count = Default._apply_caesar("xyz", offset=3)
+        result, _count = Default._apply_caesar("xyz", offset=3)
         assert result == "abc"
+
+    def test_convert_to_viqr(self):
+        """Vietnamese letters become VIQR; everything else is unchanged."""
+        assert Default.convert_to_viqr("Việt Nam") == "Vie^.t Nam"
+        assert Default.convert_to_viqr("abc") == "abc"
+
+    def test_convert_from_viqr(self):
+        """VIQR sequences are decoded back into precomposed Vietnamese."""
+        assert Default.convert_from_viqr("Vie^.t Nam") == "Việt Nam"
+        assert Default.convert_from_viqr("abc") == "abc"
+
+    def test_viqr_roundtrip(self):
+        """Unicode → VIQR → Unicode must be lossless."""
+        for text in ("Việt", "Tiếng Việt", "Ứng dụng"):
+            assert Default.convert_from_viqr(Default.convert_to_viqr(text)) == text
 
 
 # ============================================================================
@@ -883,7 +897,7 @@ class TestTextInput:
         """Test setting the active method."""
         ti = Input()
         ti.add_method(InputMethod(name="Test"))
-        status = ti.set_method(0)
+        ti.set_method(0)
         assert ti.current_method == 0
 
     def test_is_selected(self):
@@ -948,7 +962,7 @@ class TestTextInput:
 
     def test_enum_values_distinct(self):
         """Test ETextInput values are distinct."""
-        values = set(e.value for e in InputType)
+        values = {e.value for e in InputType}
         assert len(values) == len(InputType)
 
     def test_estatus_values(self):
@@ -969,20 +983,6 @@ class TestIntegration:
         """Test all expected names are importable."""
         from babelsoft.languages import (
             Language,
-            InputType,
-            ELanguage,
-            Default,
-            Manchu,
-            Mongolian,
-            PhagsPa,
-            Tibetan,
-            Uyghur,
-            Unicode,
-            Yi,
-            Input,
-            InputType,
-            StatusType,
-            InputMethod,
         )
 
         assert Language is not None
@@ -996,19 +996,19 @@ class TestIntegration:
         yi.on_clear()
 
         # Test Latin-to-Yi conversion
-        result, count = yi.do_conversion(2, "b", 0, 1)
+        result, _count = yi.do_conversion(2, "b", 0, 1)
         assert isinstance(result, str)
 
     def test_language_manchu_full_flow(self):
         """Test Manchu full conversion flow."""
         manchu = Manchu()
-        result, count = manchu.do_conversion(0, "a e i o u", 0, 9)
+        result, _count = manchu.do_conversion(0, "a e i o u", 0, 9)
         assert isinstance(result, str)
 
     def test_language_mongolian_full_flow(self):
         """Test Mongolian full conversion flow."""
         mong = Mongolian()
-        result, count = mong.do_conversion(0, "a e i o u", 0, 9)
+        result, _count = mong.do_conversion(0, "a e i o u", 0, 9)
         assert isinstance(result, str)
 
     def test_language_uyghur_bidirectional(self):

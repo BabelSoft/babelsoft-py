@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import ClassVar
 
 
 class Encoding(Enum):
@@ -102,8 +103,8 @@ class Mapper:
     """Unicode ↔ legacy encoding mapper."""
 
     # Custom mapping tables (extended beyond Python's built-in codecs)
-    _CUSTOM_MAPS: dict[str, dict[int, int]] = {}
-    _CUSTOM_REVERSE: dict[str, dict[int, int]] = {}
+    _CUSTOM_MAPS: ClassVar[dict[str, dict[int, int]]] = {}
+    _CUSTOM_REVERSE: ClassVar[dict[str, dict[int, int]]] = {}
 
     @classmethod
     def register_mapping(cls, name: str, to_unicode: dict[int, int]) -> None:

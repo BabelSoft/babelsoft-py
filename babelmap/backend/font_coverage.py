@@ -36,9 +36,14 @@ blocks are reported with coverage 0 because "coverage" is meaningless there.
 
 from __future__ import annotations
 
-import bisect
 import base64
+import bisect
+import logging
 from functools import lru_cache
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 # Blocks whose coverage is not meaningful (user-defined / private).
 _PUA_BLOCKS = {
@@ -391,7 +396,8 @@ def _preview_for(block: dict, best: dict | None, faces: list[dict]) -> str:
             if Unicode.get_general_category(cp).name in ("Cc", "Cs", "Cn"):
                 continue
             out.append(chr(cp))
-        except Exception:
+        except PROBE_ERRORS:
+            logger.debug("_preview_for: skipping unreadable entry", exc_info=True)
             continue
     return "".join(out)
 
@@ -463,9 +469,7 @@ def _is_candidate(f: dict, all_styles: bool = False) -> bool:
         if f.get("italic"):
             return False
     # Rotated fonts (the original's IsRotatedFont) are vertical-only designs.
-    if f.get("rotated"):
-        return False
-    return True
+    return not f.get("rotated")
 
 
 def _primary_style_only(faces: list[dict]) -> list[dict]:
@@ -561,10 +565,7 @@ def _pick_best(block: dict, fonts: list[dict], faces: list[dict]) -> dict | None
             win = True
         elif chars == w_chars:
             # 2. closest to Regular
-            if _most_regular(w_weight, weight):
-                win = True
-            # 3. more distinct blocks
-            elif blocks_n > w_blocks:
+            if _most_regular(w_weight, weight) or blocks_n > w_blocks:
                 win = True
             elif blocks_n == w_blocks:
                 # 4. more total characters
@@ -614,7 +615,8 @@ def _block_script_map() -> dict[str, str]:
         for cp in assigned[lo:hi]:
             try:
                 sc = Unicode.get_script(cp)
-            except Exception:
+            except PROBE_ERRORS:
+                logger.debug("_block_script_map: skipping unreadable entry", exc_info=True)
                 continue
             if sc and sc not in shared:
                 counts[sc] = counts.get(sc, 0) + 1
@@ -629,7 +631,7 @@ def _script_name_to_tag() -> dict[str, str]:
     """``{"Latin": "Latn", …}`` — the long script name → ISO 15924 tag."""
     try:
         from babelmap.backend.font_overview import SCRIPTS
-    except Exception:
+    except PROBE_ERRORS:
         return {}
     # SCRIPTS is keyed by tag; each entry carries a ``label`` (the long name).
     return {v.get("label", ""): k for k, v in SCRIPTS.items() if v.get("label")}

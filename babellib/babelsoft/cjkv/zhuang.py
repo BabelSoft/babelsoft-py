@@ -10,7 +10,7 @@ from typing import ClassVar
 
 from babelsoft.cjkv.lookup import Lookup
 from babelsoft.utils_.dirs import Dirs
-from babelsoft.utils_.parser import TsvParser
+from babelsoft.utils_.parser import TsvParser, parse_codepoint
 
 
 class Zhuang(Lookup):
@@ -39,7 +39,7 @@ class Zhuang(Lookup):
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_readings.tsv"):
             if len(row) < 3 or row[1] != "kZhuang":
                 continue
-            cp = int(row[0][2:], 16)
+            cp = parse_codepoint(row[0])
             for item in row[2].split():
                 if len(item) > 1 and item[-1] in _zhuang_tones:
                     reading = item[:-1]

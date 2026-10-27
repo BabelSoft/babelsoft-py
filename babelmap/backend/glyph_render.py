@@ -30,12 +30,16 @@ is not affected, because CSS cannot select a rasteriser.
 from __future__ import annotations
 
 import io
+import logging
 import os
 import zipfile
-from pathlib import Path
 
 import freetype
 from PIL import Image, ImageChops
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 # ── Quality modes ────────────────────────────────────────────────────
 
@@ -55,8 +59,8 @@ def _lcd_filter(value):
     """Set the global LCD filter (best-effort: older builds may lack it)."""
     try:
         freetype.FT_Library_SetLcdFilter(freetype.get_handle(), value)
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_lcd_filter: ignoring recoverable error", exc_info=True)
 
 
 def quality_spec(quality: int) -> dict:
@@ -118,8 +122,8 @@ def _font_dirs() -> list[str]:
             for sub in reg.iterdir():
                 if sub.is_dir() and any((sub / f).suffix.lower() in EXTENSIONS for f in os.listdir(sub)):
                     dirs.append(str(sub))
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_font_dirs: ignoring recoverable error", exc_info=True)
     return dirs
 
 
@@ -148,14 +152,16 @@ def build_index(force: bool = False) -> dict[str, list[tuple[str, int, str]]]:
             try:
                 face = freetype.Face(path)
                 count = face.num_faces
-            except Exception:
+            except PROBE_ERRORS:
+                logger.debug("build_index: skipping unreadable entry", exc_info=True)
                 continue
             for i in range(max(1, count)):
                 try:
                     f = freetype.Face(path, i)
                     fam = (f.family_name or b"").decode("utf-8", "replace")
                     style = (f.style_name or b"Regular").decode("utf-8", "replace")
-                except Exception:
+                except PROBE_ERRORS:
+                    logger.debug("build_index: skipping unreadable entry", exc_info=True)
                     continue
                 if not fam:
                     continue
@@ -218,7 +224,7 @@ def _hex_rgba(value: str, default: str) -> tuple[int, int, int, int]:
         v += "ff"
     try:
         return tuple(int(v[i : i + 2], 16) for i in (0, 2, 4, 6))  # type: ignore[return-value]
-    except Exception:
+    except PROBE_ERRORS:
         return _hex_rgba(default, default)
 
 
@@ -278,7 +284,7 @@ def _size_and_ascent(face, size: int) -> tuple[int, int]:
     face.set_pixel_sizes(0, max(1, int(size)))
     asc = face.size.ascender / 64.0
     desc = face.size.descender / 64.0
-    return int(round(asc)), int(round(abs(desc)))
+    return round(asc), round(abs(desc))
 
 
 def render_glyph(
@@ -302,14 +308,14 @@ def render_glyph(
     asc, desc = _size_and_ascent(face, size * max(1, scale))
     try:
         face.load_char(int(cp), spec["flags"])
-    except Exception:
+    except PROBE_ERRORS:
         face.load_char(0, spec["flags"])
     bitmap = face.glyph.bitmap
     mask = _coverage_image(face, bitmap)
     layer = _blend(mask, _hex_rgba(fg, "#000000"), _hex_rgba(bg, "#ffffff"))
 
     if cell is None:
-        w = max(mask.width, int(round(face.glyph.advance.x / 64.0)))
+        w = max(mask.width, round(face.glyph.advance.x / 64.0))
         h = asc + desc
         cell = (max(1, w), max(1, h))
     cw, ch = max(1, cell[0]), max(1, cell[1])
@@ -353,13 +359,13 @@ def render_text(
             continue
         try:
             face.load_char(cp, spec["flags"])
-        except Exception:
+        except PROBE_ERRORS:
             pen_x += int(size * 0.4)
             continue
         mask = _coverage_image(face, face.glyph.bitmap)
         layer = _blend(mask, fgc, bgc)
         placed.append((layer, pen_x + face.glyph.bitmap_left, pen_y - face.glyph.bitmap_top))
-        pen_x += int(round(face.glyph.advance.x / 64.0))
+        pen_x += round(face.glyph.advance.x / 64.0)
 
     width = max(1, pen_x) + int(size * 0.25)
     height = max(1, asc + desc) + 4
@@ -463,7 +469,8 @@ def export_zip(
                     cell=cell,
                     scale=scale,
                 )
-            except Exception:
+            except PROBE_ERRORS:
+                logger.debug("export_zip: skipping unreadable entry", exc_info=True)
                 continue
             z.writestr(f"U+{cp:04X}.{fmt}", _encode(img, fmt, bg))
     return buf.getvalue()

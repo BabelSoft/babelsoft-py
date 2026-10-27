@@ -8,13 +8,13 @@ import pytest
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.cjkv.cjk import CJK, IDS, RS, Radical, SrcRef  # noqa: E402
-from babelsoft.cjkv.jyutping import Jyutping  # noqa: E402
-from babelsoft.cjkv.korean import HangulSyllableType, Korean  # noqa: E402
-from babelsoft.cjkv.pinyin import Pinyin  # noqa: E402
-from babelsoft.cjkv.vietnamese import Vietnamese  # noqa: E402
-from babelsoft.cjkv.zhuang import Zhuang  # noqa: E402
-from babelsoft.unicode import CodePoint  # noqa: E402
+from babelsoft.cjkv.cjk import CJK, IDS, RS, Radical, SrcRef
+from babelsoft.cjkv.jyutping import Jyutping
+from babelsoft.cjkv.korean import HangulSyllableType, Korean
+from babelsoft.cjkv.pinyin import Pinyin
+from babelsoft.cjkv.vietnamese import Vietnamese
+from babelsoft.cjkv.zhuang import Zhuang
+from babelsoft.unicode import CodePoint
 
 # ═══════════════════════  CJK Character  ═══════════════════════
 
@@ -165,11 +165,15 @@ class TestCJK:
         assert SrcRef("nonexistent").is_valid() is False
 
     def test_submitter(self):
-        assert SrcRef("G0-5251").submitter.name == "CHINA_SINGAPORE"
-        assert SrcRef("HB1-A477").submitter.name == "HONG_KONG_SAR"
+        def submitter_name(ref: str) -> str | None:
+            submitter = SrcRef(ref).submitter
+            return submitter.name if submitter else None
+
+        assert submitter_name("G0-5251") == "CHINA_SINGAPORE"
+        assert submitter_name("HB1-A477") == "HONG_KONG_SAR"
         assert SrcRef("MY-12345").submitter is None
-        assert SrcRef("GS-12345").submitter.name == "SINGAPORE"
-        assert SrcRef("SG-12345").submitter.name == "SINGAPORE"
+        assert submitter_name("GS-12345") == "SINGAPORE"
+        assert submitter_name("SG-12345") == "SINGAPORE"
 
     def test_find(self):
         assert SrcRef("G0-482B").find() == CJK(0x5168)

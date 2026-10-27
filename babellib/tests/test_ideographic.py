@@ -3,12 +3,10 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.cjkv.cjk import CJK  # noqa: E402
+from babelsoft.cjkv.cjk import CJK
 
 
 def ideographic_properties(cp: int) -> dict:

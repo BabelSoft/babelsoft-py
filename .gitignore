@@ -11,6 +11,8 @@ babelmap/backend/var/
 package-lock.json
 node_modules/
 .svelte-check/
+# Stray svelte-check console output (was committed by mistake once)
+sc.txt
 Cargo.lock
 gen/
 

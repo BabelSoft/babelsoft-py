@@ -9,6 +9,7 @@ import functools
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 from babelsoft.unicode.enums import (
     BidiClass,
@@ -389,7 +390,7 @@ class Unicode:
     #  General Category
     # ==================================================================
 
-    _GC_MAP = {
+    _GC_MAP: ClassVar[dict[str, int]] = {
         "Lu": 1,
         "Ll": 2,
         "Lt": 3,
@@ -463,7 +464,7 @@ class Unicode:
         for line in TxtParser.get_txt(path):
             if not line.strip() or line.startswith("#"):
                 continue
-            table, cp1, cp2, unified, _name = line.split("\t")
+            table, cp1, cp2, _unified, _name = line.split("\t")
             a = int(cp1, 16)
             b = int(cp2, 16) if cp2 else 0
             if table == "MOVED":
@@ -766,7 +767,7 @@ class Unicode:
     #  Bidi Class
     # ==================================================================
 
-    _BIDI_MAP = {
+    _BIDI_MAP: ClassVar[dict[str, int]] = {
         "L": 0,
         "R": 1,
         "AL": 2,
@@ -809,7 +810,7 @@ class Unicode:
     #  Decomposition
     # ==================================================================
 
-    _DT_MAP = {
+    _DT_MAP: ClassVar[dict[str, int]] = {
         "": 1,
         "<font>": 2,
         "<noBreak>": 3,
@@ -994,7 +995,7 @@ class Unicode:
     #  East Asian Width
     # ==================================================================
 
-    _EAW_MAP = {"N": 0, "A": 1, "H": 2, "W": 3, "F": 4, "Na": 5}
+    _EAW_MAP: ClassVar[dict[str, int]] = {"N": 0, "A": 1, "H": 2, "W": 3, "F": 4, "Na": 5}
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
@@ -1009,7 +1010,7 @@ class Unicode:
     #  Line Break
     # ==================================================================
 
-    _LB_MAP = {
+    _LB_MAP: ClassVar[dict[str, int]] = {
         "XX": 0,
         "AI": 1,
         "AL": 2,
@@ -1068,7 +1069,7 @@ class Unicode:
     #  Vertical Orientation
     # ==================================================================
 
-    _VO_MAP = {"R": 0, "U": 1, "Tu": 2, "Tr": 3}
+    _VO_MAP: ClassVar[dict[str, int]] = {"R": 0, "U": 1, "Tu": 2, "Tr": 3}
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
@@ -1084,7 +1085,7 @@ class Unicode:
     #  Arabic Joining
     # ==================================================================
 
-    _JT_MAP = {"U": 0, "C": 1, "D": 2, "R": 3, "L": 4, "T": 5}
+    _JT_MAP: ClassVar[dict[str, int]] = {"U": 0, "C": 1, "D": 2, "R": 3, "L": 4, "T": 5}
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
@@ -1545,7 +1546,7 @@ class Unicode:
             while result:
                 last = result[-1]
                 last_ccc = Unicode.get_canonical_combining_class(last)
-                if last_ccc >= cp_ccc and cp_ccc > 0:
+                if last_ccc >= cp_ccc > 0:
                     break
                 composed = Unicode._compose_pair(last, cp)
                 if composed:
@@ -1654,7 +1655,7 @@ class Unicode:
     #  Plane functions
     # ==================================================================
 
-    _PLANE_NAMES = [
+    _PLANE_NAMES: ClassVar[list[str]] = [
         "Basic Multilingual Plane (BMP)",
         "Supplementary Multilingual Plane (SMP)",
         "Supplementary Ideographic Plane (SIP)",
@@ -1674,7 +1675,7 @@ class Unicode:
         "Supplementary Private Use Area-B (PUA-B)",
     ]
 
-    _PLANE_ABBREV = [
+    _PLANE_ABBREV: ClassVar[list[str]] = [
         "BMP",
         "SMP",
         "SIP",
@@ -1839,9 +1840,7 @@ class Unicode:
     def parse_code_point(text: str) -> int:
         """Parse a codepoint from various string formats."""
         text = text.strip()
-        if text.upper().startswith("U+"):
-            text = text[2:]
-        elif text.upper().startswith("0X"):
+        if text.upper().startswith("U+") or text.upper().startswith("0X"):
             text = text[2:]
         if len(text) <= 6 and all(c in "0123456789ABCDEFabcdef" for c in text):
             return int(text, 16)
@@ -2320,7 +2319,7 @@ class Unicode:
     #  Iteration marks
     # ==================================================================
 
-    _ITERATION_MARKS = [
+    _ITERATION_MARKS: ClassVar[list[tuple[int, str]]] = [
         (0x3005, "Han"),  # 々
         (0x303B, "Han"),  # 〻
         (0x309D, "Hiragana"),  # ゝ

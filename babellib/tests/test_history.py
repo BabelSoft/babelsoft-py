@@ -6,9 +6,9 @@ from pathlib import Path
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.unicode import Unicode  # noqa: E402
+from babelsoft.unicode import Unicode
 
-from babelmap.backend.history import character_history  # noqa: E402
+from babelmap.backend.history import character_history
 
 
 class TestUnicode1Mappings:
@@ -37,8 +37,10 @@ class TestUnicode1Mappings:
 
 
 class TestCharacterHistory:
-    def _row(self, h, version):
-        return next((r for r in h["rows"] if r["version"] == version), None)
+    def _row(self, h, version) -> dict:
+        row = next((r for r in h["rows"] if r["version"] == version), None)
+        assert row is not None, f"no history row for Unicode {version}"
+        return row
 
     def test_tibetan_ka_move(self):
         h = character_history(0x0F40)

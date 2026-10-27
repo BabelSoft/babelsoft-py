@@ -6,7 +6,9 @@ Converts Latin letters to Mongolian Unicode characters with proper vowel harmony
 and contextual form selection.
 """
 
-from .class_ import Language, EInput, FF_16, ZERO_16, MAX_MONGOLIAN_WORD
+from typing import ClassVar
+
+from .class_ import MAX_MONGOLIAN_WORD, ZERO_16, EInput, Language
 
 # Mongolian digits offset
 MONGOLIAN_DIGITS = 0x1810
@@ -32,7 +34,7 @@ class Mongolian(Language):
     Supports vowel harmony, number input, and contextual form selection.
     """
 
-    TABLE_PUNCTUATION = [
+    TABLE_PUNCTUATION: ClassVar[list[int]] = [
         0x40,  # @ Commercial At
         0x23,  # # Hash
         0x26,  # & Ampersand
@@ -46,7 +48,7 @@ class Mongolian(Language):
         0x25,  # % Percent
     ]
 
-    TABLE_PUNCTUATION_MAP = [
+    TABLE_PUNCTUATION_MAP: ClassVar[list[int]] = [
         0x0F04,  # @ = Tibetan yig mgo mdun ma
         0x0F05,  # # = Tibetan yig mgo sgab ma
         0x1800,  # Mongolian Birga
@@ -60,7 +62,7 @@ class Mongolian(Language):
         0x1886,  # triple baluda
     ]
 
-    TABLE_VOWELS = [
+    TABLE_VOWELS: ClassVar[list[list[int]]] = [
         [0x61, 0xFF],  # a
         [0x65, 0xFF],  # e
         [0x69, 0xFF],  # i
@@ -74,7 +76,7 @@ class Mongolian(Language):
         [0x55, 0xFF],  # U (long u)
     ]
 
-    TABLE_VOWELS_MAP = [
+    TABLE_VOWELS_MAP: ClassVar[list[int]] = [
         0x1820,  # a
         0x1821,  # e
         0x1822,  # i
@@ -88,7 +90,7 @@ class Mongolian(Language):
         0x18A6,  # U
     ]
 
-    TABLE_CONSONANTS = [
+    TABLE_CONSONANTS: ClassVar[list[list[int]]] = [
         [0x6E, 0xFF],  # n
         [0x6E, 0x67],  # ng
         [0x62, 0xFF],  # b
@@ -115,7 +117,7 @@ class Mongolian(Language):
         [0x63, 0x68],  # ch
     ]
 
-    TABLE_CONSONANTS_MAP = [
+    TABLE_CONSONANTS_MAP: ClassVar[list[int]] = [
         0x1828,  # n
         0x1829,  # ng
         0x182A,  # b
@@ -142,8 +144,8 @@ class Mongolian(Language):
         0x1842,  # ch
     ]
 
-    TABLE_TRANSCRIPTION_LETTERS = []
-    TABLE_TRANSCRIPTION_MAP = []
+    TABLE_TRANSCRIPTION_LETTERS: ClassVar[list[str]] = []
+    TABLE_TRANSCRIPTION_MAP: ClassVar[list[int]] = []
 
     def __init__(self):
         super().__init__(block_start=0x1800, block_end=0x18B0)
@@ -315,7 +317,7 @@ class Mongolian(Language):
         return EInput.FINISHED
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """Convert Latin transcription to Mongolian script."""
         if end is None:

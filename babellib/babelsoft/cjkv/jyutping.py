@@ -5,13 +5,12 @@ Mirrors the C++ Jyutping class from Jyutping.h/Jyutping.cpp.
 
 from __future__ import annotations
 
-import functools
 from collections import defaultdict
 from typing import ClassVar
 
 from babelsoft.cjkv.lookup import Lookup
 from babelsoft.utils_.dirs import Dirs
-from babelsoft.utils_.parser import TsvParser
+from babelsoft.utils_.parser import TsvParser, parse_codepoint
 
 
 class Jyutping(Lookup):
@@ -38,7 +37,7 @@ class Jyutping(Lookup):
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_readings.tsv"):
             if len(row) < 3 or row[1] != "kCantonese":
                 continue
-            cp = int(row[0][2:], 16)
+            cp = parse_codepoint(row[0])
             for item in row[2].split():
                 reading = item.rstrip("0123456789")
                 tone = int(item[len(reading) :])

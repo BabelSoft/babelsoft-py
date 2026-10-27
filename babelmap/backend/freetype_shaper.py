@@ -9,7 +9,7 @@ Requires:  pip install freetype-py
 
 from __future__ import annotations
 
-import ctypes
+from babelmap.backend.errors import PROBE_ERRORS
 
 _FT_LOAD_NO_HINTING = 2
 
@@ -50,7 +50,7 @@ def shape_with_freetype(
                 face.load_char(ch, _FT_LOAD_NO_HINTING)
                 gid = int(face.get_char_index(ord(ch)))
                 adv = float(face.glyph.advance.x) / 64.0
-            except Exception:
+            except PROBE_ERRORS:
                 gid = 0
                 adv = 0.0
             glyphs.append(
@@ -59,7 +59,7 @@ def shape_with_freetype(
                     "cl": i,
                     "dx": 0,
                     "dy": 0,
-                    "ax": int(round(adv)),
+                    "ax": round(adv),
                     "ay": 0,
                     "flags": 0,
                 }

@@ -30,12 +30,17 @@ Public API:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
 import time
 import uuid
 from pathlib import Path
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REGISTRY_DIR = Path(__file__).resolve().parent / "var" / "user_fonts"
@@ -216,8 +221,8 @@ def _face_meta(path: Path) -> dict:
             meta["kind"] = "woff2" if path.suffix.lower() == ".woff2" else path.suffix.lower().lstrip(".")
         finally:
             tt.close()
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_face_meta: ignoring recoverable error", exc_info=True)
     return meta
 
 
@@ -227,17 +232,18 @@ def _family_name(tt) -> str:
             if rec.nameID == 1:
                 try:
                     return str(rec.toUnicode()).strip()
-                except Exception:
+                except PROBE_ERRORS:
+                    logger.debug("_family_name: skipping unreadable entry", exc_info=True)
                     continue
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_family_name: ignoring recoverable error", exc_info=True)
     return ""
 
 
 def _glyph_count(tt) -> int:
     try:
         return int(tt["maxp"].numGlyphs)
-    except Exception:
+    except PROBE_ERRORS:
         return 0
 
 
@@ -268,8 +274,8 @@ def _subfamilies(path: Path) -> list[str]:
                 out.append(_subfamily_name(tt))
             finally:
                 tt.close()
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_subfamilies: ignoring recoverable error", exc_info=True)
     return [s for s in out if s]
 
 
@@ -282,10 +288,11 @@ def _subfamily_name(tt) -> str:
                     s = str(rec.toUnicode()).strip()
                     if s:
                         return s
-                except Exception:
+                except PROBE_ERRORS:
+                    logger.debug("_subfamily_name: skipping unreadable entry", exc_info=True)
                     continue
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_subfamily_name: ignoring recoverable error", exc_info=True)
     return ""
 
 
@@ -341,12 +348,12 @@ def analyze(font_id: str) -> dict | None:
                 out["subfamilies"] = _subfamilies(path)
             try:
                 out["upem"] = int(tt["head"].unitsPerEm)
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("analyze: ignoring recoverable error", exc_info=True)
             try:
                 out["tables"] = sorted(tt.keys())
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("analyze: ignoring recoverable error", exc_info=True)
 
             # Variable-font axes
             try:
@@ -361,17 +368,20 @@ def analyze(font_id: str) -> dict | None:
                             "max": round(a.maxValue, 3),
                         }
                     )
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("analyze: ignoring recoverable error", exc_info=True)
 
             # OpenType language systems + layout feature tags
             try:
-                from babelmap.backend.font_overview import _read_ot_features, _read_ot_langs
+                from babelmap.backend.font_overview import (
+                    _read_ot_features,
+                    _read_ot_langs,
+                )
 
                 out["ot_langs"] = sorted(_read_ot_langs(tt))
                 out["ot_features"] = _read_ot_features(tt)
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("analyze: ignoring recoverable error", exc_info=True)
 
             # cmap coverage → count + coalesced ranges + block histogram
             try:
@@ -380,12 +390,12 @@ def analyze(font_id: str) -> dict | None:
                 out["coverage"] = len(cps)
                 out["cmap_ranges"] = _coalesce(cps)
                 out["blocks"] = _block_histogram(cps)
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("analyze: ignoring recoverable error", exc_info=True)
         finally:
             tt.close()
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("analyze: ignoring recoverable error", exc_info=True)
 
     return out
 
@@ -409,7 +419,7 @@ def _block_histogram(points: list[int]) -> list[dict]:
         from babelsoft.unicode.core import Unicode
 
         table, names = Unicode._block_data()
-    except Exception:
+    except PROBE_ERRORS:
         return []
     if not table:
         return []
@@ -588,7 +598,7 @@ def validate_css(css: str, *, known_families: list[str] | None = None) -> dict:
             prop = dm.group(1).strip().lower()
             if prop.startswith("-") or prop in _KNOWN_DECLS:
                 continue
-            if prop.startswith("unicode") or prop.startswith("font") or prop.startswith("src"):
+            if prop.startswith(("unicode", "font", "src")):
                 issues.append(
                     CssIssue(
                         "warning", f"Unknown property '{prop}' inside @font-face", _line_of(css, start + dm.start())

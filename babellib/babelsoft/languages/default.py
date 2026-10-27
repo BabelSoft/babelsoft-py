@@ -14,7 +14,7 @@ Provides:
 - Line reversal
 """
 
-from .class_ import Language, EInput, FF_16, ZERO_16, ZERO_32
+from .class_ import FF_16, EInput, Language
 
 
 class Default(Language):
@@ -53,7 +53,7 @@ class Default(Language):
         return EInput.NULL
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """Perform conversion based on menu_id."""
         if end is None:
@@ -163,10 +163,6 @@ class Default(Language):
         # Choseong (leading consonants): U+1100-U+1112
         # Jungseong (vowels): U+1161-U+1175
         # Jongseong (trailing consonants): U+11A8-U+11C2
-        CHOSEONG = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ"
-        JUNGSEONG = "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"
-        JONGSEONG = " ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ"
-
         result = []
         count = 0
         i = 0
@@ -377,8 +373,11 @@ class Default(Language):
 
         result = []
         for ch in text:
-            viqr = Vietnamese.unicode_to_viqr(ch)
-            result.append(viqr if viqr else ch)
+            cp = ord(ch)
+            # Only Vietnamese letters (U+00C0…U+1EF9) have a VIQR spelling;
+            # everything else (ASCII included) passes through unchanged.
+            viqr = Vietnamese.unicode_to_viqr(cp) if cp >= 0x00C0 else ""
+            result.append(viqr or ch)
         return "".join(result)
 
     @staticmethod
@@ -388,7 +387,7 @@ class Default(Language):
         """
         from babelsoft.cjkv.vietnamese import Vietnamese
 
-        return Vietnamese.viqr_to_unicode(text)
+        return Vietnamese.viqr_to_text(text)
 
     @staticmethod
     def convert_pua_to_hkscs(text: str) -> str:

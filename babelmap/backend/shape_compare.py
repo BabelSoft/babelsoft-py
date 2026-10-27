@@ -29,6 +29,8 @@ import io
 import sys
 from pathlib import Path
 
+from babelmap.backend.errors import PROBE_ERRORS
+
 # Default probe: Devanagari "rk-ka-i" — catches whether an engine does Indic
 # reordering / GSUB at all.  Caveat: Yudit only applies the first-version Indic
 # tags (deva/…), so on a font that only registers the second-version ones
@@ -73,7 +75,7 @@ def load_font(data: bytes) -> None:
         _order = tt.getGlyphOrder()
         _upem = int(tt["head"].unitsPerEm)
         _family = tt["name"].getDebugName(1) or tt["name"].getDebugName(4) or "?"
-    except Exception as e:  # pragma: no cover - font is expected to be valid
+    except PROBE_ERRORS as e:  # pragma: no cover - font is expected to be valid
         print(f"fontTools failed: {e}")
         raise
 
@@ -148,7 +150,7 @@ def run_engine(key: str, label: str, data: bytes, path: Path, text: str) -> dict
     print(f"\n{'=' * 78}\n  {label}\n{'=' * 78}")
     try:
         r = _shape(key, data, path, text)
-    except Exception as e:  # engine failure (e.g. no Silf for graphite)
+    except PROBE_ERRORS as e:  # engine failure (e.g. no Silf for graphite)
         print(f"  !! {type(e).__name__}: {e}")
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
     print(f"  upem={r.get('upem')}  glyph_count={r.get('glyph_count')}")
@@ -234,9 +236,8 @@ def main(argv: list[str] | None = None) -> int:
     if src.flattened:
         import tempfile
 
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".ttf")
-        tmp.write(data)
-        tmp.close()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ttf") as tmp:
+            tmp.write(data)
         shaped_path = Path(tmp.name)
     load_font(data)
     print(f"font: {font}\nfamily: {_family}  upem={_upem}  glyphs={len(_order)}")

@@ -18,7 +18,12 @@ import os
 import re
 import struct
 import warnings
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 # fontTools logs noisy "timestamp seems very low" warnings when reading some
 # fonts' head.created/modified fields; they're harmless, so keep them quiet.
@@ -28,7 +33,7 @@ try:  # pragma: no cover - import guard
     from fontTools.ttLib import TTFont
 
     HAS_FONTTOOLS = True
-except Exception:  # pragma: no cover
+except PROBE_ERRORS:  # pragma: no cover
     TTFont = None
     HAS_FONTTOOLS = False
 
@@ -88,10 +93,16 @@ _PUA_RANGES = (
 )
 
 
-def _merge_ranges(points: list[int]) -> list[tuple[int, int]]:
-    """Merge sorted codepoints into disjoint [start, end] ranges."""
+def _merge_ranges(cps: list[int]) -> list[tuple[int, int]]:
+    """Merged disjoint ``[start, end]`` ranges covering **every** entry of
+    ``cps`` (which must be sorted).
+
+    Unlike :func:`_covered_ranges` this applies *no* repertoire filter, so it is
+    a faithful, compact record of the cmap: combining marks, format characters
+    and unassigned-but-mapped code points all survive.
+    """
     out: list[tuple[int, int]] = []
-    for cp in points:
+    for cp in cps:
         if out and cp == out[-1][1] + 1:
             out[-1] = (out[-1][0], cp)
         else:
@@ -132,7 +143,7 @@ def _build_scripts() -> dict[str, dict]:
         for row in TsvParser.get_tsv(Dirs.DATA / "scripts" / "iso15924.tsv"):
             if len(row) >= 3 and row[0].strip() and row[2].strip():
                 iso_labels[row[0].strip().lower()] = row[2].strip()
-    except Exception:
+    except PROBE_ERRORS:
         iso_labels = {}
 
     # 2. Real-script ranges from Scripts.txt, keyed by ISO 15924 tag.
@@ -150,7 +161,7 @@ def _build_scripts() -> dict[str, dict]:
 
         for emo in all_emoji():
             emoji_cps.update(cp for cp in emo.codepoints if cp >= 0xA0 and cp not in (0x200C, 0x200D, 0xFE0E, 0xFE0F))
-    except Exception:
+    except PROBE_ERRORS:
         emoji_cps = set()
     emoji_ranges = _merge_ranges(sorted(emoji_cps))
 
@@ -269,8 +280,8 @@ def _build_chapters() -> tuple[dict[str, int], dict[int, dict]]:
                 continue
             chapter_label.setdefault(num, row[1].strip())
             code_chapter[row[3].strip().lower()] = num
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_build_chapters: ignoring recoverable error", exc_info=True)
 
     chapters: dict[int, dict] = {}
     for i, num in enumerate(sorted(chapter_label)):
@@ -357,7 +368,7 @@ _HYPER_SUFFIX_PATTERNS = (
     re.compile(r"[- ]?P\d+$", re.IGNORECASE),
     re.compile(r"_([A-Za-z]{2,6})$"),
     re.compile(r"[- ]?\d+$"),
-    re.compile(r"[- ](?:%s)$" % "|".join(_HYPER_VARIANT_WORDS), re.IGNORECASE),
+    re.compile("[- ](?:" + "|".join(_HYPER_VARIANT_WORDS) + ")$", re.IGNORECASE),
 )
 
 # Curated hyper-family series — naming variants of one design that suffix
@@ -416,7 +427,7 @@ def _hyper_family(family: str) -> str:
 
 # ── Per-file cache ────────────────────────────────────────────────────
 # key = (abspath, mtime_ns, size) → entry
-_cache: dict[tuple, dict] = {}
+_cache: dict[tuple, list[dict]] = {}
 
 
 def _source_label(path: str) -> str:
@@ -434,7 +445,7 @@ def _source_label(path: str) -> str:
 
 def _iter_faces(path: str):
     """Yield one ``TTFont`` per face in a file (handles .ttc)."""
-    if not HAS_FONTTOOLS:
+    if not HAS_FONTTOOLS or TTFont is None:
         return
     if path.lower().endswith(".ttc"):
         try:
@@ -447,15 +458,15 @@ def _iter_faces(path: str):
                 num = struct.unpack(">L", f.read(4))[0]
             for i in range(max(0, min(num, 64))):
                 yield TTFont(path, fontNumber=i, lazy=True)
-        except Exception:
+        except PROBE_ERRORS:
             try:
                 yield TTFont(path, lazy=True)
-            except Exception:
+            except PROBE_ERRORS:
                 return
     else:
         try:
             yield TTFont(path, lazy=True)
-        except Exception:
+        except PROBE_ERRORS:
             return
 
 
@@ -468,8 +479,8 @@ def _name(tt, *ids) -> str | None:
             v = nt.getDebugName(nid)
             if v and v.strip():
                 return v.strip()
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_name: ignoring recoverable error", exc_info=True)
     return None
 
 
@@ -502,8 +513,8 @@ def _load_name_lang() -> dict[tuple[int, int], str]:
             except ValueError:
                 continue
             out[(platform, lang)] = row[3].strip()
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_load_name_lang: ignoring recoverable error", exc_info=True)
     return out
 
 
@@ -534,7 +545,7 @@ def _read_name_langs(tt) -> list[dict]:
     """
     try:
         nt = tt["name"]
-    except Exception:
+    except PROBE_ERRORS:
         return []
     groups: dict[str, dict] = {}
     order: list[str] = []
@@ -543,7 +554,8 @@ def _read_name_langs(tt) -> list[dict]:
             continue
         try:
             text = rec.toUnicode().strip()
-        except Exception:
+        except PROBE_ERRORS:
+            logger.debug("_read_name_langs: skipping unreadable entry", exc_info=True)
             continue
         if not text:
             continue
@@ -589,8 +601,8 @@ def _longdt(seconds: int | None) -> str | None:
     if seconds is None or seconds <= 0:
         return None
     try:
-        return datetime.fromtimestamp(seconds - 2082844800, tz=timezone.utc).strftime("%Y-%m-%d")
-    except Exception:
+        return datetime.fromtimestamp(seconds - 2082844800, tz=UTC).strftime("%Y-%m-%d")
+    except PROBE_ERRORS:
         return None
 
 
@@ -604,7 +616,7 @@ def _read_cmap(tt) -> set[int] | None:
             if t.isUnicode():
                 cps.update(t.cmap.keys())
         return cps
-    except Exception:
+    except PROBE_ERRORS:
         return None
 
 
@@ -637,23 +649,6 @@ def _covered_ranges(cps: list[int]) -> list[tuple[int, int]]:
     return out
 
 
-def _merge_ranges(cps: list[int]) -> list[tuple[int, int]]:
-    """Merged disjoint ``[start, end]`` ranges covering **every** entry of
-    ``cps`` (which must be sorted).
-
-    Unlike :func:`_covered_ranges` this applies *no* repertoire filter, so it is
-    a faithful, compact record of the cmap: combining marks, format characters
-    and unassigned-but-mapped code points all survive.
-    """
-    out: list[tuple[int, int]] = []
-    for cp in cps:
-        if out and cp == out[-1][1] + 1:
-            out[-1] = (out[-1][0], cp)
-        else:
-            out.append((cp, cp))
-    return out
-
-
 def _union_range_count(lists: list[list[tuple[int, int]]]) -> int:
     """Size of the union of disjoint range lists — shared code points across
     faces of one design count once."""
@@ -665,8 +660,7 @@ def _union_range_count(lists: list[list[tuple[int, int]]]) -> int:
     cs, ce = pts[0]
     for s, e in pts[1:]:
         if s <= ce + 1:
-            if e > ce:
-                ce = e
+            ce = max(ce, e)
         else:
             total += ce - cs + 1
             cs, ce = s, e
@@ -692,8 +686,8 @@ def _read_ot_langs(tt) -> set[str]:
                         tag = (lr.LangSysTag or "").strip()
                         if tag:
                             langs.add(tag)
-        except Exception:
-            pass
+        except PROBE_ERRORS:
+            logger.debug("_read_ot_langs: ignoring recoverable error", exc_info=True)
     return langs
 
 
@@ -708,8 +702,8 @@ def _read_ot_features(tt) -> list[str]:
                 tag = (rec.FeatureTag or "").strip()
                 if tag:
                     tags.add(tag)
-        except Exception:
-            pass
+        except PROBE_ERRORS:
+            logger.debug("_read_ot_features: ignoring recoverable error", exc_info=True)
     return sorted(tags)
 
 
@@ -874,7 +868,7 @@ def _is_symbol_font(tt) -> bool:
         has30 = any(t.platformID == 3 and t.platEncID == 0 for t in cm.tables)
         has31 = any(t.platformID == 3 and t.platEncID == 1 for t in cm.tables)
         return has30 and not has31
-    except Exception:
+    except PROBE_ERRORS:
         return False
 
 
@@ -889,11 +883,13 @@ def _axis_step(mn: float, dv: float, mx: float) -> float:
 
 def _face_entry(path: str, index: int, source: str) -> dict | None:
     """Extract metadata for one face (already opened) → entry dict."""
+    if TTFont is None:
+        return None
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             tt = TTFont(path, fontNumber=index, lazy=True)
-    except Exception:
+    except PROBE_ERRORS:
         return None
 
     # OS/2
@@ -907,8 +903,8 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
         italic = bool(fs & 0x01)
         fs_type = o.fsType or 0
         panose = list(getattr(o, "panose", None) or [])
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_face_entry: ignoring recoverable error", exc_info=True)
     symbol = _is_symbol_font(tt)
 
     # head
@@ -920,15 +916,15 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
             upem = hd.unitsPerEm or 2048
             created = _longdt(hd.created)
             modified = _longdt(hd.modified)
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_face_entry: ignoring recoverable error", exc_info=True)
 
     # maxp
     glyphs = 0
     try:
         glyphs = tt["maxp"].numGlyphs or 0
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_face_entry: ignoring recoverable error", exc_info=True)
 
     # Glyph count by glyph name (distinct names in the glyph order) — the
     # glyphs figure the overview shows is counted this way.
@@ -939,8 +935,8 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
         if names:
             glyph_count = len(set(names))
             glyph_names = frozenset(names)
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_face_entry: ignoring recoverable error", exc_info=True)
 
     # fvar → variable font axes
     axes: list[dict] = []
@@ -956,13 +952,13 @@ def _face_entry(path: str, index: int, source: str) -> dict | None:
             }
             for a in fv.axes
         ]
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_face_entry: ignoring recoverable error", exc_info=True)
 
     # tables present
     try:
         tables = sorted(tt.reader.keys()) if tt.reader else []
-    except Exception:
+    except PROBE_ERRORS:
         tables = []
 
     cps = _read_cmap(tt)
@@ -1119,12 +1115,14 @@ def _face_signature(f: dict) -> tuple:
 def _read_glyph_names(path: str, index: int) -> frozenset:
     """Glyph names of a face, read from disk (fallback when a cached entry
     carries no name sets — e.g. first warm scan after an upgrade)."""
+    if TTFont is None:
+        return frozenset()
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             tt = TTFont(path, fontNumber=index, lazy=True)
         return frozenset(tt.getGlyphOrder())
-    except Exception:
+    except PROBE_ERRORS:
         return frozenset()
 
 
@@ -1198,7 +1196,7 @@ def _apply_hyper_classification(faces: list[dict]) -> None:
 
 def scan_fonts(
     extra_dirs: list[str] | None = None,
-    progress: callable | None = None,
+    progress: Callable[..., None] | None = None,
 ) -> list[dict]:
     """Enumerate every font face across the default directories plus any
     ``extra_dirs``.  Returns a flat list of face entries (grouping by family

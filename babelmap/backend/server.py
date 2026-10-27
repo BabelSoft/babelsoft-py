@@ -16,10 +16,16 @@ BABELLIB = REPO_ROOT / "babellib"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(BABELLIB))
 
+import logging
+
 from babelsoft.unicode.core import Unicode
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="BabelMap Backend", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -104,7 +110,7 @@ def _get_font(family: str, size: int):
 
             fp = _find_font_file(family)
             _font_cache[k] = ImageFont.truetype(fp, size) if fp else ImageFont.load_default()
-        except Exception:
+        except PROBE_ERRORS:
             from PIL import ImageFont
 
             _font_cache[k] = ImageFont.load_default()
@@ -126,7 +132,7 @@ def _find_font_file(family: str) -> str | None:
                 if p.exists():
                     return str(p)
         return None
-    except Exception:
+    except PROBE_ERRORS:
         return None
 
 
@@ -145,7 +151,7 @@ def _render_glyph(cp: int, family: str, size: int = 16) -> str | None:
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception:
+    except PROBE_ERRORS:
         return None
 
 
@@ -358,7 +364,7 @@ def _with_cell_attrs(cells: list[list[dict]]) -> list[list[dict]]:
             if v is None:
                 return ""
             return getattr(v, "name", None) or str(v)
-        except Exception:
+        except PROBE_ERRORS:
             return ""
 
     out: list[list[dict]] = []
@@ -481,8 +487,8 @@ def codepoint_readings(
         for cls in (Pinyin, Jyutping, Korean, Vietnamese, Zhuang):
             cls.use_upper_case_readings(bool(upper))
             cls.use_tone_numbers(bool(tones))
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("codepoint_readings: ignoring recoverable error", exc_info=True)
 
     # ── CJKV reading ────────────────────────────────────────────────
     try:
@@ -510,8 +516,8 @@ def codepoint_readings(
                 from babelsoft.cjkv.pinyin import Pinyin
 
                 out["cjkv"] = Pinyin.get_pinyin_for_char(cp)
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("codepoint_readings: ignoring recoverable error", exc_info=True)
 
     # ── CJK source references (Options ▸ Status Bar) ────────────────
     try:
@@ -521,8 +527,8 @@ def codepoint_readings(
         # spaces ("G0-523B HB1-A440 J0-306C …"), skipping the empty ones.
         sources = (CJK(cp).ideographic_properties() or {}).get("sources") or []
         out["cjk_refs"] = " ".join(str(ref) for _label, ref in sources if ref)
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("codepoint_readings: ignoring recoverable error", exc_info=True)
 
     # ── Tangut reading + references ─────────────────────────────────
     try:
@@ -546,10 +552,10 @@ def codepoint_readings(
                 out["tangut"] = Tangut.get_li_fanwen_reading(cp, b_tone=tangut_tones)
             try:
                 out["tangut_refs"] = Tangut.get_merged_source(cp) or ""
-            except Exception:
+            except PROBE_ERRORS:
                 out["tangut_refs"] = ""
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("codepoint_readings: ignoring recoverable error", exc_info=True)
 
     return out
 
@@ -565,13 +571,13 @@ def codepoint_info(cp: int):
         try:
             v = fn(cp)
             return v if v not in (None, "") else default
-        except Exception:
+        except PROBE_ERRORS:
             return default
 
     def _enum(fn):
         try:
             return fn(cp).name
-        except Exception:
+        except PROBE_ERRORS:
             return ""
 
     _aliases = Unicode._name_alias_map_by_type().get(cp, [])
@@ -601,7 +607,7 @@ def codepoint_info(cp: int):
     try:
         u1 = Unicode.unicode1_codepoint(cp)
         info["unicode1_codepoint"] = u1 if u1 not in (None, 0) else None
-    except Exception:
+    except PROBE_ERRORS:
         info["unicode1_codepoint"] = None
     # Simple case mappings (empty when identity).
     info["simple_uppercase"] = _mapping_str(Unicode.get_simple_uppercase(cp), cp)
@@ -632,7 +638,7 @@ def codepoint_info(cp: int):
         info["standardized_variants"] = [[vs, desc] for vs, desc in standardized_variants(cp)]
         info["emoji_variants"] = [[vs, style] for vs, style in emoji_variation_sequences(cp)]
         info["named_sequences"] = [[name, list(cps)] for name, cps in named_sequences_for(cp)]
-    except Exception:
+    except PROBE_ERRORS:
         info["binary_properties"] = []
         info["nameslist"] = {"aliases": [], "notes": [], "xrefs": []}
         info["standardized_variants"] = []
@@ -644,7 +650,7 @@ def codepoint_info(cp: int):
 
         info["extended"] = extended_properties(cp)
         info["name_aliases"] = name_aliases(cp)
-    except Exception:
+    except PROBE_ERRORS:
         info["extended"] = []
         info["name_aliases"] = []
     # Ideographic Variation Sequences (VS17..VS256) from IVD_Sequences.txt.
@@ -652,7 +658,7 @@ def codepoint_info(cp: int):
         from babelsoft.cjkv.cjk import CJK
 
         info["ideographic_variants"] = [[vs, collection, ref] for vs, collection, ref in CJK(cp).ivs_sequences()]
-    except Exception:
+    except PROBE_ERRORS:
         info["ideographic_variants"] = []
     # CJK readings / radical-stroke (kept from before).
     try:
@@ -664,20 +670,22 @@ def codepoint_info(cp: int):
                 readings = cjk.readings()
                 pinyin = readings.get("kMandarin", "")
                 info["pinyin"] = pinyin.split() if pinyin else []
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("codepoint_info: ignoring recoverable error", exc_info=True)
             try:
-                info["radical_stroke"] = str(cjk.primary_radical_stroke())
-            except Exception:
-                pass
-    except Exception:
-        pass
+                rs_list = cjk.radical_strokes()
+                if rs_list:
+                    info["radical_stroke"] = str(rs_list[0])
+            except PROBE_ERRORS:
+                logger.debug("codepoint_info: ignoring recoverable error", exc_info=True)
+    except PROBE_ERRORS:
+        logger.debug("codepoint_info: ignoring recoverable error", exc_info=True)
     # Ideographic (CJKV) properties — mirrors the C++ CDialogCJKV dialog.
     try:
         from babelsoft.cjkv.cjk import CJK
 
         info["ideographic"] = CJK(cp).ideographic_properties()
-    except Exception:
+    except PROBE_ERRORS:
         info["ideographic"] = {}
     return info
 
@@ -743,7 +751,7 @@ def glyph_preview(
         )
     except KeyError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
-    except Exception as e:  # pragma: no cover - defensive
+    except PROBE_ERRORS as e:  # pragma: no cover - defensive
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
     media = {
         "jpg": "image/jpeg",
@@ -783,7 +791,7 @@ def glyph_sample(
         )
     except KeyError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
-    except Exception as e:  # pragma: no cover - defensive
+    except PROBE_ERRORS as e:  # pragma: no cover - defensive
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
     return Response(content=data, media_type="image/png")
 
@@ -890,8 +898,8 @@ def search_by_han_source(q: str = Query(..., min_length=1), limit: int = Query(5
                 results.append({"codepoint": cp, "name": name, "source": ref})
                 if len(results) >= limit:
                     break
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("search_by_han_source: ignoring recoverable error", exc_info=True)
     return results
 
 
@@ -909,7 +917,7 @@ def emoji_search(q: str = Query("", max_length=80), limit: int = Query(80, ge=1,
 
     try:
         results = [e.to_dict() for e in search_emoji(q, limit)]
-    except Exception:
+    except PROBE_ERRORS:
         results = []
     return {"query": q, "results": results}
 
@@ -921,7 +929,7 @@ def emoji_list(limit: int = Query(0, ge=0, le=6000)):
 
     try:
         entries = all_emoji()
-    except Exception:
+    except PROBE_ERRORS:
         entries = []
     if limit:
         entries = entries[:limit]
@@ -999,7 +1007,7 @@ def fonts_overview_stream(dirs: str = ""):
         def run():
             try:
                 box["fonts"] = scan_fonts(extra_dirs=extra, progress=progress)
-            except Exception as exc:  # pragma: no cover - defensive
+            except PROBE_ERRORS as exc:  # pragma: no cover - defensive
                 box["error"] = str(exc)
 
         th = threading.Thread(target=run, daemon=True)
@@ -1099,7 +1107,7 @@ def user_fonts_add(payload: dict):
         entry = register(file_name, data)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
-    except Exception as e:
+    except PROBE_ERRORS as e:
         return JSONResponse({"error": f"Could not register the font: {e}"}, status_code=400)
     return entry
 
@@ -1164,7 +1172,7 @@ def composite_validate(payload: dict):
         from babelmap.backend.font_overview import scan_fonts
 
         families = sorted({f.get("family") or "" for f in scan_fonts()} - {""})
-    except Exception:
+    except PROBE_ERRORS:
         families = []
     return validate_css(css, known_families=families)
 
@@ -1226,7 +1234,7 @@ def fonts_coverage_stream(block: str = "", dirs: str = "", all_styles: bool = Fa
             try:
                 scan = {"fonts": scan_fonts(extra_dirs=extra, progress=progress)}
                 box["result"] = block_coverage(scan, block_name=block or None, all_styles=all_styles)
-            except Exception as exc:  # pragma: no cover - defensive
+            except PROBE_ERRORS as exc:  # pragma: no cover - defensive
                 box["error"] = str(exc)
 
         th = threading.Thread(target=run, daemon=True)
@@ -1337,8 +1345,8 @@ def about():
         vs = all_versions()
         info["unicode_versions"] = len(vs)
         info["unicode"] = vs[-1].get("version", "") if vs else ""
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("about: ignoring recoverable error", exc_info=True)
     # The IVD date is the directory name under data/ivd (e.g. 2022-09-13), and
     # the emoji version is in the emoji-test.txt header — neither is exposed by
     # a library helper, so read them defensively.
@@ -1348,8 +1356,8 @@ def about():
         ivd_dir = Dirs.DATA / "ivd"
         dates = sorted(p.name for p in ivd_dir.iterdir() if p.is_dir())
         info["ivd"] = dates[-1] if dates else ""
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("about: ignoring recoverable error", exc_info=True)
     try:
         from babelsoft.utils_.dirs import Dirs
 
@@ -1358,15 +1366,19 @@ def about():
             if line.startswith("# Version:"):
                 info["emoji"] = line.split(":", 1)[1].strip()
                 break
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("about: ignoring recoverable error", exc_info=True)
     return info
 
 
 @app.get("/api/unicode/versions")
 def unicode_versions():
     """Unicode version history + per-version block lists."""
-    from babelmap.backend.version import all_versions, blocks_for_version, get_version_history
+    from babelmap.backend.version import (
+        all_versions,
+        blocks_for_version,
+        get_version_history,
+    )
 
     versions = all_versions()
     blocks_by_version = {v["version"]: blocks_for_version(v["version"]) for v in versions}
@@ -1410,7 +1422,7 @@ def lookup(kind: str, q: str, tone: int = 0, strokes: int = -1, limit: int = 500
                 cps = list(_L.find_jyutping(q.lower(), tone))
             else:
                 cps = list(_L.find_zhuang(q.lower(), tone))
-        except Exception:
+        except PROBE_ERRORS:
             cps = []
 
     elif kind == "han_radical":
@@ -1439,7 +1451,7 @@ def lookup(kind: str, q: str, tone: int = 0, strokes: int = -1, limit: int = 500
                     try:
                         strokes_text = str(CJK(ch).ideographic_properties()["radical"]["strokes"])
                         radical_no = int(float(strokes_text))
-                    except Exception:
+                    except PROBE_ERRORS:
                         radical_no = 0
             if radical_no:
                 found = CJK.find_ideographs_for_radical(
@@ -1449,7 +1461,7 @@ def lookup(kind: str, q: str, tone: int = 0, strokes: int = -1, limit: int = 500
                     all_strokes=strokes < 0,
                 )
                 cps = [int(c) for c in found]
-        except Exception:
+        except PROBE_ERRORS:
             cps = []
 
     elif kind == "yi_radical":
@@ -1471,11 +1483,12 @@ def lookup(kind: str, q: str, tone: int = 0, strokes: int = -1, limit: int = 500
                 for cp in range(0xA000, 0xA4D0):
                     try:
                         pairs = YiRadical.get_radical_stroke(cp)
-                    except Exception:
+                    except PROBE_ERRORS:
+                        logger.debug("lookup: skipping unreadable entry", exc_info=True)
                         continue
                     if any(n == radical_no for n, _ in pairs):
                         cps.append(cp)
-        except Exception:
+        except PROBE_ERRORS:
             cps = []
 
     cps = cps[: max(1, limit)]
@@ -1486,14 +1499,14 @@ def lookup(kind: str, q: str, tone: int = 0, strokes: int = -1, limit: int = 500
         name = ""
         try:
             name = Unicode.get_character_name(cp) or ""
-        except Exception:
+        except PROBE_ERRORS:
             name = ""
         results.append({"cp": cp, "char": chr(cp), "name": name})
     return {"kind": kind, "query": q, "count": len(results), "results": results}
 
 
 def _hex(cp: int) -> str:
-    return "%04X" % cp
+    return f"{cp:04X}"
 
 
 @app.get("/api/supplementary/{cp}")
@@ -1517,8 +1530,8 @@ def supplementary(cp: int):
     }
     try:
         out["name"] = Unicode.get_character_name(cp) or ""
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("supplementary: ignoring recoverable error", exc_info=True)
 
     def section(title: str, rows: list) -> None:
         rows = [[k, v] for k, v in rows if v not in (None, "", [])]
@@ -1535,7 +1548,7 @@ def supplementary(cp: int):
             props = {}
             try:
                 props = info.ideographic_properties() or {}
-            except Exception:
+            except PROBE_ERRORS:
                 props = {}
 
             rad = props.get("radical") or {}
@@ -1543,14 +1556,14 @@ def supplementary(cp: int):
             strokes = rad.get("strokes", "")
             try:
                 strokes = str(int(float(strokes)))
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("supplementary: ignoring recoverable error", exc_info=True)
             section(
                 "Radical & Strokes",
                 [
-                    ("Radical", ("%s (%s)" % (glyph, strokes)).strip() if rad else ""),
+                    ("Radical", f"{glyph} ({strokes})".strip() if rad else ""),
                     ("Type", rad.get("type", "")),
-                    ("Equivalent", chr(info.to_equivalent()) if info.to_equivalent() else ""),
+                    ("Equivalent", chr(equivalent) if (equivalent := info.to_equivalent()) else ""),
                 ],
             )
             section("IDS", [("Ideographic Description", props.get("ids", ""))])
@@ -1562,8 +1575,8 @@ def supplementary(cp: int):
                     ("Simplified Chinese", rel.get("simplified_chinese") or ""),
                     ("Traditional Chinese", rel.get("traditional") or ""),
                     ("Simplified Japanese", rel.get("simplified_japanese") or ""),
-                    ("To simplified", chr(info.to_simplified()) if info.to_simplified() else ""),
-                    ("To traditional", chr(info.to_traditional()) if info.to_traditional() else ""),
+                    ("To simplified", chr(simplified) if (simplified := info.to_simplified()) else ""),
+                    ("To traditional", chr(traditional) if (traditional := info.to_traditional()) else ""),
                 ],
             )
 
@@ -1588,19 +1601,19 @@ def supplementary(cp: int):
                     "Source References",
                     [(row[0], row[1]) for row in sources if len(row) >= 2],
                 )
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("supplementary: ignoring recoverable error", exc_info=True)
             try:
                 ivs = CJK(cp).ivs_sequences() or []
                 section(
                     "Variation Sequences",
-                    [("IVS", " ".join("U+%s" % _hex(x) for x in ivs) if ivs else "")],
+                    [("IVS", " ".join(f"U+{_hex(vs)}" for vs, _coll, _ref in ivs) if ivs else "")],
                 )
-            except Exception:
-                pass
+            except PROBE_ERRORS:
+                logger.debug("supplementary: ignoring recoverable error", exc_info=True)
             return out
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("supplementary: ignoring recoverable error", exc_info=True)
 
     # ── Tangut: CDialogTangut ───────────────────────────────────────
     try:
@@ -1613,11 +1626,7 @@ def supplementary(cp: int):
                 [
                     (
                         "Radical",
-                        "%s (%s)"
-                        % (
-                            chr(Tangut.get_radical_for_character(cp)),
-                            Tangut.get_radical_number(cp),
-                        ),
+                        f"{chr(Tangut.get_radical_for_character(cp))} ({Tangut.get_radical_number(cp)})",
                     ),
                     ("Radical strokes", Tangut.get_radical_stroke(cp)),
                     ("Total strokes", Tangut.get_total_stroke_count(cp)),
@@ -1648,8 +1657,8 @@ def supplementary(cp: int):
             if Tangut.has_variants(cp):
                 section("Variants", [("Variants", Tangut.get_variants(cp))])
             return out
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("supplementary: ignoring recoverable error", exc_info=True)
 
     # ── Egyptian hieroglyphs: CDialogHieroglyph ─────────────────────
     try:
@@ -1684,8 +1693,8 @@ def supplementary(cp: int):
                 ],
             )
             return out
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("supplementary: ignoring recoverable error", exc_info=True)
 
     return out
 
@@ -1722,14 +1731,14 @@ def _ucd_row(cp: int) -> list[str]:
         try:
             v = fn(cp)
             return default if v is None else str(v)
-        except Exception:
+        except PROBE_ERRORS:
             return default
 
     def enum(fn, default=""):
         try:
             v = fn(cp)
             return v.name if hasattr(v, "name") else str(v)
-        except Exception:
+        except PROBE_ERRORS:
             return default
 
     def mapping(fn):
@@ -1740,26 +1749,27 @@ def _ucd_row(cp: int) -> list[str]:
             # otherwise echo back).
             if not v or int(v) == cp:
                 return ""
-            return "%04X" % int(v)
-        except Exception:
+            return f"{int(v):04X}"
+        except PROBE_ERRORS:
             return ""
 
     decomp = ""
     try:
-        dt = Unicode.get_decomposition_type(cp)
-        dt_name = getattr(dt, "name", "")
-        parts = Unicode.get_decomposition_mapping(cp) or []
-        body = " ".join("%04X" % int(p) for p in parts)
-        if dt_name and dt_name not in ("Canonical", "None", "NONE"):
-            decomp = ("<%s> %s" % (dt_name.lower(), body)).strip()
+        # The raw UnicodeData field, e.g. "0041 0300" or "<compat> 0066 0069".
+        raw = Unicode.get_decomposition(cp)
+        tag, _, values = raw.partition(">")
+        if values:
+            tag = tag.lstrip("<")
         else:
-            decomp = body
-    except Exception:
+            tag, values = "", raw
+        body = " ".join(f"{int(token, 16):04X}" for token in values.split())
+        decomp = f"<{tag.lower()}> {body}".strip() if tag else body
+    except PROBE_ERRORS:
         decomp = ""
 
     num1 = s(Unicode.get_numeric_value_str)
     return [
-        "%04X" % cp,
+        f"{cp:04X}",
         s(Unicode.get_character_name),
         enum(Unicode.get_general_category),
         s(Unicode.get_canonical_combining_class, "0"),
@@ -1795,8 +1805,8 @@ def _ucd_repertoire(start: int, end: int, all_cjk: bool, all_hangul: bool) -> li
     def close_run() -> None:
         nonlocal run
         if run is not None:
-            out.append((run_start, "<%s, First>" % run))
-            out.append((last_cp, "<%s, Last>" % run))
+            out.append((run_start, f"<{run}, First>"))
+            out.append((last_cp, f"<{run}, Last>"))
             run = None
 
     for cp in range(max(0, start), min(0x10FFFF, end) + 1):
@@ -1806,7 +1816,7 @@ def _ucd_repertoire(start: int, end: int, all_cjk: bool, all_hangul: bool) -> li
         try:
             assigned = _is_assigned(cp)
             name = (Unicode.get_character_name(cp) or "") if assigned else ""
-        except Exception:
+        except PROBE_ERRORS:
             assigned, name = False, ""
         if not assigned:
             close_run()
@@ -1873,12 +1883,11 @@ def ucd_generate(
 @app.get("/api/ucd/xml")
 def ucd_xml(start: int = 0, end: int = 0xFFFF, all_cjk: bool = False, all_hangul: bool = False):
     """`ucd.nounihan.flat`-style XML — Tools ▸ Generate Full UCD XML Data."""
+    from babelsoft.unicode.core import Unicode
     from fastapi.responses import PlainTextResponse
 
-    from babelsoft.unicode.core import Unicode
-
     cps = _ucd_repertoire(start, end, all_cjk, all_hangul)
-    parts = ['<?xml version="1.0" encoding="UTF-8"?>', '<ucd version="%s">' % _uv()]
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>', f'<ucd version="{_uv()}">']
     escape = lambda t: t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     for cp, override in cps:
         name = override
@@ -1887,26 +1896,22 @@ def ucd_xml(start: int = 0, end: int = 0xFFFF, all_cjk: bool = False, all_hangul
             if not override:
                 name = Unicode.get_character_name(cp) or ""
             gc = Unicode.get_general_category(cp).name
-        except Exception:
-            pass
-        parts.append('  <char cp="%04X" na="%s" gc="%s"/>' % (cp, escape(name), gc))
+        except PROBE_ERRORS:
+            logger.debug("ucd_xml: ignoring recoverable error", exc_info=True)
+        parts.append(f'  <char cp="{cp:04X}" na="{escape(name)}" gc="{gc}"/>')
     parts.append("</ucd>")
     return PlainTextResponse("\n".join(parts), media_type="application/xml")
 
 
 def _uv() -> str:
-    from babelsoft.unicode.core import Unicode
-
+    """Latest Unicode version the bundled data covers ("" when unknown)."""
     try:
-        return Unicode.get_latest_version()
-    except Exception:
-        try:
-            from babelmap.backend.version import all_versions
+        from babelmap.backend.version import all_versions
 
-            vs = all_versions()
-            return vs[-1].get("version", "") if vs else ""
-        except Exception:
-            return ""
+        vs = all_versions()
+        return vs[-1].get("version", "") if vs else ""
+    except PROBE_ERRORS:
+        return ""
 
 
 @app.get("/api/unicode/scripts")
@@ -2039,13 +2044,13 @@ def opentype_font_faces(payload: dict):
 
     try:
         data = _payload_font_bytes(payload)
-    except Exception:
+    except PROBE_ERRORS:
         return JSONResponse({"error": "Font could not be loaded"}, 400)
     if not data:
         return JSONResponse({"error": "No font provided (font_b64 or font_path)"}, 400)
     try:
         return describe(data)
-    except Exception as e:
+    except PROBE_ERRORS as e:
         return JSONResponse({"error": f"Font inspection failed: {e}"}, 400)
 
 
@@ -2091,7 +2096,7 @@ def opentype_shape(payload: dict):
             data = font_bytes_from_b64(b64)
         elif fpath:
             data = font_bytes(fpath)
-    except Exception:
+    except PROBE_ERRORS:
         return JSONResponse({"error": "Font could not be loaded"}, 400)
     if not data:
         return JSONResponse({"error": "No font provided (font_b64 or font_path)"}, 400)
@@ -2269,7 +2274,7 @@ def opentype_shape(payload: dict):
                 glyph_mode=bool(payload.get("glyph_mode")),
                 font_index=font_index,
             )
-    except Exception as e:
+    except PROBE_ERRORS as e:
         return JSONResponse({"error": f"Shaping failed: {e}"}, 400)
 
     result["features"] = feature_tags(meta_data)
@@ -2296,7 +2301,7 @@ def opentype_shape(payload: dict):
                 color=payload.get("color", "#1f2937"),
                 variations=payload.get("variations"),
             )
-        except Exception as e:
+        except PROBE_ERRORS as e:
             result["svg_error"] = str(e)
     return result
 
@@ -2315,7 +2320,7 @@ def opentype_render(payload: dict):
 
     try:
         raw = _payload_font_bytes(payload)
-    except Exception:
+    except PROBE_ERRORS:
         return JSONResponse({"error": "Font could not be loaded"}, 400)
     if not raw:
         return JSONResponse({"error": "No font provided"}, 400)
@@ -2341,7 +2346,7 @@ def opentype_render(payload: dict):
             highlight_color=payload.get("highlight_color", "#e23d3d"),
             variations=payload.get("variations"),
         )
-    except Exception as e:
+    except PROBE_ERRORS as e:
         return JSONResponse({"error": f"Render failed: {e}"}, 400)
     return {"svg": svg}
 

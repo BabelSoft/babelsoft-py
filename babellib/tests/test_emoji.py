@@ -3,12 +3,10 @@
 import sys
 from pathlib import Path
 
-import pytest
-
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.unicode.emoji import Emoji, all_emoji, search  # noqa: E402
+from babelsoft.unicode.emoji import Emoji, all_emoji, search
 
 
 class TestEmojiData:

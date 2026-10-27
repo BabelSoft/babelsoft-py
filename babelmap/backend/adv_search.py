@@ -6,8 +6,10 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
-from babelsoft.unicode.core import Unicode
 from babelsoft.cjkv.cjk import CJK_BLOCK_SHORTCUTS, SrcRef
+from babelsoft.unicode.core import Unicode
+
+from babelmap.backend.errors import PROBE_ERRORS
 
 # ── Property definitions ───────────────────────────────────────────
 
@@ -819,7 +821,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
         if key == "formalalias":
             try:
                 n = Unicode.get_formal_alias(cp)
-            except Exception:
+            except PROBE_ERRORS:
                 n = ""
             if not n:
                 return negate
@@ -828,7 +830,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
         if key == "unicode1name":
             try:
                 n = Unicode.get_unicode1_name(cp)
-            except Exception:
+            except PROBE_ERRORS:
                 n = ""
             if not n:
                 return negate
@@ -948,7 +950,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
         if key == "unicode":
             try:
                 age = Unicode.get_character_age(cp)
-            except Exception:
+            except PROBE_ERRORS:
                 age = ""
             if not age:
                 return True if op in (">=", ">") else negate
@@ -1014,9 +1016,9 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
                 return negate
             m = False
             try:
-                rs = CJK(cp).primary_radical_stroke()
-                m = rs is not None and rs.radical.rad == rad
-            except Exception:
+                rs_list = CJK(cp).radical_strokes()
+                m = bool(rs_list) and rs_list[0].radical.rad == rad
+            except PROBE_ERRORS:
                 m = False
             return not m if negate else m
 
@@ -1029,9 +1031,9 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             try:
                 from babelsoft.cjkv.cjk import CJK
 
-                rs = CJK(cp).primary_radical_stroke()
-                strokes = [rs.residual_stroke] if rs else None
-            except Exception:
+                rs_list = CJK(cp).radical_strokes()
+                strokes = [rs_list[0].residual_stroke] if rs_list else None
+            except PROBE_ERRORS:
                 strokes = None
             if not strokes:
                 from babelsoft.scripts.yi import YiRadical
@@ -1062,7 +1064,7 @@ def _eval_cond(cond: Cond, cp: int, blocks: list[dict], whole_words: bool) -> bo
             m = _match_tangut_val(val, ref, wildcard)
             return not m if negate else m
 
-    except Exception:
+    except PROBE_ERRORS:
         return negate
 
     return False
@@ -1135,7 +1137,7 @@ def _build_name_index(blocks: list[dict] | None = None):
     if _name_index is not None:
         return
     _name_index = []
-    for cp in range(0x0000, 0x110000):
+    for cp in range(0x110000):
         if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
             continue
         n = Unicode.get_character_name(cp)
@@ -1218,7 +1220,7 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
                         return
             # Phase 2
             if limit == 0 or yielded < limit:
-                for i in range(0, start_idx):
+                for i in range(start_idx):
                     cp, n = indexed[i]
                     checked += 1
                     if checked % 500 == 0:
@@ -1257,7 +1259,7 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
                 if limit > 0 and yielded >= limit:
                     return
         if limit == 0 or yielded < limit:
-            for cp in range(0, start_cp + 1):
+            for cp in range(start_cp + 1):
                 if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
                     continue
                 if filter_no_block and _find_block(cp, blocks) is None:
@@ -1271,7 +1273,7 @@ def _search_iter(q: str, blocks: list[dict], limit: int = 200, start_cp: int = 0
                     if limit > 0 and yielded >= limit:
                         return
     else:
-        for cp in range(0, MAX_CP + 1):
+        for cp in range(MAX_CP + 1):
             if Unicode.is_surrogate(cp) or not Unicode.is_valid_code_point(cp):
                 continue
             if filter_no_block and _find_block(cp, blocks) is None:

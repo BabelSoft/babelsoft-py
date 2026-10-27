@@ -11,7 +11,7 @@ from typing import ClassVar
 
 from babelsoft.cjkv.lookup import Lookup
 from babelsoft.utils_.dirs import Dirs
-from babelsoft.utils_.parser import TsvParser
+from babelsoft.utils_.parser import TsvParser, parse_codepoint
 
 
 class Vietnamese(Lookup):
@@ -186,7 +186,7 @@ class Vietnamese(Lookup):
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_readings.tsv"):
             if len(row) < 3 or row[1] != "kVietnamese":
                 continue
-            cp = int(row[0][2:], 16)
+            cp = parse_codepoint(row[0])
             for reading in row[2].split():
                 raw[cp].append(reading)
 
@@ -233,6 +233,30 @@ class Vietnamese(Lookup):
 
         # No VIQR match: use ch1 as-is
         return (ch1, ch2, ch3, 0)
+
+    @classmethod
+    def viqr_to_text(cls, text: str) -> str:
+        """Decode a whole VIQR-encoded string into Unicode Vietnamese.
+
+        Greedy longest-match (3, then 2, then 1 character); characters without
+        a VIQR spelling are copied through unchanged.
+        """
+        cls._init_viqr()
+        out: list[str] = []
+        i = 0
+        n = len(text)
+        while i < n:
+            for size in (3, 2, 1):
+                if i + size <= n:
+                    cp = cls._viqr_to_unicode.get(text[i : i + size])
+                    if cp is not None:
+                        out.append(chr(cp))
+                        i += size
+                        break
+            else:
+                out.append(text[i])
+                i += 1
+        return "".join(out)
 
     @classmethod
     def _get_viqr_reading(cls, unicode_str: str) -> str:

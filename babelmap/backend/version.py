@@ -16,6 +16,7 @@ from pathlib import Path
 
 from babelsoft.unicode.core import Unicode
 from babelsoft.utils_.dirs import Dirs
+from babelsoft.utils_.parser import parse_codepoint
 
 # ---------------------------------------------------------------------------
 # Data-driven block tables for Unicode 1.0.0 / 1.0.1.
@@ -48,8 +49,8 @@ def _historical_blocks() -> dict[str, list[dict]]:
         result.setdefault(table, []).append(
             {
                 "name": name,
-                "start": int(start[2:], 16),
-                "end": int(end[2:], 16),
+                "start": parse_codepoint(start),
+                "end": parse_codepoint(end),
                 "version": introduced,
             }
         )
@@ -289,7 +290,7 @@ _VERSION_DIRS: list[tuple[str, str]] = [
 
 @functools.lru_cache(maxsize=1)
 def _find_file(base: Path, prefix: str) -> Path | None:
-    """Find a data file named ``<prefix>…​``.txt (not .html) in base."""
+    """Find a data file named ``<prefix>…``.txt (not .html) in base."""
     for item in sorted(base.iterdir()):
         if item.is_file() and item.name.startswith(prefix) and item.name.endswith(".txt"):
             return item

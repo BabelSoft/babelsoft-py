@@ -6,10 +6,10 @@ Vietnamese, Zhuang), and lookup infrastructure ported from the
 BabelPad C++ codebase.
 """
 
-from .cjk import CJK, CJK_BLOCK_SHORTCUTS, CJKFlags, IDS, IDSInfo, RS, Radical, SrcRef
-from .lookup import Lookup
+from .cjk import CJK, CJK_BLOCK_SHORTCUTS, IDS, RS, CJKFlags, IDSInfo, Radical, SrcRef
 from .jyutping import Jyutping
 from .korean import HangulSyllableType, Korean
+from .lookup import Lookup
 from .pinyin import Pinyin
 from .vietnamese import Vietnamese
 from .zhuang import Zhuang
@@ -17,15 +17,15 @@ from .zhuang import Zhuang
 __all__ = [
     "CJK",
     "CJK_BLOCK_SHORTCUTS",
+    "IDS",
+    "RS",
     "CJKFlags",
     "HangulSyllableType",
-    "IDS",
     "IDSInfo",
     "Jyutping",
     "Korean",
     "Lookup",
     "Pinyin",
-    "RS",
     "Radical",
     "SrcRef",
     "Vietnamese",

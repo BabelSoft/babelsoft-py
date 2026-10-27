@@ -5,7 +5,9 @@ Handles Yi script (U+A000-U+A48F syllables, U+A490-U+A4C6 radicals).
 Provides Latin->Yi, Yi->Latin, Yi->IPA conversion, radical/stroke lookup.
 """
 
-from .class_ import Language, EInput, FF_16, ZERO_16, ZERO_32, CASE_OFFSET
+from typing import ClassVar
+
+from .class_ import EInput, Language
 
 # Block constants
 SYLLABLE_FIRST = 0xA000
@@ -52,7 +54,7 @@ class Yi(Language):
 
     # --- Latin Initials Table (43 entries) ---
     # [first_letter, second_letter]
-    TABLE_YI_LATIN_INITIALS = [
+    TABLE_YI_LATIN_INITIALS: ClassVar[list[list[int]]] = [
         [ord("b"), 0x00],
         [ord("p"), 0x00],
         [ord("b"), ord("b")],
@@ -100,7 +102,7 @@ class Yi(Language):
 
     # --- Latin Medials Table (10 entries) ---
     # [first_vowel, second_vowel]
-    TABLE_YI_LATIN_MEDIALS = [
+    TABLE_YI_LATIN_MEDIALS: ClassVar[list[list[int]]] = [
         [ord("i"), 0x00],
         [ord("i"), ord("e")],
         [ord("a"), 0x00],
@@ -114,7 +116,7 @@ class Yi(Language):
     ]
 
     # --- Latin Finals Table (5 entries) ---
-    TABLE_YI_LATIN_FINALS = [
+    TABLE_YI_LATIN_FINALS: ClassVar[list[int]] = [
         ord("t"),
         ord("x"),
         0x00,
@@ -123,7 +125,7 @@ class Yi(Language):
     ]
 
     # --- Yi Syllable Index (for mapping initials to syllable ranges) ---
-    TABLE_YI_INDEX = [
+    TABLE_YI_INDEX: ClassVar[list[int]] = [
         SYLLABLE_FIRST,
         SYLLABLE_FIRST + 48,
         SYLLABLE_FIRST + 82,
@@ -162,7 +164,7 @@ class Yi(Language):
     # --- Yi Syllables Table (1165 entries) ---
     # Each: [initial_index, medial_index, final_index]
     # Simplified: key patterns (full table would be 1165 entries)
-    TABLE_YI_SYLLABLES = [
+    TABLE_YI_SYLLABLES: ClassVar[list[list[int]]] = [
         [0, 0, 2],
         [0, 0, 3],
         [0, 1, 2],
@@ -186,11 +188,11 @@ class Yi(Language):
     ]
 
     # --- Punctuation Table ---
-    TABLE_YI_PUNCTUATION = [ord(","), ord("."), ord("!"), ord("?")]
-    TABLE_YI_PUNCTUATION_MAP = [0xA1AA, 0xA1AB, 0xA1AC, 0xA1AD]
+    TABLE_YI_PUNCTUATION: ClassVar[list[int]] = [ord(","), ord("."), ord("!"), ord("?")]
+    TABLE_YI_PUNCTUATION_MAP: ClassVar[list[int]] = [0xA1AA, 0xA1AB, 0xA1AC, 0xA1AD]
 
     # --- Radical Names ---
-    RADICAL_NAMES = [
+    RADICAL_NAMES: ClassVar[list[str]] = [
         "BBA",
         "BBO",
         "BBU",
@@ -251,7 +253,7 @@ class Yi(Language):
     ]
 
     # --- IPA Tables ---
-    TABLE_YI_IPA_INITIALS = [
+    TABLE_YI_IPA_INITIALS: ClassVar[list[list[int]]] = [
         [ord("p"), 0, 0],
         [ord("p"), ord("ʰ"), 0],
         [ord("b"), 0, 0],
@@ -298,7 +300,7 @@ class Yi(Language):
         [ord("m"), ord("p"), ord("ʰ")],
     ]
 
-    TABLE_YI_IPA_MEDIALS = [
+    TABLE_YI_IPA_MEDIALS: ClassVar[list[list[int]]] = [
         [ord("i"), 0],
         [ord("e"), 0],
         [ord("a"), 0],
@@ -313,7 +315,7 @@ class Yi(Language):
 
     # IPA tone marks (stored as tuples of individual character ordinals)
     # [tone1, tone2] where tone2 may be 0
-    TABLE_YI_IPA_FINALS = [
+    TABLE_YI_IPA_FINALS: ClassVar[list[list[int]]] = [
         [ord("\u02e5"), 0],  # ˥ (extra-high)
         [ord("\u02e7"), ord("\u02e6")],  # ˧˦ (mid-high)
         [ord("\u02e7"), 0],  # ˧ (mid)
@@ -349,7 +351,7 @@ class Yi(Language):
         return EInput.RETURN
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """
         Perform conversion based on menu_id.
@@ -490,48 +492,50 @@ class Yi(Language):
 
     @staticmethod
     def find_radical_stroke_for_syllable(code_point: int) -> tuple:
-        """
-        Find the radical and stroke count for a Yi syllable.
+        """Radical number (1-26) and residual stroke count of a Yi syllable.
 
-        Args:
-            code_point: Unicode code point of the Yi syllable.
-
-        Returns:
-            Tuple of (radical_index, stroke_count) or (None, None) if not found.
+        Returns ``(None, None)`` when the code point has no entry in the Yi
+        radical table (e.g. it is not a Yi syllable).
         """
-        # In the full implementation, this would search through radical tables.
-        # Simplified implementation:
-        return None, None
+        from babelsoft.scripts.yi import YiRadical
+
+        pairs = YiRadical.get_radical_stroke(code_point)
+        if not pairs:
+            return None, None
+        return pairs[0]
 
     @staticmethod
     def find_syllables_for_radical(radical: int, strokes: int, all_strokes: bool = False, fuzzy: bool = False) -> list:
-        """
-        Find Yi syllables by radical and stroke count.
+        """Code points of the Yi syllables written with ``radical``.
 
-        Args:
-            radical: Radical index (0-54).
-            strokes: Stroke count.
-            all_strokes: If True, return all syllables regardless of stroke count.
-            fuzzy: If True, include +/- 1 stroke.
-
-        Returns:
-            List of Unicode code points matching the criteria.
+        ``all_strokes`` ignores the stroke count, ``fuzzy`` also accepts one
+        stroke more or less.  A syllable can list several radical/stroke pairs
+        (that is how the Yi charts count ambiguous shapes), and it matches when
+        any pair fits.
         """
-        # Simplified implementation
-        return []
+        from babelsoft.scripts.yi import YiRadical
+
+        wanted = {strokes}
+        if fuzzy:
+            wanted |= {strokes - 1, strokes + 1}
+        return [
+            cp
+            for cp, pairs in sorted(YiRadical.syllables().items())
+            if any(rad == radical and (all_strokes or stroke in wanted) for rad, stroke in pairs)
+        ]
 
     # --- Private: Latin -> Yi conversion ---
 
     def _convert_latin(self, code: int) -> EInput:
         """Convert Latin transcription character to Yi syllable."""
-        ch = chr(code) if code <= 0xFFFF else chr(code)
+        ch = chr(code)
 
         # Handle brackets for literal mode
         if ch == "[":
             self._bracket_count += 1
             if self._bracket_count > 1:
                 return EInput.CHARACTER
-            return EInput.FINISH
+            return EInput.FINISHED
 
         if ch == "]":
             if self._bracket_count > 0:
@@ -787,7 +791,6 @@ class Yi(Language):
 
         for i in range(start, end):
             ch = text[i]
-            code = ord(ch) if ord(ch) < 0x10000 else 0
 
             e_input = self.on_char(ch)
 

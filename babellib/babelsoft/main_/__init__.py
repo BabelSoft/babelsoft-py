@@ -9,7 +9,7 @@ from babelsoft.main_.char_list import CharList
 from babelsoft.main_.scsu import SCSU
 
 __all__ = [
+    "SCSU",
     "BabelString",
     "CharList",
-    "SCSU",
 ]

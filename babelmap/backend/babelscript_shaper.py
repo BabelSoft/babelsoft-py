@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import io
 
+from babelmap.backend.errors import PROBE_ERRORS
+
 # GSUB / GPOS lookup types (OpenType spec)
 GSUB_SINGLE, GSUB_MULTIPLE, GSUB_ALTERNATE, GSUB_LIGATURE = 1, 2, 3, 4
 GSUB_CONTEXT, GSUB_CHAINING, GSUB_EXTENSION, GSUB_REVERSE = 5, 6, 7, 8
@@ -46,7 +48,7 @@ class BabelScript:
     """Python re-implementation of BabelMap's BabelScript shaping engine."""
 
     def __init__(self, data: bytes, text: str, direction: str = "auto"):
-        self.tt = TTFont = __import__("fontTools.ttLib", fromlist=["TTFont"]).TTFont(io.BytesIO(data), lazy=False)
+        self.tt = __import__("fontTools.ttLib", fromlist=["TTFont"]).TTFont(io.BytesIO(data), lazy=False)
         self.upem = self.tt["head"].unitsPerEm or 2048
         self.order = self.tt.getGlyphOrder()
         self._gid = {name: i for i, name in enumerate(self.order)}
@@ -87,9 +89,11 @@ class BabelScript:
     def _build_feat_map(self):
         """LookupListIndex -> first feature tag (for display)."""
         self.feat_for_lookup = {}
-        for rec in getattr(self._gsub, "FeatureList", None).FeatureRecord:
-            for li in rec.Feature.LookupListIndex:
-                self.feat_for_lookup.setdefault(li, rec.FeatureTag)
+        fl = getattr(self._gsub, "FeatureList", None)
+        if fl:
+            for rec in fl.FeatureRecord:
+                for li in rec.Feature.LookupListIndex:
+                    self.feat_for_lookup.setdefault(li, rec.FeatureTag)
 
     # ─────────────────────────── GSUB ───────────────────────────
 
@@ -117,7 +121,7 @@ class BabelScript:
     def _script_tag(self):
         try:
             return self._gsub.ScriptList.ScriptRecord[0].ScriptTag
-        except Exception:
+        except PROBE_ERRORS:
             return "DFLT"
 
     def _apply_lookup(self, index: int, lookup) -> bool:
@@ -499,7 +503,7 @@ class BabelScript:
     def _gpos_script_tag(self):
         try:
             return self._gpos.ScriptList.ScriptRecord[0].ScriptTag
-        except Exception:
+        except PROBE_ERRORS:
             return "DFLT"
 
     def _apply_gpos_lookup(self, lookup) -> bool:

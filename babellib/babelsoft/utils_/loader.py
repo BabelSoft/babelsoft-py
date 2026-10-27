@@ -6,7 +6,12 @@ from pathlib import Path
 
 from babelsoft.unicode.core import Block, CodePoint
 from babelsoft.utils_.dirs import Dirs
-from babelsoft.utils_.parser import TsvParser, TxtParser, line_has_content
+from babelsoft.utils_.parser import (
+    TsvParser,
+    TxtParser,
+    line_has_content,
+    parse_codepoint,
+)
 
 
 def _parse_rs_unihan(text: str) -> tuple[int, int, int]:
@@ -24,7 +29,7 @@ class CJKLoader:
     def load_ucd_Blocks() -> list[Block]:
         lines = filter(line_has_content, TxtParser.get_txt(Dirs.UCD / "Blocks.txt"))
         matches = TxtParser.match(lines, re.compile(r"([\da-fA-F]+)\.\.([\da-fA-F]+); (.+)"))
-        return [Block(int(s, 16), int(e, 16), name.strip()) for s, e, name in matches]
+        return [Block(CodePoint(int(s, 16)), CodePoint(int(e, 16)), name.strip()) for s, e, name in matches]
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
@@ -38,19 +43,16 @@ class CJKLoader:
             rad, base_var, base_stroke = _parse_rs_unihan(rs_part)
             parts = sep.split(data_part, maxsplit=1)
             key = (rad, base_var, base_stroke)
-            result[key] = [int(val[2:], 16) if val.startswith("U+") else int(val) for val in parts[0].split() if val]
+            result[key] = [parse_codepoint(val) for val in parts[0].split() if val]
 
             for i, match in enumerate(sep.finditer(data_part)):
                 var = len(match.group(1))
-                end = (
-                    sep.search(data_part, match.end()).start()
-                    if i + 1 < len(sep.findall(data_part))
-                    else len(data_part)
-                )
+                following = sep.search(data_part, match.end()) if i + 1 < len(sep.findall(data_part)) else None
+                end = following.start() if following else len(data_part)
                 val = data_part[match.end() : end].strip()
                 if val:
                     key = (rad, var, base_stroke)
-                    result[key] = [int(v[2:], 16) if v.startswith("U+") else int(v) for v in val.split()]
+                    result[key] = [parse_codepoint(v) for v in val.split()]
         return result
 
     @staticmethod
@@ -92,7 +94,7 @@ class CJKLoader:
         DIR_MAP = {"fanti": 0x0002, "jianti": 0x0004, "fanti_jianti": 0x0008}
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_mappings.tsv"):
             if len(row) >= 5:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
                 direction = row[4].strip()
                 if direction in DIR_MAP:
                     flags[cp] = flags.get(cp, 0) | DIR_MAP[direction]
@@ -100,16 +102,16 @@ class CJKLoader:
         # ── Xinzixing / Jiuzixing ──
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_xinjiu_mapping.tsv"):
             if len(row) >= 2:
-                src = int(row[0][2:], 16)
-                tgt = int(row[1][2:], 16)
+                src = parse_codepoint(row[0])
+                tgt = parse_codepoint(row[1])
                 flags[src] = flags.get(src, 0) | 0x0010  # XINZIXING
                 flags[tgt] = flags.get(tgt, 0) | 0x0020  # JIUZIXING
 
         # ── Shinjitai / Kyujitai ──
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_shinjitai_mapping.tsv"):
             if len(row) >= 2:
-                src = int(row[0][2:], 16)
-                tgt = int(row[1][2:], 16)
+                src = parse_codepoint(row[0])
+                tgt = parse_codepoint(row[1])
                 flags[src] = flags.get(src, 0) | 0x0040  # SHINJITAI
                 flags[tgt] = flags.get(tgt, 0) | 0x0080  # KYUJITAI
 
@@ -123,7 +125,7 @@ class CJKLoader:
         }
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_readings.tsv"):
             if len(row) >= 2:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
                 field = row[1]
                 if field in FIELD_FLAGS:
                     flags[cp] = flags.get(cp, 0) | FIELD_FLAGS[field]
@@ -146,8 +148,8 @@ class CJKLoader:
         result: dict[int, tuple[int, str]] = {}
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_mappings.tsv"):
             if len(row) >= 5:
-                src = int(row[0][2:], 16)
-                tgt = int(row[2][2:], 16)
+                src = parse_codepoint(row[0])
+                tgt = parse_codepoint(row[2])
                 direction = row[4].strip()
                 if direction in ("fanti", "jianti", "fanti_jianti"):
                     result[src] = (tgt, direction)
@@ -209,8 +211,8 @@ class CJKLoader:
         a2b, b2a = {}, {}
         for row in TsvParser.get_tsv(path):
             if len(row) >= 2:
-                a = int(row[0][2:], 16)
-                b = int(row[1][2:], 16)
+                a = parse_codepoint(row[0])
+                b = parse_codepoint(row[1])
                 a2b[a], b2a[b] = b, a
         return a2b, b2a
 
@@ -267,8 +269,8 @@ class CJKLoader:
                 for t in d.split():
                     rad, var, stroke = _parse_rs_unihan(t)
                     res.setdefault((rad, var), []).append((stroke, int(cp)))
-        for k in res:
-            res[k].sort()
+        for entries in res.values():
+            entries.sort()
         return res
 
     @staticmethod
@@ -331,17 +333,19 @@ class CJKLoader:
 
     @staticmethod
     @functools.lru_cache(maxsize=1)
-    def load_ucd_EquivalentUnifiedIdeograph() -> dict[CodePoint, CodePoint]:
+    def load_ucd_EquivalentUnifiedIdeograph() -> dict[int, int]:
         res = {}
         for line in filter(line_has_content, TxtParser.get_txt(Dirs.UCD / "EquivalentUnifiedIdeograph.txt")):
             m = re.match(r"^\s*([0-9A-Fa-f]+)(?:\.\.([0-9A-Fa-f]+))?\s*;\s*([0-9A-Fa-f]+)", line)
             if not m:
                 continue
             s, e, t = m.groups()
-            s, t = CodePoint.from_(s), CodePoint.from_(t)
-            e = CodePoint.from_(e) if e else s
-            for cp in range(s, e + 1):
-                res[cp] = t
+            start, target = CodePoint.from_(s), CodePoint.from_(t)
+            last = CodePoint.from_(e) if e else start
+            if start is None or target is None or last is None:
+                continue
+            for cp in range(start, last + 1):
+                res[cp] = target
         return res
 
     @staticmethod
@@ -390,7 +394,7 @@ class ScriptsLoader:
             if len(parts) < 3:
                 continue
             try:
-                cp = int(parts[0][2:], 16)
+                cp = parse_codepoint(parts[0])
             except (ValueError, IndexError):
                 continue
             tag = parts[1]
@@ -413,7 +417,7 @@ class ScriptsLoader:
             if len(row) < 3:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             if row[1]:
@@ -434,7 +438,7 @@ class ScriptsLoader:
             if len(parts) < 3 or parts[1] != "kEH_Desc":
                 continue
             try:
-                cp = int(parts[0][2:], 16)
+                cp = parse_codepoint(parts[0])
             except (ValueError, IndexError):
                 continue
             if parts[2]:
@@ -454,7 +458,7 @@ class ScriptsLoader:
             if len(row) < 2:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             offset = cp - TANGUT_START
@@ -484,7 +488,7 @@ class ScriptsLoader:
             if len(row) < 6:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             offset = cp - TANGUT_START
@@ -511,7 +515,7 @@ class ScriptsLoader:
             if len(row) < 6:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             offset = cp - TANGUT_START
@@ -538,7 +542,7 @@ class ScriptsLoader:
             if len(row) < 4:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             offset = cp - TANGUT_START
@@ -567,7 +571,7 @@ class ScriptsLoader:
             if len(row) < 2:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             pairs: list[tuple[int, int]] = []
@@ -593,7 +597,7 @@ class ScriptsLoader:
             if len(row) < 3:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             offset = cp - TANGUT_START
@@ -652,7 +656,7 @@ class ScriptsLoader:
             if len(row) < 7:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             if TANGUT_START <= cp <= 0x187FF:
@@ -688,7 +692,7 @@ class ScriptsLoader:
             if len(row) < 6:
                 continue
             try:
-                cp = int(row[0][2:], 16)
+                cp = parse_codepoint(row[0])
             except (ValueError, IndexError):
                 continue
             offset = cp - TANGUT_COMPS_START

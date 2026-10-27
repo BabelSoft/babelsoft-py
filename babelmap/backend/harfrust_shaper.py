@@ -13,6 +13,11 @@ Requires:  pip install pyharfrust2
 from __future__ import annotations
 
 import io
+import logging
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 
 def _features_to_str(features) -> str | None:
@@ -61,9 +66,9 @@ def shape_with_harfrust(
     ``stages`` (each {m, glyphs, depth, effective}), ``final``, ``messages``,
     ``engine``.  Glyph names / font info / SVG are appended by the server.
     """
-    from babelmap.backend.opentype import _build_trace_stages
-
     import pyharfrust2
+
+    from babelmap.backend.opentype import _build_trace_stages
 
     raw = pyharfrust2.shape_trace(
         bytes(data),
@@ -103,8 +108,8 @@ def shape_with_harfrust(
         tt = TTFont(io.BytesIO(data), fontNumber=int(font_index), lazy=True)
         upem = int(tt["head"].unitsPerEm)  # type: ignore[attr-defined]
         glyph_count = int(tt["maxp"].numGlyphs)
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("shape_with_harfrust: ignoring recoverable error", exc_info=True)
 
     return {
         "upem": upem,

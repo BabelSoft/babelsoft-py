@@ -139,8 +139,7 @@ class BabelString:
         if pos <= 0:
             return 0
         cps = BabelString.codepoints(text)
-        if pos > len(cps):
-            pos = len(cps)
+        pos = min(pos, len(cps))
         i = pos - 1
         # Walk back past combining marks and extenders
         while i > 0:
@@ -301,7 +300,6 @@ class BabelString:
         """Move cursor one codepoint to the left. Returns new position."""
         if pos <= 0:
             return 0
-        cps = BabelString.codepoints(text)
         # Convert from codepoint position to codepoint index and back
         cp_index = BabelString._codepoint_position(text, pos)
         return max(0, BabelString._byte_position(text, cp_index - 1))
@@ -309,7 +307,6 @@ class BabelString:
     @staticmethod
     def go_right(text: str, pos: int) -> int:
         """Move cursor one codepoint to the right. Returns new position."""
-        cps = BabelString.codepoints(text)
         cp_index = BabelString._codepoint_position(text, pos)
         return min(len(text), BabelString._byte_position(text, cp_index + 1))
 
@@ -321,7 +318,6 @@ class BabelString:
             return 0
         prev_line_start = BabelString.go_start_of_line(text, line_start - 1)
         offset = pos - line_start
-        cps = BabelString.codepoints(text[prev_line_start : line_start - 1])
         return min(prev_line_start + offset, max(0, line_start - 1))
 
     @staticmethod
@@ -441,7 +437,6 @@ class BabelString:
     @staticmethod
     def advance_characters(text: str, start: int, end: int, advance: int) -> int:
         """Return position advanced by advance codepoints from start, clamped to [start, end]."""
-        cps = BabelString.codepoints(text)
         target = BabelString._codepoint_position(text, start) + advance
         return max(0, min(end, BabelString._byte_position(text, target)))
 

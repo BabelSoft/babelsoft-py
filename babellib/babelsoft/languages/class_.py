@@ -223,20 +223,18 @@ class Language:
         self,
         menu_id: int,
         text_in: str,
-        text_out: list,
-        start: int,
-        end: int,
-        count1: list,
-        count2: list,
+        start: int = 0,
+        end: int | None = None,
         skip_ascii: bool = False,
-    ) -> int:
-        """
-        Perform a conversion operation. Override in subclass.
+    ) -> tuple:
+        """Perform a menu conversion over ``text_in[start:end]``.
 
-        Returns:
-            Number of characters output.
+        Returns ``(converted_text, number_of_conversions)``.  The base
+        implementation converts nothing and is overridden by the languages that
+        implement menu commands.
         """
-        return 0
+        end = len(text_in) if end is None else end
+        return text_in[start:end], 0
 
     # --- Protected methods ---
 
@@ -255,7 +253,6 @@ class Language:
 
     def _on_finish(self) -> None:
         """Called when input is finished. Override in subclass."""
-        pass
 
     def _on_escape_sequence(self, code: int) -> EInput:
         """Process hex digits in \\uXXXX or \\UXXXXXXXX sequences."""

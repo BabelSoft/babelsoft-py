@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import pygraphite2
 
+from babelmap.backend.errors import PROBE_ERRORS
+
 
 def _upem_of(data: bytes) -> int:
     return int(pygraphite2.upem_from_ttf(data))
@@ -45,7 +47,7 @@ def shape_with_graphite(
     back to ``pygraphite2`` (PyPI package — also cross-platform)."""
     try:
         return _shape_with_uharfbuzz(data, text, direction)
-    except Exception:
+    except PROBE_ERRORS:
         return _shape_with_pygraphite2(
             data, text, direction=direction, script=script, language=language, features=features
         )
@@ -117,10 +119,10 @@ def _shape_with_pygraphite2(
         {
             "g": g.gid,
             "cl": g.cluster,
-            "dx": int(round(g.x_offset)),
-            "dy": int(round(g.y_offset)),
-            "ax": int(round(g.x_advance)),
-            "ay": int(round(g.y_advance)),
+            "dx": round(g.x_offset),
+            "dy": round(g.y_offset),
+            "ax": round(g.x_advance),
+            "ay": round(g.y_advance),
             "flags": 0,
         }
         for g in glyphs_raw

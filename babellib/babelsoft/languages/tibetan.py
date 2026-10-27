@@ -8,7 +8,9 @@ The Tibetan script uses a complex syllabic structure:
   prefix + superfix + stem (+ subjoined stems) + vowel + final(s) + punctuation
 """
 
-from .class_ import Language, EInput, FF_16, ZERO_16
+from typing import Any, ClassVar
+
+from .class_ import ZERO_16, EInput, Language
 
 # Tibetan Unicode block constants
 TIBETAN_BASE = 0x0F00
@@ -93,7 +95,7 @@ class Tibetan(Language):
 
     # Tibetan initials (Wylie -> Unicode index mapping)
     # Format: [Wylie letter, flags (prefix|superfix)]
-    TABLE_INITIALS = [
+    TABLE_INITIALS: ClassVar[list[list[Any]]] = [
         # Each entry: Wylie character, Unicode index offset, flags
         # Simplified - full table has ~200+ entries
         ["k", 0, 0x00],
@@ -129,7 +131,7 @@ class Tibetan(Language):
     ]
 
     # Medial/vowel mapping (Wylie -> Tibetan Unicode)
-    TABLE_MEDIALS = [
+    TABLE_MEDIALS: ClassVar[list[list[Any]]] = [
         # Wylie char, Unicode code point
         ["i", 0x0F72],  # gi gu
         ["u", 0x0F74],  # zhab kyu
@@ -141,7 +143,7 @@ class Tibetan(Language):
     ]
 
     # Final consonant mapping (Wylie -> Tibetan Unicode)
-    TABLE_FINALS = [
+    TABLE_FINALS: ClassVar[list[list[Any]]] = [
         # Wylie char(s), Unicode code point
         ["g", 0x0F42],
         ["n", "g", 0x0F44],
@@ -156,12 +158,12 @@ class Tibetan(Language):
     ]
 
     # Punctuation mapping (Wylie -> Tibetan)
-    TABLE_PUNCTUATION = [
-        # Wylie, Unicode, description
-        [" ", 0x0F0B],  # tsheg (syllable boundary)
-        ["/", 0x0F0D],  # shad
-        [".", 0x0F0C],  # tsheg shad
-        ["|", 0x0F0D],  # shad (pipe)
+    TABLE_PUNCTUATION: ClassVar[list[tuple[str, int]]] = [
+        # Wylie, Unicode
+        (" ", 0x0F0B),  # tsheg (syllable boundary)
+        ("/", 0x0F0D),  # shad
+        (".", 0x0F0C),  # tsheg shad
+        ("|", 0x0F0D),  # shad (pipe)
     ]
 
     def __init__(self):
@@ -236,7 +238,7 @@ class Tibetan(Language):
         return EInput.FINISHED
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """
         Perform Tibetan script conversion.
@@ -406,11 +408,9 @@ class Tibetan(Language):
                     continue
                 self._word[WordType.PUNCTUATION1] = pc[1]
                 # Special case: shad after nga
-                if pc[1] == 0x0F0D:
-                    if self._word[WordType.STEM] == 0x0F44:
-                        if not self._word[WordType.FINAL]:
-                            self._word[WordType.PUNCTUATION1] = 0x0F0C
-                            self._word[WordType.PUNCTUATION2] = pc[1]
+                if pc[1] == 0x0F0D and self._word[WordType.STEM] == 0x0F44 and not self._word[WordType.FINAL]:
+                    self._word[WordType.PUNCTUATION1] = 0x0F0C
+                    self._word[WordType.PUNCTUATION2] = pc[1]
                 return True
         return False
 

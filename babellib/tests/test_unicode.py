@@ -8,7 +8,7 @@ import pytest
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.unicode import (  # noqa: E402
+from babelsoft.unicode import (
     BidiClass,
     Block,
     CodePoint,
@@ -303,7 +303,7 @@ class TestUCA:
         assert u1.compare(u2) == 0
 
     def test_sort_options_default(self):
-        from babelsoft.unicode.uca import SortOptions, SortType, Locale
+        from babelsoft.unicode.uca import Locale, SortOptions, SortType
 
         so = SortOptions()
         assert so.sort_type == SortType.UCA
@@ -317,7 +317,11 @@ class TestUCA:
         assert collation_compare("a", "") > 0
 
     def test_constants(self):
-        from babelsoft.unicode.uca import COLLATE_EQUAL, COLLATE_GREATER_THAN, COLLATE_LESS_THAN
+        from babelsoft.unicode.uca import (
+            COLLATE_EQUAL,
+            COLLATE_GREATER_THAN,
+            COLLATE_LESS_THAN,
+        )
 
         assert COLLATE_LESS_THAN < 0
         assert COLLATE_EQUAL == 0
@@ -455,7 +459,7 @@ class TestNewUnicodeMethods:
     # ── letters_in_block ──
 
     def test_letters_in_block(self):
-        count, first, last = Unicode.letters_in_block("Basic Latin")
+        count, first, _last = Unicode.letters_in_block("Basic Latin")
         assert count > 0
         assert first > 0
 

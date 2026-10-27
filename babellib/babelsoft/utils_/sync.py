@@ -2,9 +2,17 @@ import re
 from pathlib import Path
 
 import requests
-from .dirs import Dirs
 from rich.console import Console
-from rich.progress import BarColumn, DownloadColumn, Progress, TextColumn, TimeRemainingColumn, TransferSpeedColumn
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
+
+from .dirs import Dirs
 
 
 class UnicodeDataDownloader:
@@ -145,7 +153,7 @@ class UnicodeDataDownloader:
         html = requests.get(cls.ISO15924_URL, timeout=120).text
 
         rows: list[list[str]] = []
-        for raw in re.findall(r"<tr>(.*?)</tr>", html, flags=re.S):
+        for raw in re.findall(r"<tr>(.*?)</tr>", html, flags=re.DOTALL):
             cells = [cls._clean_td(m) for m in cls._TD_RE.findall(raw)]
             if len(cells) != 7 or not cells[0] or cells[0] == "Code":
                 continue

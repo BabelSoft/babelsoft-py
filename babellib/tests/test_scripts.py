@@ -8,10 +8,10 @@ import pytest
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.scripts.hieroglyphs import Hieroglyphs  # noqa: E402
-from babelsoft.scripts.khitan import Khitan  # noqa: E402
-from babelsoft.scripts.nushu import Nushu  # noqa: E402
-from babelsoft.scripts.tangut import (  # noqa: E402
+from babelsoft.scripts.hieroglyphs import Hieroglyphs
+from babelsoft.scripts.khitan import Khitan
+from babelsoft.scripts.nushu import Nushu
+from babelsoft.scripts.tangut import (
     TANGUT_COUNT,
     TANGUT_LAST,
     TANGUT_START,

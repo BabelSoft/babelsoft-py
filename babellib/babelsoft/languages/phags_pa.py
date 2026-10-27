@@ -5,7 +5,9 @@ Handles Phags-pa script input via Latin transcription.
 Converts Latin letters to Phags-pa Unicode characters (U+A840-U+A87F).
 """
 
-from .class_ import Language, EInput, FF_16, ZERO_16, MAX_MONGOLIAN_WORD
+from typing import ClassVar
+
+from .class_ import MAX_MONGOLIAN_WORD, ZERO_16, EInput, Language
 
 
 class StepType:
@@ -28,7 +30,7 @@ class PhagsPa(Language):
     Based on the same pattern as Manchu/Mongolian with Phags-pa-specific tables.
     """
 
-    TABLE_PUNCTUATION = [
+    TABLE_PUNCTUATION: ClassVar[list[int]] = [
         0x7C,  # | Vertical Line
         0x2C,  # , Comma
         0x2E,  # . Full Stop
@@ -36,7 +38,7 @@ class PhagsPa(Language):
         0x20,  #   Space
     ]
 
-    TABLE_PUNCTUATION_MAP = [
+    TABLE_PUNCTUATION_MAP: ClassVar[list[int]] = [
         0x1801,  # Ellipsis
         0x1802,  # Comma
         0x1803,  # Full Stop
@@ -44,7 +46,7 @@ class PhagsPa(Language):
         0x0020,  # Space
     ]
 
-    TABLE_VOWELS = [
+    TABLE_VOWELS: ClassVar[list[list[int]]] = [
         [0x61, 0xFF],  # a
         [0x65, 0xFF],  # e
         [0x69, 0xFF],  # i
@@ -56,7 +58,7 @@ class PhagsPa(Language):
         [0x6F, 0x6F],  # oo
     ]
 
-    TABLE_VOWELS_MAP = [
+    TABLE_VOWELS_MAP: ClassVar[list[int]] = [
         0xA85E,  # a
         0xA85F,  # e
         0xA860,  # i
@@ -68,7 +70,7 @@ class PhagsPa(Language):
         0xA866,  # oo
     ]
 
-    TABLE_CONSONANTS = [
+    TABLE_CONSONANTS: ClassVar[list[list[int]]] = [
         [0x6B, 0xFF],  # k
         [0x6B, 0x68],  # kh
         [0x67, 0xFF],  # g
@@ -102,7 +104,7 @@ class PhagsPa(Language):
         [0x66, 0xFF],  # f
     ]
 
-    TABLE_CONSONANTS_MAP = [
+    TABLE_CONSONANTS_MAP: ClassVar[list[int]] = [
         0xA840,  # k
         0xA841,  # kh
         0xA842,  # g
@@ -259,7 +261,7 @@ class PhagsPa(Language):
         return EInput.FINISHED
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """Convert Latin transcription to Phags-pa script."""
         if end is None:

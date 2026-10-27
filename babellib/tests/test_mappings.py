@@ -5,18 +5,18 @@ Also tests for src/mappings/ — Mapper and encoding classes.
 
 import re
 import sys
+from collections import Counter
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.mappings import (  # noqa: E402
+from babelsoft.mappings import (
     ARMSCII8,
     ASCII,
-    Big5,
-    BrdaRten,
     CP932,
     CP936,
     CP949,
@@ -37,11 +37,10 @@ from babelsoft.mappings import (  # noqa: E402
     DOSCP866,
     DOSCP869,
     EBCDIC,
-    Encoding,
     EUCJP,
     EUCKR,
-    GB18030,
     GB2312,
+    GB18030,
     GBK,
     HKSCS,
     ISO8859_2,
@@ -63,14 +62,17 @@ from babelsoft.mappings import (  # noqa: E402
     KOI8R,
     KOI8U,
     KPS9566,
+    TIS620,
+    VISCII,
+    Big5,
+    BrdaRten,
+    Encoding,
     LaoMuleLao1,
     Mapper,
     ShiftJIS,
     TamilTAB,
     TamilTAM,
     TamilTSCII,
-    TIS620,
-    VISCII,
     Windows874,
     Windows1250,
     Windows1251,
@@ -484,8 +486,8 @@ class TestNoDuplicates:
     skipped but NOT considered bugs.
     """
 
-    DBCS_DUPES_OK = {"cp950.tsv", "cp932.tsv", "cp936.tsv", "cp949.tsv", "kps_9566.tsv", "gb18030.tsv"}
-    MULTI_ENC = {"tamil.tsv", "tai_lao.tsv", "iso_8859.tsv", "dos.tsv", "windows_cp.tsv", "ebcdic.tsv", "koi8.tsv"}
+    DBCS_DUPES_OK: ClassVar[set[str]] = {"cp950.tsv", "cp932.tsv", "cp936.tsv", "cp949.tsv", "kps_9566.tsv", "gb18030.tsv"}
+    MULTI_ENC: ClassVar[set[str]] = {"tamil.tsv", "tai_lao.tsv", "iso_8859.tsv", "dos.tsv", "windows_cp.tsv", "ebcdic.tsv", "koi8.tsv"}
 
     @pytest.mark.parametrize("filename", EXPECTED_FILES)
     def test_no_duplicate_keys(self, filename):
@@ -504,7 +506,7 @@ class TestNoDuplicates:
         else:
             keys = [r[0] for r in data]
 
-        dupes = [k for k in set(keys) if keys.count(k) > 1]
+        dupes = [k for k, n in Counter(keys).items() if n > 1]
         assert not dupes, f"{filename}: duplicate keys: {dupes[:5]}"
 
 
@@ -595,7 +597,7 @@ class TestDOSCP866:
 class TestAllDOSEncodings:
     """Verify all 15 DOS code page enum values exist."""
 
-    DOS_ENUMS = [
+    DOS_ENUMS: ClassVar[list[str]] = [
         "DOS_CP437",
         "DOS_CP737",
         "DOS_CP775",
@@ -770,7 +772,7 @@ class TestISO8859_15:
 class TestAllISO8859Encodings:
     """Verify all 14 ISO-8859 enum values exist (no ISO-8859-12)."""
 
-    ISO_ENUMS = [
+    ISO_ENUMS: ClassVar[list[str]] = [
         "ISO_8859_2",
         "ISO_8859_3",
         "ISO_8859_4",
@@ -1365,7 +1367,7 @@ class TestISO8859_16:
 class TestEncodingCoverage:
     """Ensure every data file has a corresponding Encoding enum."""
 
-    FILE_TO_ENUM = {
+    FILE_TO_ENUM: ClassVar[dict[str, str]] = {
         "armscii.tsv": "ARMSCII_8",
         "brda_rten.tsv": "BRDA_RTEN",
         "cp932.tsv": "CP932",

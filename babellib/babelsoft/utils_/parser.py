@@ -1,10 +1,25 @@
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
+
+_HEX_CODEPOINT = re.compile(r"^(?:[Uu]\+|0[xX])?([0-9A-Fa-f]{1,6})$")
 
 
 def line_has_content(line: str) -> bool:
     return bool(line.split("#")[0].rstrip())
+
+
+def parse_codepoint(value: str) -> int:
+    """Parse a hexadecimal code point field.
+
+    Accepts the ``U+4E00``, ``0x4E00`` and bare ``4E00`` spellings and raises
+    ``ValueError`` for anything else, so a malformed data row is reported
+    instead of silently turning into code point 0.
+    """
+    match = _HEX_CODEPOINT.match(value.strip())
+    if not match:
+        raise ValueError(f"invalid code point: {value!r}")
+    return int(match.group(1), 16)
 
 
 class TxtParser:
@@ -17,7 +32,7 @@ class TxtParser:
         return lines
 
     @staticmethod
-    def match(lines: list[str], regex: re.Pattern[str]) -> list[list[str]]:
+    def match(lines: Iterable[str], regex: re.Pattern[str]) -> list[list[str]]:
         parsed: list[list[str]] = []
         for line in lines:
             result = regex.match(line)

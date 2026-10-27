@@ -177,11 +177,8 @@ class SCSU:
         i = 0
 
         # Skip BOM if present
-        if self._strip_bom and n >= 2:
-            if buf[0] == 0xFE and buf[1] == 0xFF:
-                i = 2
-            elif buf[0] == 0xFF and buf[1] == 0xFE:
-                i = 2
+        if self._strip_bom and n >= 2 and ((buf[0] == 0xFE and buf[1] == 0xFF) or (buf[0] == 0xFF and buf[1] == 0xFE)):
+            i = 2
 
         while i < n:
             b = buf[i]

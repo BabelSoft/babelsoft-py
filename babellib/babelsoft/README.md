@@ -245,7 +245,7 @@ Each C++ header has been systematically mapped to its Python equivalent.
 | ------------------- | ------------ | -------------- | ---------------------- |
 | `LanguageManchu`    | `Manchu`     | `manchu.py`    | ✅ Full implementation |
 | `LanguageMongolian` | `Mongolian`  | `mongolian.py` | ✅ Full implementation |
-| `LanguagePhagsPa`   | `PhagsPa`    | `phagsPa.py`   | ✅ Full implementation |
+| `LanguagePhagsPa`   | `PhagsPa`    | `phags_pa.py`   | ✅ Full implementation |
 | `LanguageTibetan`   | `Tibetan`    | `tibetan.py`   | ✅ Full implementation |
 | `LanguageUyghur`    | `Uyghur`     | `uyghur.py`    | ✅ Full implementation |
 | `LanguageYi`        | `Yi`         | `yi.py`        | ✅ Full implementation |

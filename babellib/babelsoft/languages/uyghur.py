@@ -5,7 +5,9 @@ Handles Uyghur Arabic script input and conversion.
 Provides Arabic<->Latin transcription and keyboard layout mapping.
 """
 
-from .class_ import Language, EInput, FF_16, ZERO_16
+from typing import ClassVar
+
+from .class_ import ZERO_16, EInput, Language
 
 
 class Uyghur(Language):
@@ -19,7 +21,7 @@ class Uyghur(Language):
     """
 
     # Uyghur Arabic characters in order
-    UYGHUR_ARABIC = [
+    UYGHUR_ARABIC: ClassVar[list[int]] = [
         0x0627,  # A a (alef)
         0x06D5,  # E e
         0x0628,  # B b
@@ -58,7 +60,7 @@ class Uyghur(Language):
     ]
 
     # Uyghur Latin transcription (matches UYGHUR_ARABIC order)
-    UYGHUR_LATIN = [
+    UYGHUR_LATIN: ClassVar[list[list[str]]] = [
         ["a", ""],  # alef
         ["e", ""],  # E
         ["b", ""],  # B
@@ -97,7 +99,7 @@ class Uyghur(Language):
     ]
 
     # Keyboard layout mapping (ASCII position -> Arabic Unicode)
-    KEYBOARD_LAYOUT = [
+    KEYBOARD_LAYOUT: ClassVar[list[int]] = [
         0x0020,  # (space)
         0x0021,  # !
         0x0022,  # "
@@ -233,7 +235,7 @@ class Uyghur(Language):
         return EInput.FINISHED
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """
         Perform Uyghur script conversion.
@@ -280,12 +282,11 @@ class Uyghur(Language):
             out_latin = ["", ""]
 
             # Check if Arabic range character
-            if 0x0600 <= ch_in < 0x0700:
-                if ch_in in arabic_to_latin:
-                    lat = arabic_to_latin[ch_in]
-                    out_latin = [lat[0], lat[1]]
-                    out_ch = ""
-                    count += 1
+            if 0x0600 <= ch_in < 0x0700 and ch_in in arabic_to_latin:
+                lat = arabic_to_latin[ch_in]
+                out_latin = [lat[0], lat[1]]
+                out_ch = ""
+                count += 1
 
             # Handle apostrophe between vowels
             if pending_apos:
@@ -382,7 +383,7 @@ class Uyghur(Language):
                     if lat[1]:
                         # Multi-character pending
                         if j + 1 < len(self.UYGHUR_LATIN) and self.UYGHUR_LATIN[j + 1][0] == in_latin:
-                            pending = ch
+                            pending = code
                         else:
                             pending = self.UYGHUR_ARABIC[j]
                         out_ch = ""
@@ -400,9 +401,8 @@ class Uyghur(Language):
             elif last_in == "'":
                 if vowel_before or vowel_after:
                     result += chr(0x0626)
-            elif vowel_after:
-                if last_in and (last_in < "a" or last_in > "z"):
-                    result += chr(0x0626)
+            elif vowel_after and last_in and (last_in < "a" or last_in > "z"):
+                result += chr(0x0626)
 
             if out_ch:
                 result += out_ch

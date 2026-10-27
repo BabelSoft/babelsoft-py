@@ -14,6 +14,8 @@ Unlike a full shaping engine, this does not produce glyph ids — it returns a
 
 from __future__ import annotations
 
+from babelmap.backend.errors import PROBE_ERRORS
+
 
 def shape_with_icu(
     data: bytes,
@@ -32,6 +34,7 @@ def shape_with_icu(
     reshaped = arabic_reshaper.reshape(text)
 
     import io
+
     from fontTools.ttLib import TTFont
 
     tt = TTFont(io.BytesIO(data), lazy=True)
@@ -39,8 +42,8 @@ def shape_with_icu(
     tt.close()
 
     # temporary file for freetype (freetype-py needs a path or buffer via memory face?)
-    import tempfile
     import os
+    import tempfile
 
     tmp = None
     try:
@@ -55,10 +58,10 @@ def shape_with_icu(
                 face.load_char(ch, 2)  # FT_LOAD_NO_HINTING
                 gid = int(face.get_char_index(ord(ch)))
                 adv = float(face.glyph.advance.x) / 64.0
-            except Exception:
+            except PROBE_ERRORS:
                 gid = 0
                 adv = 0.0
-            glyphs.append({"g": gid, "cl": i, "dx": 0, "dy": 0, "ax": int(round(adv)), "ay": 0, "flags": 0})
+            glyphs.append({"g": gid, "cl": i, "dx": 0, "dy": 0, "ax": round(adv), "ay": 0, "flags": 0})
     finally:
         if tmp:
             try:

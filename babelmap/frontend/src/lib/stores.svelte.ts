@@ -1,5 +1,5 @@
 /**
- * Svelte 5 reactive global state â€?$state objects with .v property.
+ * Svelte 5 reactive global state â€”$state objects with .v property.
  * Usage: import * as store from "../stores.svelte"; store.currentPlane.value = 5;
  */
 import type { BlockInfo, GridPage, PlaneInfo } from "./types";

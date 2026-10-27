@@ -40,9 +40,14 @@ mode was applied (see the *Font source* controls in ``OpenTypeTestDialog``).
 from __future__ import annotations
 
 import io
+import logging
 import struct
 import zlib
 from dataclasses import dataclass, field
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "DELIVERIES",
@@ -194,8 +199,8 @@ def _fix_head_checksum(out: bytearray) -> None:
             out += b"\0" * (4 - len(out) % 4)
         total = sum(struct.unpack(f">{len(out) // 4}I", bytes(out))) & 0xFFFFFFFF
         struct.pack_into(">I", out, head_offset + 8, (0xB1B0AFBA - total) & 0xFFFFFFFF)
-    except Exception:  # pragma: no cover - never break extraction over a checksum
-        pass
+    except PROBE_ERRORS:  # pragma: no cover - never break extraction over a checksum
+        logger.debug("_fix_head_checksum: ignoring recoverable error", exc_info=True)
 
 
 # ── flattening ───────────────────────────────────────────────────────────────
@@ -236,7 +241,7 @@ def _flatten_woff2(data: bytes) -> bytes:
     """WOFF2 → sfnt via fontTools (needs the optional ``brotli`` dependency)."""
     try:
         from fontTools.ttLib import woff2  # type: ignore[attr-defined]
-    except Exception as exc:  # pragma: no cover - very old fontTools
+    except PROBE_ERRORS as exc:  # pragma: no cover - very old fontTools
         raise FontSourceError(f"WOFF2 needs fontTools' woff2 module: {exc}") from exc
     # fontTools exposes `haveBrotli` as a bool in current releases and as a
     # function in older ones — accept both.
@@ -248,7 +253,7 @@ def _flatten_woff2(data: bytes) -> bytes:
         out = io.BytesIO()
         woff2.decompress(io.BytesIO(bytes(data)), out)
         sfnt = out.getvalue()
-    except Exception as exc:
+    except PROBE_ERRORS as exc:
         raise FontSourceError(f"WOFF2 decompression failed: {exc}") from exc
     return sfnt
 
@@ -339,7 +344,7 @@ def _face_infos_from_fonttools(data: bytes, index: int) -> FaceInfo:
         elif "glyf" in tables:
             info.outlines = "glyf"
         tt.close()
-    except Exception as exc:
+    except PROBE_ERRORS as exc:
         info.error = f"{type(exc).__name__}: {exc}"
     return info
 

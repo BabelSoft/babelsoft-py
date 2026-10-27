@@ -11,6 +11,7 @@ from __future__ import annotations
 import struct
 from dataclasses import dataclass, field
 from enum import IntEnum
+from typing import ClassVar
 
 from babelsoft.unicode.core import Unicode
 
@@ -116,10 +117,10 @@ class UCA:
 
     # Built-in minimal DUCET-like table (extensible via data files).
     # Each entry: (ch_first, ch_last, l1, l2, l3)
-    _DEFAULT_TABLE: list[CollationEntry] = []
-    _CONTRACTIONS_BASE: list[ContractionBase] = []
-    _CONTRACTIONS: list[ContractionEntry] = []
-    _LOCALE_CONTRACTIONS: dict[Locale, tuple[list[ContractionEntry], int]] = {}
+    _DEFAULT_TABLE: ClassVar[list[CollationEntry]] = []
+    _CONTRACTIONS_BASE: ClassVar[list[ContractionBase]] = []
+    _CONTRACTIONS: ClassVar[list[ContractionEntry]] = []
+    _LOCALE_CONTRACTIONS: ClassVar[dict[Locale, tuple[list[ContractionEntry], int]]] = {}
 
     def __init__(self, sort_options: SortOptions | None = None) -> None:
         self._so = sort_options or SortOptions()
@@ -163,7 +164,6 @@ class UCA:
 
         # Step 2: Build collation elements
         chars = list(self._str_nfd)
-        n = len(chars)
 
         cps = [ord(c) for c in chars]
         blocks = [self._get_block(cp) for cp in cps]
@@ -324,10 +324,9 @@ class UCA:
                     best_els = list(entry.get_element())
             elif entry.ch[2] == 0:
                 # Two-char contraction
-                if pos + 1 < n and cps[pos + 1] == entry.ch[1]:
-                    if best_adv < 1:
-                        best_adv = 1
-                        best_els = list(entry.get_element())
+                if pos + 1 < n and cps[pos + 1] == entry.ch[1] and best_adv < 1:
+                    best_adv = 1
+                    best_els = list(entry.get_element())
             else:
                 # Three-char contraction
                 if pos + 2 < n and cps[pos + 1] == entry.ch[1] and cps[pos + 2] == entry.ch[2]:

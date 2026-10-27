@@ -63,6 +63,11 @@ class YiRadical:
         return YiRadical._data().get(cp, [])
 
     @staticmethod
+    def syllables() -> dict[int, list[tuple[int, int]]]:
+        """The whole syllable → [(radical_number, stroke_count)] table (read-only)."""
+        return YiRadical._data()
+
+    @staticmethod
     def radical_number_for_glyph(cp: int) -> int | None:
         """Return the radical number for a Yi radical glyph codepoint, or None."""
         if not (RADICAL_FIRST <= cp <= RADICAL_LAST):

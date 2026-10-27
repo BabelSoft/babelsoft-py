@@ -12,7 +12,7 @@ from typing import ClassVar
 
 from babelsoft.cjkv.lookup import Lookup
 from babelsoft.utils_.dirs import Dirs
-from babelsoft.utils_.parser import TsvParser
+from babelsoft.utils_.parser import TsvParser, parse_codepoint
 
 # ── Hangul Constants ──
 HANGUL_S_FIRST = 0xAC00
@@ -211,7 +211,7 @@ class Korean(Lookup):
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_readings.tsv"):
             if len(row) < 3 or row[1] != "kKorean":
                 continue
-            cp = int(row[0][2:], 16)
+            cp = parse_codepoint(row[0])
             for reading in row[2].split():
                 raw[cp].append(reading)
 
@@ -224,27 +224,21 @@ class Korean(Lookup):
         """Check if a codepoint is a Hangul leading consonant jamo."""
         if HANGUL_L_BASE <= cp < HANGUL_L_BASE + HANGUL_L_COUNT:
             return True
-        if 0xA960 <= cp < 0xA97D:
-            return True
-        return False
+        return 43360 <= cp < 43389
 
     @staticmethod
     def is_vowel_jamo(cp: int) -> bool:
         """Check if a codepoint is a Hangul vowel jamo."""
         if HANGUL_V_BASE <= cp < HANGUL_V_BASE + HANGUL_V_COUNT:
             return True
-        if 0xD7B0 <= cp < 0xD7C7:
-            return True
-        return False
+        return 55216 <= cp < 55239
 
     @staticmethod
     def is_trail_jamo(cp: int) -> bool:
         """Check if a codepoint is a Hangul trailing consonant jamo."""
         if HANGUL_T_BASE < cp < HANGUL_T_BASE + HANGUL_T_COUNT:
             return True
-        if 0xD7CB <= cp < 0xD7FC:
-            return True
-        return False
+        return 55243 <= cp < 55292
 
     @classmethod
     def get_hangul_syllable_type(cls, cp: int) -> HangulSyllableType:

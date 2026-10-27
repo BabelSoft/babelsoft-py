@@ -95,6 +95,11 @@ Requires:  pip install "pyyudit>=0.3.0"
 from __future__ import annotations
 
 import io
+import logging
+
+from babelmap.backend.errors import PROBE_ERRORS
+
+logger = logging.getLogger(__name__)
 
 # Engine key reported in the trace dict — the frontend draws its badge from it.
 _ENGINE = "yudit"
@@ -118,7 +123,7 @@ def _library_hint() -> str:
         import pyyudit
 
         info = pyyudit.library_info()
-    except Exception:  # pragma: no cover - pyyudit itself is broken
+    except PROBE_ERRORS:  # pragma: no cover - pyyudit itself is broken
         return _BUILD_HINT
     order = info.get("search_order")
     if not isinstance(order, (list, tuple)):
@@ -135,8 +140,8 @@ def _fallback_metrics(data: bytes, font_index: int) -> tuple[int, int]:
         tt = TTFont(io.BytesIO(data), fontNumber=int(font_index), lazy=True)
         upem = int(tt["head"].unitsPerEm)  # type: ignore[attr-defined]
         glyph_count = int(tt["maxp"].numGlyphs)  # type: ignore[attr-defined]
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_fallback_metrics: ignoring recoverable error", exc_info=True)
     return upem or 2048, glyph_count
 
 
@@ -162,9 +167,9 @@ def shape_with_yudit(
     accepted for interface parity and ignored — Yudit derives all of them from
     the text and the font.
     """
-    from babelmap.backend.opentype import _build_trace_stages
-
     import pyyudit
+
+    from babelmap.backend.opentype import _build_trace_stages
 
     if not pyyudit.is_available():
         raise pyyudit.LibraryNotFound(_library_hint())

@@ -51,8 +51,8 @@ class Sorter(ABC):
             items, key=functools.cmp_to_key(self.compare), reverse=(self._config.direction == SortDirection.DESCENDING)
         )
 
-    def sort_key(self, text: str) -> tuple:
-        """Return a sortable key for the string."""
+    def sort_key(self, text: str) -> tuple | bytes:
+        """Return a sortable key for the string (a tuple or an opaque byte key)."""
         return (text,)
 
 

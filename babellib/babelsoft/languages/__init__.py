@@ -18,47 +18,46 @@ Modules:
 """
 
 from .class_ import (
-    Language,
-    EInput,
-    ELanguage,
-    FIRST_LANGUAGE_INDEX,
     CASE_OFFSET,
-    MAX_MONGOLIAN_WORD,
     FF_16,
+    FIRST_LANGUAGE_INDEX,
+    MAX_MONGOLIAN_WORD,
     ZERO_16,
     ZERO_32,
+    EInput,
+    ELanguage,
+    Language,
 )
-
 from .default import Default
+from .input import Input, InputMethod, InputType, StatusType
 from .manchu import Manchu
 from .mongolian import Mongolian
-from .phagsPa import PhagsPa
+from .phags_pa import PhagsPa
 from .tibetan import Tibetan
 from .unicode import Unicode
 from .uyghur import Uyghur
 from .yi import Yi
-from .input import Input, InputType, StatusType, InputMethod
 
 __all__ = [
-    "Language",
-    "InputType",
-    "ELanguage",
+    "CASE_OFFSET",
+    "FF_16",
+    "FIRST_LANGUAGE_INDEX",
+    "MAX_MONGOLIAN_WORD",
+    "ZERO_16",
+    "ZERO_32",
     "Default",
+    "EInput",
+    "ELanguage",
+    "Input",
+    "InputMethod",
+    "InputType",
+    "Language",
     "Manchu",
     "Mongolian",
     "PhagsPa",
+    "StatusType",
     "Tibetan",
     "Unicode",
     "Uyghur",
     "Yi",
-    "Input",
-    "InputType",
-    "StatusType",
-    "InputMethod",
-    "FIRST_LANGUAGE_INDEX",
-    "CASE_OFFSET",
-    "MAX_MONGOLIAN_WORD",
-    "FF_16",
-    "ZERO_16",
-    "ZERO_32",
 ]

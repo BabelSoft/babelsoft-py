@@ -1,0 +1,20 @@
+{
+  // Shared analysis configuration for Pylance (VS Code) and the pyright CLI.
+  //
+  // The shared library lives in babellib/ and the apps import it as
+  // `babelsoft.*`; the repo root is on the path so `babelmap.backend.*` resolves
+  // too (this mirrors [tool.pytest.ini_options] pythonpath in pyproject.toml).
+  "include": ["babellib", "babelmap"],
+  "exclude": ["**/node_modules", "**/__pycache__", "**/dist", "**/target", "**/.venv", "**/vendor", "**/var"],
+  "extraPaths": ["babellib", "."],
+  "pythonVersion": "3.13",
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "standard",
+
+  // fontTools, freetype-py, uharfbuzz, PIL and fontTools' per-table classes ship
+  // incomplete stubs (e.g. head.unitsPerEm, OS/2.usWeightClass, FT_LOAD_TARGET_*,
+  // uharfbuzz.Buffer, TTFont.set_variations all exist at runtime but are not in
+  // the stubs). Keep them visible as warnings instead of errors.
+  "reportAttributeAccessIssue": "warning"
+}

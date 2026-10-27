@@ -6,7 +6,9 @@ Converts Latin letters to Manchu/Mongolian Unicode characters with proper
 vowel harmony and contextual form selection.
 """
 
-from .class_ import Language, EInput, FF_16, ZERO_16, MAX_MONGOLIAN_WORD
+from typing import ClassVar
+
+from .class_ import MAX_MONGOLIAN_WORD, ZERO_16, EInput, Language
 
 
 class StepType:
@@ -32,7 +34,7 @@ class Manchu(Language):
 
     # --- Static Data Tables ---
 
-    TABLE_PUNCTUATION = [
+    TABLE_PUNCTUATION: ClassVar[list[int]] = [
         0x7C,  # | Vertical Line
         0x2C,  # , Comma
         0x2E,  # . Full Stop
@@ -42,7 +44,7 @@ class Manchu(Language):
         0x25,  # % Percent
     ]
 
-    TABLE_PUNCTUATION_MAP = [
+    TABLE_PUNCTUATION_MAP: ClassVar[list[int]] = [
         0x1801,  # Manchu Ellipsis
         0x1808,  # Manchu Comma
         0x1809,  # Manchu Full Stop
@@ -52,7 +54,7 @@ class Manchu(Language):
         0x1886,  # triple baluda
     ]
 
-    TABLE_VOWELS = [
+    TABLE_VOWELS: ClassVar[list[list[int]]] = [
         [0x61, 0xFF],  # a
         [0x65, 0xFF],  # e
         [0x69, 0xFF],  # i
@@ -63,7 +65,7 @@ class Manchu(Language):
         [0x49, 0xFF],  # I (long i)
     ]
 
-    TABLE_VOWELS_MAP = [
+    TABLE_VOWELS_MAP: ClassVar[list[int]] = [
         0x1820,  # a
         0x185D,  # e
         0x1873,  # i
@@ -74,7 +76,7 @@ class Manchu(Language):
         0x1888,  # I (long i)
     ]
 
-    TABLE_CONSONANTS = [
+    TABLE_CONSONANTS: ClassVar[list[list[int]]] = [
         [0x6E, 0xFF],  # n
         [0x6E, 0x67],  # ng
         [0x6B, 0xFF],  # k
@@ -103,7 +105,7 @@ class Manchu(Language):
         [0x63, 0x68],  # ch (c)
     ]
 
-    TABLE_CONSONANTS_MAP = [
+    TABLE_CONSONANTS_MAP: ClassVar[list[int]] = [
         0x1828,  # n
         0x1829,  # ng
         0x1874,  # k
@@ -133,8 +135,8 @@ class Manchu(Language):
     ]
 
     # Transcription letters (digraphs map to single input)
-    TABLE_TRANSCRIPTION_LETTERS = []  # Simplified - would contain digraph mappings
-    TABLE_TRANSCRIPTION_MAP = []  # Simplified
+    TABLE_TRANSCRIPTION_LETTERS: ClassVar[list[str]] = []  # Simplified - would contain digraph mappings
+    TABLE_TRANSCRIPTION_MAP: ClassVar[list[int]] = []  # Simplified
 
     def __init__(self):
         super().__init__(block_start=0x1800, block_end=0x18B0)
@@ -251,16 +253,15 @@ class Manchu(Language):
                 return EInput.INVALID
 
             # Handle special "i" after s/ts -> sy/tsy
-            if ch == 0x79:  # 'y'
-                if prev in (0x1830, 0x186E):  # SA or TSA
-                    self._word[self._word_pos] = 0x185F
-                    self._is_consonant = False
-                    self._is_vowel = True
-                    self._hanging_consonant = False
-                    self._hanging_vowel = True
-                    self._vowel_type = VowelType.NEUTRAL
-                    self._word_pos += 1
-                    return EInput.IN_PROGRESS
+            if ch == 0x79 and prev in (0x1830, 0x186E):  # 'y' after SA or TSA
+                self._word[self._word_pos] = 0x185F
+                self._is_consonant = False
+                self._is_vowel = True
+                self._hanging_consonant = False
+                self._hanging_vowel = True
+                self._vowel_type = VowelType.NEUTRAL
+                self._word_pos += 1
+                return EInput.IN_PROGRESS
 
             # Check for punctuation at word end
             final_letters = {
@@ -311,7 +312,7 @@ class Manchu(Language):
         return EInput.FINISHED
 
     def do_conversion(
-        self, menu_id: int, text_in: str, start: int = 0, end: int = None, skip_ascii: bool = False
+        self, menu_id: int, text_in: str, start: int = 0, end: int | None = None, skip_ascii: bool = False
     ) -> tuple:
         """
         Convert Latin transcription to Manchu script.

@@ -7,12 +7,10 @@ variation sequences, emoji variation sequences, and named sequences.
 import sys
 from pathlib import Path
 
-import pytest
-
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.unicode.extras import (  # noqa: E402
+from babelsoft.unicode.extras import (
     binary_properties,
     emoji_variation_sequences,
     has_binary_property,

@@ -19,15 +19,19 @@ from __future__ import annotations
 
 import bisect
 import functools
+import logging
 
 from babelsoft.unicode.core import Unicode
 
+from babelmap.backend.errors import PROBE_ERRORS
 from babelmap.backend.version import (
     all_versions,
     name_for_version,
     props_for_version,
     raw_codepoints_for,
 )
+
+logger = logging.getLogger(__name__)
 
 # Modern Hangul syllables (Unicode 2.0+).  In Unicode 1.0/1.1 they were at
 # U+3400..U+3D2D (1.0.0) / U+3400..U+4DFF (1.1.5) — see HANGUL_1_0_LAST.
@@ -72,20 +76,20 @@ def _current_props(cp: int) -> dict:
     out: dict = {k: "" for k in _FIELDS}
     try:
         out["gc"] = Unicode.get_general_category(cp).name
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_current_props: ignoring recoverable error", exc_info=True)
     try:
         out["ccc"] = str(Unicode.get_canonical_combining_class(cp))
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_current_props: ignoring recoverable error", exc_info=True)
     try:
         out["bidi"] = Unicode.get_bidi_class(cp).name
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_current_props: ignoring recoverable error", exc_info=True)
     try:
         out["mirrored"] = "Y" if Unicode.get_bidi_mirrored(cp) else "N"
-    except Exception:
-        pass
+    except PROBE_ERRORS:
+        logger.debug("_current_props: ignoring recoverable error", exc_info=True)
     # Hangul syllables decompose algorithmically into jamo — available in every
     # version even though UnicodeData range-encodes them (no per-cp entry).
     out["decomp"] = Unicode._hangul_decomposition(cp)

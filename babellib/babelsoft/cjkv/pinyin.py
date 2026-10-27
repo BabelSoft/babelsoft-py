@@ -10,7 +10,7 @@ from typing import ClassVar
 
 from babelsoft.cjkv.lookup import Lookup
 from babelsoft.utils_.dirs import Dirs
-from babelsoft.utils_.parser import TsvParser
+from babelsoft.utils_.parser import TsvParser, parse_codepoint
 
 
 class Pinyin(Lookup):
@@ -36,7 +36,7 @@ class Pinyin(Lookup):
         for row in TsvParser.get_tsv(Dirs.BABELSOFT / "cjk_readings.tsv"):
             if len(row) < 3 or row[1] != "kMandarin":
                 continue
-            cp = int(row[0][2:], 16)
+            cp = parse_codepoint(row[0])
             for item in row[2].split():
                 reading = item.rstrip("0123456789")
                 tone = int(item[len(reading) :])

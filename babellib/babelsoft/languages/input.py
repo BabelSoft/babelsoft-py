@@ -151,7 +151,6 @@ class Input:
         """Load all text input methods from configured directories."""
         # In the full implementation, this would scan directories
         # for .tim files and load them
-        pass
 
     def reload_methods(self) -> None:
         """Reload all text input methods."""
@@ -253,17 +252,44 @@ class Input:
         return InputType.UNMAPPED
 
     def _process_deadkey(self, code: int) -> InputType:
-        """Process input when a deadkey is pending."""
-        # Simplified deadkey processing
-        self._deadkey_pending = False
-        ch = chr(code) if code < 0x110000 else ""
+        """Resolve a pending deadkey with the next input character.
 
-        if self._current_method >= 0:
-            table = self._tables[self._current_method]
-            dk_key = tuple(self._deadkey_buffer + [code])
-            # In full implementation, would look up deadkey combinations
+        ``InputTable.deadkeys`` maps a key sequence — the deadkey plus every
+        character typed after it — to the text that sequence produces, so the
+        longest match wins: a sequence that is only a prefix of a longer one
+        keeps the deadkey pending (:attr:`InputType.DEADKEY_PENDING`), a
+        complete one yields :attr:`InputType.RESULT` (or a candidate list,
+        :attr:`InputType.PENDING`), and anything else aborts the sequence.
+        """
+        if self._current_method < 0 or self._current_method >= len(self._tables):
+            self.clear_deadkey()
+            return InputType.UNMAPPED
 
-        return InputType.UNMAPPED
+        table = self._tables[self._current_method]
+        deadkeys = table.deadkeys or {}
+        if len(self._deadkey_buffer) >= self.MAX_DEADKEYS:
+            self.clear_deadkey()
+            return InputType.DEADKEY_INVALID
+
+        self._deadkey_buffer.append(code)
+        sequence = tuple(self._deadkey_buffer)
+
+        result_str = deadkeys.get(sequence)
+        if result_str is None:
+            if any(key[: len(sequence)] == sequence for key in deadkeys):
+                self._deadkey_pending = True
+                return InputType.DEADKEY_PENDING
+            self.clear_deadkey()
+            return InputType.DEADKEY_INVALID
+
+        self.clear_deadkey()
+        if len(result_str) == 1:
+            return InputType.RESULT
+
+        self._candidate_list = [ord(c) for c in result_str]
+        self._candidate_count = len(self._candidate_list)
+        self._candidate_offset = 0
+        return InputType.PENDING
 
     def clear_deadkey(self) -> None:
         """Clear pending deadkey state."""

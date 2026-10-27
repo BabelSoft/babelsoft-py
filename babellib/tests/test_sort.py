@@ -8,7 +8,7 @@ import pytest
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
-from babelsoft.sort import (  # noqa: E402
+from babelsoft.sort import (
     SortConfig,
     SortDirection,
     SorterCustom,
@@ -232,7 +232,7 @@ class TestCreateSorter:
 
 class TestSorterWithRange:
     def test_sort_range(self):
-        from babelsoft.sort.sorters import SorterWithRange, SortConfig
+        from babelsoft.sort.sorters import SorterWithRange
 
         class AscendingSorter(SorterWithRange):
             def compare(self, a, b):
@@ -248,7 +248,7 @@ class TestSorterWithRange:
         assert result == ["d", "b", "c", "a"]
 
     def test_get_next_equal_range(self):
-        from babelsoft.sort.sorters import SorterWithRange, SortConfig
+        from babelsoft.sort.sorters import SorterWithRange
 
         class AscendingSorter(SorterWithRange):
             def compare(self, a, b):

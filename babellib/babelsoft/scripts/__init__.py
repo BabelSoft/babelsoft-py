@@ -5,19 +5,19 @@ Provides script-specific character data and lookup functions
 ported from the BabelPad C++ codebase.
 """
 
-from .nushu import Nushu
-from .khitan import Khitan
 from .hieroglyphs import Hieroglyphs
-from .tangut import LiFanwen, Kychanov, Sofronov, Nishida, Miyake, Tangut
+from .khitan import Khitan
+from .nushu import Nushu
+from .tangut import Kychanov, LiFanwen, Miyake, Nishida, Sofronov, Tangut
 
 __all__ = [
-    "Nushu",
-    "Khitan",
     "Hieroglyphs",
-    "Tangut",
-    "LiFanwen",
+    "Khitan",
     "Kychanov",
-    "Sofronov",
-    "Nishida",
+    "LiFanwen",
     "Miyake",
+    "Nishida",
+    "Nushu",
+    "Sofronov",
+    "Tangut",
 ]

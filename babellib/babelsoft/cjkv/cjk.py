@@ -54,7 +54,7 @@ class Radical:
         return f"Radical({self.rad}, {self.var})"
 
     def to_unihan(self) -> str:
-        return f"{self.rad}{'\'' * self.var}"
+        return f"{self.rad}" + "'" * self.var
 
     def to_irg_radical(self) -> str:
         return f"{self.rad}.{self.var}"
@@ -79,7 +79,7 @@ class RS:
         return self.radical.var
 
     def to_unihan(self) -> str:
-        return f"{self.radical.rad}{'\'' * self.radical.var}.{self.residual_stroke}"
+        return f"{self.radical.rad}" + "'" * self.radical.var + f".{self.residual_stroke}"
 
     def no_variant(self) -> RS:
         return RS(Radical(self.radical.rad), self.residual_stroke)
@@ -327,7 +327,7 @@ class CJK(CodePoint):
         return isinstance(other, (CJK, CodePoint, int)) and int(self) == int(other)
 
     @classmethod
-    def from_codepoint(cls, codepoint: CodePoint | None) -> CJK | None:
+    def from_codepoint(cls, codepoint: int | None) -> CJK | None:
         return cls(codepoint) if codepoint else None
 
     def _in_blocks(self, keyword: str) -> bool:
@@ -344,7 +344,11 @@ class CJK(CodePoint):
         from babelsoft.utils_.dirs import Dirs
 
         lines = filter(line_has_content, TxtParser.get_txt(Dirs.BABELSTONE / "IDS.TXT"))
-        return next((IDSInfo.from_line(line) for line in lines if IDSInfo.from_line(line).cjk == self), None)
+        for line in lines:
+            info = IDSInfo.from_line(line)
+            if info is not None and info.cjk == self:
+                return info
+        return None
 
     def radical_strokes(self) -> list[RS]:
         sources = CJKLoader.load_unihan_IRGSources().get(self, {})
