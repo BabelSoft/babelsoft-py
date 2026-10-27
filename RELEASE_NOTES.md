@@ -10,7 +10,7 @@ and run it.  The installer is self-contained:
 
 - the Python backend is frozen into a 35 MB sidecar executable
   (`babelmap-backend.exe`) — **no Python installation is required**;
-- the whole Unicode data tree (Unicode 1.0 → 17.0.0; 852 MB on disk, 1968 files)
+- the whole Unicode data tree (Unicode 1.0 → 17.0.0; 853 MB on disk, 1971 files)
   is bundled as an application resource, so every feature works offline,
   including character history and version diffs;
 - requires Windows 10/11 with the WebView2 runtime (preinstalled on Windows 11;
