@@ -2,6 +2,8 @@
 name = "babelsoft-py"
 version = "1.0.0"
 description = "Python port of the BabelSoft CJK/Unicode data processing tools"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 # Single source of truth for Python libraries (previously split across
 # requirements.txt + babelmap/backend/requirements.txt).

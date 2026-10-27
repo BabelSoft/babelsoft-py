@@ -1,6 +1,6 @@
-# BabelMap 1.0.0
+# BabelMap 1.0.0-beta.1
 
-First packaged release of the BabelMap rebuild: a Tauri 2 + Svelte 5 desktop
+First packaged **beta** of the BabelMap rebuild: a Tauri 2 + Svelte 5 desktop
 front end over the Python `babelsoft` library.
 
 ## Install
@@ -19,6 +19,13 @@ and run it.  The installer is self-contained:
 The shell starts the backend on `127.0.0.1:18080`, waits for it to accept
 connections, and shuts it down when the window closes.  Backend output goes to
 `%LOCALAPPDATA%\com.babelstone.babelmap\logs\backend.log`.
+
+## Beta notes
+
+This is a beta.  The NSIS installer is produced locally by `babelmap\build.bat`
+(CI only runs svelte-check, pytest and `cargo check`, so the bundle itself is not
+covered by CI), BabelPad is not included, and the `.tim` input-method tables are
+still missing (see the limitations below).  Please report anything that breaks.
 
 ## What is in it
 

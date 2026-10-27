@@ -100,3 +100,12 @@ two Windows shaping APIs through a pair of purpose-built packages, each in a
 Graphite, ICU, FreeType and the two Wine engines run on every platform. See
 `babelmap/README.md` → _Platform support — OpenType shaping engines_ for the
 full table.
+
+## License
+
+MIT — see [LICENSE](./LICENSE).  The port derives from the BabelMap/BabelPad C++
+source by Andrew West (BabelStone).  The bundled Unicode data, BabelStone data,
+Python packages and the frozen sidecar carry their own terms, listed in
+[THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md).  Note that the frozen
+`babelmap-backend.exe` also embeds GPL-2.0-or-later code (`pyyudit`), so that
+binary alone is distributed under GPL-2.0-or-later.
