@@ -39,10 +39,12 @@ connections, and shuts it down when the window closes.  Backend output goes to
 ## Known limitations
 
 - **BabelPad is not part of this release** — `babelpad/` is still a skeleton.
-- Library capabilities that are not exposed in the UI are simplified ports: the
-  UCA sorter only carries a Latin-1 table, `.tim` input-method loading is a stub
-  (the deadkey engine behind it is implemented but nothing feeds it tables), and
-  the Tibetan/Yi/Manchu/Mongolian transcription tables are partial.
+- Library capabilities that are not exposed in the UI remain simplified ports:
+  `.tim` input-method loading is a stub (the deadkey engine behind it is
+  implemented but nothing feeds it tables). The UCA sorter now reads the bundled
+  DUCET/CLDR collation tables from `babellib/data/scripts/`, and the Tibetan, Yi,
+  Manchu, and Mongolian transcription tables have been ported; none of this
+  makes the `.tim` input method available.
 - `pyright` reports 56 warnings: all of them are missing attributes in the
   upstream type stubs of fontTools / freetype-py / uharfbuzz / Pillow, not code
   defects (see `pyrightconfig.json`).

@@ -7,6 +7,8 @@ Provides Latin->Yi, Yi->Latin, Yi->IPA conversion, radical/stroke lookup.
 
 from typing import ClassVar
 
+from babelsoft.utils_.loader import ScriptsLoader
+
 from .class_ import EInput, Language
 
 # Block constants
@@ -21,6 +23,9 @@ TONE_1 = 1  # High Level = t
 TONE_2 = 2  # Secondary High = x
 TONE_3 = 3  # Mid Level = (null)
 TONE_4 = 4  # Low Falling = p
+
+# Syllable/index/radical tables (data/scripts/yi.tsv).
+_YI_DATA = ScriptsLoader.load_yi()
 
 
 # Step enum
@@ -52,275 +57,160 @@ class Yi(Language):
     - Syllable lookup by radical + stroke count
     """
 
-    # --- Latin Initials Table (43 entries) ---
+    # --- Latin Initials Table (45 entries; copied from LanguageYi.cpp) ---
     # [first_letter, second_letter]
     TABLE_YI_LATIN_INITIALS: ClassVar[list[list[int]]] = [
-        [ord("b"), 0x00],
-        [ord("p"), 0x00],
-        [ord("b"), ord("b")],
-        [ord("n"), ord("b")],
-        [ord("h"), ord("m")],
-        [ord("m"), 0x00],
-        [ord("f"), 0x00],
-        [ord("v"), 0x00],
-        [ord("d"), 0x00],
-        [ord("t"), 0x00],
-        [ord("n"), ord("d")],
-        [ord("h"), ord("n")],
-        [ord("n"), 0x00],
-        [ord("h"), ord("l")],
-        [ord("l"), 0x00],
-        [ord("g"), 0x00],
-        [ord("k"), 0x00],
-        [ord("m"), ord("g")],
-        [ord("n"), ord("g")],
-        [ord("h"), 0x00],
-        [ord("w"), 0x00],
-        [ord("z"), 0x00],
-        [ord("c"), 0x00],
-        [ord("n"), ord("z")],
-        [ord("s"), 0x00],
-        [ord("s"), ord("s")],
-        [ord("z"), ord("h")],
-        [ord("c"), ord("h")],
-        [ord("n"), ord("r")],
-        [ord("r"), 0x00],
-        [ord("j"), 0x00],
-        [ord("q"), 0x00],
-        [ord("n"), ord("j")],
-        [ord("n"), ord("y")],
-        [ord("x"), 0x00],
-        [ord("y"), 0x00],
-        [ord("n"), ord("y")],
-        [ord("x"), 0x00],
-        [ord("y"), 0x00],
-        [ord("s"), ord("h")],
-        [ord("r"), 0x00],
-        [ord("n"), ord("b")],
-        [ord("n"), ord("p")],
+        [0x00, 0x00],
+        [0x77, 0x20],
+        [0x62, 0x00],
+        [0x70, 0x00],
+        [0x62, 0x62],
+        [0x6e, 0x62],
+        [0x68, 0x6d],
+        [0x6d, 0x00],
+        [0x66, 0x00],
+        [0x76, 0x00],
+        [0x64, 0x00],
+        [0x74, 0x00],
+        [0x64, 0x64],
+        [0x6e, 0x64],
+        [0x68, 0x6e],
+        [0x6e, 0x00],
+        [0x68, 0x6c],
+        [0x6c, 0x00],
+        [0x67, 0x00],
+        [0x6b, 0x00],
+        [0x67, 0x67],
+        [0x6d, 0x67],
+        [0x68, 0x78],
+        [0x6e, 0x67],
+        [0x68, 0x00],
+        [0x77, 0x00],
+        [0x7a, 0x00],
+        [0x63, 0x00],
+        [0x7a, 0x7a],
+        [0x6e, 0x7a],
+        [0x73, 0x00],
+        [0x73, 0x73],
+        [0x7a, 0x68],
+        [0x63, 0x68],
+        [0x72, 0x72],
+        [0x6e, 0x72],
+        [0x73, 0x68],
+        [0x72, 0x00],
+        [0x6a, 0x00],
+        [0x71, 0x00],
+        [0x6a, 0x6a],
+        [0x6e, 0x6a],
+        [0x6e, 0x79],
+        [0x78, 0x00],
+        [0x79, 0x00],
     ]
 
-    # --- Latin Medials Table (10 entries) ---
+    # --- Latin Medials Table (11 entries) ---
     # [first_vowel, second_vowel]
     TABLE_YI_LATIN_MEDIALS: ClassVar[list[list[int]]] = [
-        [ord("i"), 0x00],
-        [ord("i"), ord("e")],
-        [ord("a"), 0x00],
-        [ord("u"), ord("o")],
-        [ord("o"), 0x00],
-        [ord("e"), 0x00],
-        [ord("u"), 0x00],
-        [ord("u"), ord("r")],
-        [ord("y"), 0x00],
-        [ord("y"), ord("r")],
+        [0x00, 0x00],
+        [0x69, 0x00],
+        [0x69, 0x65],
+        [0x61, 0x00],
+        [0x75, 0x6f],
+        [0x6f, 0x00],
+        [0x65, 0x00],
+        [0x75, 0x00],
+        [0x75, 0x72],
+        [0x79, 0x00],
+        [0x79, 0x72],
     ]
 
     # --- Latin Finals Table (5 entries) ---
-    TABLE_YI_LATIN_FINALS: ClassVar[list[int]] = [
-        ord("t"),
-        ord("x"),
-        0x00,
-        ord("p"),
-        ord("w"),
-    ]
+    TABLE_YI_LATIN_FINALS: ClassVar[list[int]] = [0x00, 0x74, 0x78, 0x20, 0x70]
 
-    # --- Yi Syllable Index (for mapping initials to syllable ranges) ---
-    TABLE_YI_INDEX: ClassVar[list[int]] = [
-        SYLLABLE_FIRST,
-        SYLLABLE_FIRST + 48,
-        SYLLABLE_FIRST + 82,
-        SYLLABLE_FIRST + 122,
-        SYLLABLE_FIRST + 154,
-        SYLLABLE_FIRST + 194,
-        SYLLABLE_FIRST + 230,
-        SYLLABLE_FIRST + 266,
-        SYLLABLE_FIRST + 306,
-        SYLLABLE_FIRST + 338,
-        SYLLABLE_FIRST + 378,
-        SYLLABLE_FIRST + 410,
-        SYLLABLE_FIRST + 450,
-        SYLLABLE_FIRST + 482,
-        SYLLABLE_FIRST + 522,
-        SYLLABLE_FIRST + 554,
-        SYLLABLE_FIRST + 594,
-        SYLLABLE_FIRST + 626,
-        SYLLABLE_FIRST + 666,
-        SYLLABLE_FIRST + 698,
-        SYLLABLE_FIRST + 738,
-        SYLLABLE_FIRST + 770,
-        SYLLABLE_FIRST + 810,
-        SYLLABLE_FIRST + 842,
-        SYLLABLE_FIRST + 882,
-        SYLLABLE_FIRST + 914,
-        SYLLABLE_FIRST + 954,
-        SYLLABLE_FIRST + 986,
-        SYLLABLE_FIRST + 1026,
-        SYLLABLE_FIRST + 1058,
-        SYLLABLE_FIRST + 1098,
-        SYLLABLE_FIRST + 1130,
-        SYLLABLE_FIRST + 1165,
-    ]
+    # --- Yi Syllable Index (46 boundaries; data/scripts/yi.tsv) ---
+    TABLE_YI_INDEX: ClassVar[list[int]] = list(_YI_DATA["index"])
 
-    # --- Yi Syllables Table (1165 entries) ---
-    # Each: [initial_index, medial_index, final_index]
-    # Simplified: key patterns (full table would be 1165 entries)
-    TABLE_YI_SYLLABLES: ClassVar[list[list[int]]] = [
-        [0, 0, 2],
-        [0, 0, 3],
-        [0, 1, 2],
-        [0, 1, 3],
-        [0, 2, 2],
-        [0, 2, 3],
-        [0, 3, 2],
-        [0, 3, 3],
-        [0, 4, 2],
-        [0, 4, 3],
-        [0, 5, 2],
-        [0, 5, 3],
-        [0, 6, 2],
-        [0, 6, 3],
-        [0, 7, 2],
-        [0, 7, 3],
-        [0, 8, 2],
-        [0, 8, 3],
-        # ... truncated for brevity - full table would be 1165 entries
-        # The actual table maps each Yi syllable to [initial, medial, final] indices
-    ]
+    # --- Yi Syllables Table (1165 entries; data/scripts/yi.tsv) ---
+    # Each row: [initial_index, medial_index, final_index]
+    TABLE_YI_SYLLABLES: ClassVar[list[list[int]]] = [list(row) for row in _YI_DATA["syllables"]]
 
     # --- Punctuation Table ---
     TABLE_YI_PUNCTUATION: ClassVar[list[int]] = [ord(","), ord("."), ord("!"), ord("?")]
     TABLE_YI_PUNCTUATION_MAP: ClassVar[list[int]] = [0xA1AA, 0xA1AB, 0xA1AC, 0xA1AD]
 
-    # --- Radical Names ---
-    RADICAL_NAMES: ClassVar[list[str]] = [
-        "BBA",
-        "BBO",
-        "BBU",
-        "BBUR",
-        "BBY",
-        "BI",
-        "BIE",
-        "BIT",
-        "BIP",
-        "BO",
-        "BU",
-        "BUR",
-        "BY",
-        "CE",
-        "CHE",
-        "CHU",
-        "CHUR",
-        "CHY",
-        "CI",
-        "CIE",
-        "CIT",
-        "CO",
-        "CU",
-        "CUR",
-        "CY",
-        "DA",
-        "DDA",
-        "DDIE",
-        "DDIT",
-        "DDOP",
-        "DDUR",
-        "DDY",
-        "DE",
-        "DI",
-        "DIE",
-        "DIP",
-        "DO",
-        "DU",
-        "DUR",
-        "DY",
-        "FA",
-        "FUR",
-        "GA",
-        "GGA",
-        "GGAT",
-        "GGE",
-        "GGEX",
-        "GGU",
-        "GGUR",
-        "GGY",
-        "GU",
-        "GUR",
-        "HA",
-        "HE",
-        "HU",
-        "JY",
-        "KE",
-    ]
+    # --- Radical Names (55 names; data/scripts/yi.tsv) ---
+    RADICAL_NAMES: ClassVar[list[str]] = list(_YI_DATA["radicals"])
 
     # --- IPA Tables ---
     TABLE_YI_IPA_INITIALS: ClassVar[list[list[int]]] = [
-        [ord("p"), 0, 0],
-        [ord("p"), ord("ʰ"), 0],
-        [ord("b"), 0, 0],
-        [ord("m"), ord("b"), 0],
-        [ord("m"), 0, 0],
-        [ord("m"), 0, 0],
-        [ord("f"), 0, 0],
-        [ord("v"), 0, 0],
-        [ord("t"), 0, 0],
-        [ord("t"), ord("ʰ"), 0],
-        [ord("n"), ord("d"), 0],
-        [ord("n"), 0, 0],
-        [ord("n"), 0, 0],
-        [ord("ɬ"), 0, 0],
-        [ord("l"), 0, 0],
-        [ord("k"), 0, 0],
-        [ord("k"), ord("ʰ"), 0],
-        [ord("ŋ"), ord("ɡ"), 0],
-        [ord("ŋ"), 0, 0],
-        [ord("x"), 0, 0],
-        [ord("ɣ"), 0, 0],
-        [ord("t"), ord("s"), 0],
-        [ord("t"), ord("s"), ord("ʰ")],
-        [ord("n"), ord("d"), ord("z")],
-        [ord("s"), 0, 0],
-        [ord("z"), 0, 0],
-        [ord("t"), ord("ʂ"), 0],
-        [ord("t"), ord("ʂ"), ord("ʰ")],
-        [ord("n"), ord("ɖ"), ord("ʐ")],
-        [ord("ʂ"), 0, 0],
-        [ord("ʐ"), 0, 0],
-        [ord("t"), ord("ɕ"), 0],
-        [ord("t"), ord("ɕ"), ord("ʰ")],
-        [ord("n"), ord("d"), ord("ʑ")],
-        [ord("ɲ"), 0, 0],
-        [ord("ɕ"), 0, 0],
-        [ord("ʑ"), 0, 0],
-        [0, 0, 0],
-        [0, 0, 0],
-        [0, 0, 0],
-        [ord("ʂ"), 0, 0],
-        [ord("ʐ"), 0, 0],
-        [ord("m"), ord("b"), 0],
-        [ord("m"), ord("p"), ord("ʰ")],
+        [0x0000, 0x0000, 0x0000],
+        [0x0000, 0x0000, 0x0000],
+        [0x0070, 0x0000, 0x0000],
+        [0x0070, 0x0068, 0x0000],
+        [0x0062, 0x0000, 0x0000],
+        [0x006d, 0x0062, 0x0000],
+        [0x006d, 0x0325, 0x0000],
+        [0x006d, 0x0000, 0x0000],
+        [0x0066, 0x0000, 0x0000],
+        [0x0076, 0x0000, 0x0000],
+        [0x0074, 0x0000, 0x0000],
+        [0x0074, 0x0068, 0x0000],
+        [0x0064, 0x0000, 0x0000],
+        [0x006e, 0x0064, 0x0000],
+        [0x006e, 0x0325, 0x0000],
+        [0x006e, 0x0000, 0x0000],
+        [0x026c, 0x0000, 0x0000],
+        [0x006c, 0x0000, 0x0000],
+        [0x006b, 0x0000, 0x0000],
+        [0x006b, 0x0068, 0x0000],
+        [0x0067, 0x0000, 0x0000],
+        [0x014b, 0x0067, 0x0000],
+        [0x0068, 0x0000, 0x0000],
+        [0x014b, 0x0000, 0x0000],
+        [0x0078, 0x0000, 0x0000],
+        [0x0263, 0x0000, 0x0000],
+        [0x0074, 0x0073, 0x0000],
+        [0x0074, 0x0073, 0x0068],
+        [0x0064, 0x007a, 0x0000],
+        [0x006e, 0x0064, 0x007a],
+        [0x0073, 0x0000, 0x0000],
+        [0x007a, 0x0000, 0x0000],
+        [0x0074, 0x0282, 0x0000],
+        [0x0074, 0x0282, 0x0068],
+        [0x0064, 0x0290, 0x0000],
+        [0x006e, 0x0064, 0x0290],
+        [0x0282, 0x0000, 0x0000],
+        [0x0290, 0x0000, 0x0000],
+        [0x0074, 0x0255, 0x0000],
+        [0x0074, 0x0255, 0x0068],
+        [0x0064, 0x0291, 0x0000],
+        [0x006e, 0x0064, 0x0291],
+        [0x0235, 0x0000, 0x0000],
+        [0x0255, 0x0000, 0x0000],
+        [0x0291, 0x0000, 0x0000],
     ]
 
     TABLE_YI_IPA_MEDIALS: ClassVar[list[list[int]]] = [
-        [ord("i"), 0],
-        [ord("e"), 0],
-        [ord("a"), 0],
-        [ord("ɔ"), 0],
-        [ord("o"), 0],
-        [ord("ɯ"), 0],
-        [ord("u"), 0],
-        [ord("u"), 0],
-        [ord("z"), 0],
-        [ord("z"), ord("ʷ")],
+        [0x0000, 0x0000],
+        [0x0069, 0x0000],
+        [0x025b, 0x0000],
+        [0x0061, 0x0000],
+        [0x0254, 0x0000],
+        [0x006f, 0x0000],
+        [0x026f, 0x0000],
+        [0x0075, 0x0000],
+        [0x0075, 0x0331],
+        [0x027f, 0x0000],
+        [0x027f, 0x0331],
     ]
 
     # IPA tone marks (stored as tuples of individual character ordinals)
     # [tone1, tone2] where tone2 may be 0
     TABLE_YI_IPA_FINALS: ClassVar[list[list[int]]] = [
-        [ord("\u02e5"), 0],  # ˥ (extra-high)
-        [ord("\u02e7"), ord("\u02e6")],  # ˧˦ (mid-high)
-        [ord("\u02e7"), 0],  # ˧ (mid)
-        [ord("\u02e8"), ord("\u02e9")],  # ˨˩ (mid-low -> low)
-        [0, 0],
+        [0x0000, 0x0000],
+        [0x2075, 0x2075],
+        [0x00b3, 0x2074],
+        [0x00b3, 0x00b3],
+        [0x00b2, 0x00b9],
     ]
 
     def __init__(self):
@@ -330,6 +220,7 @@ class Yi(Language):
         self._finals_index = 0
         self._syllables_index = 0
         self._hanging_vowel = False
+        self._completed_syllables_index = None
         self.on_clear(reset=True)
 
     # --- Public API ---
@@ -342,6 +233,7 @@ class Yi(Language):
         self._finals_index = 0
         self._syllables_index = 0
         self._hanging_vowel = False
+        self._completed_syllables_index = None
 
     def on_input(self, code: int) -> EInput:
         """Process character input for Yi Latin transcription."""
@@ -408,7 +300,7 @@ class Yi(Language):
                 # Initials
                 init = Yi.TABLE_YI_LATIN_INITIALS[ni]
                 if init[0]:
-                    name += chr(init[0]).upper()
+                    name += chr(init[0])
                 if init[1] and init[1] != 0x20:
                     name += chr(init[1])
 
@@ -574,6 +466,7 @@ class Yi(Language):
             if self._is_initial(ch, True):
                 if self._initials_index == 1:
                     self.on_clear()
+                    self._completed_syllables_index = self.TABLE_YI_INDEX[1] - SYLLABLE_FIRST
                     return EInput.CHARACTER_CLEAR
                 self._step = StepType.MEDIAL1
                 return EInput.IN_PROGRESS
@@ -605,13 +498,17 @@ class Yi(Language):
                 self._step = StepType.FINAL
                 return EInput.IN_PROGRESS
             if self._is_final(ch):
+                completed_index = self._syllables_index
                 self.on_clear()
+                self._completed_syllables_index = completed_index
                 return EInput.CHARACTER_CLEAR
             return EInput.INVALID
 
         elif step == StepType.FINAL:
             if self._is_final(ch):
+                completed_index = self._syllables_index
                 self.on_clear()
+                self._completed_syllables_index = completed_index
                 return EInput.CHARACTER_CLEAR
             return EInput.INVALID
 
@@ -798,12 +695,16 @@ class Yi(Language):
                 continue
             elif e_input == EInput.CHARACTER_CLEAR or e_input == EInput.CHARACTER:
                 # Get the Yi syllable code point
-                yi_code = SYLLABLE_FIRST + self._syllables_index
+                syllable_index = self._completed_syllables_index
+                if syllable_index is None:
+                    syllable_index = self._syllables_index
+                yi_code = SYLLABLE_FIRST + syllable_index
                 if SYLLABLE_FIRST <= yi_code <= SYLLABLE_LAST:
                     result += chr(yi_code)
                     count += 1
                 else:
                     result += ch
+                self._completed_syllables_index = None
             elif e_input == EInput.IGNORE:
                 result += ch
             elif e_input in (EInput.BACKSPACE, EInput.BACKSPACE_REDO):

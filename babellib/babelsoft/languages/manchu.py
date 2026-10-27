@@ -134,9 +134,15 @@ class Manchu(Language):
         0x1877,  # ch (zhi)
     ]
 
-    # Transcription letters (digraphs map to single input)
-    TABLE_TRANSCRIPTION_LETTERS: ClassVar[list[str]] = []  # Simplified - would contain digraph mappings
-    TABLE_TRANSCRIPTION_MAP: ClassVar[list[int]] = []  # Simplified
+    TABLE_TRANSCRIPTION_LETTERS: ClassVar[list[str]] = [
+        "\u0160", "\u0161", "\u010C", "\u010D", "z", "\u0158", "\u0159",
+        "'", "\u016A", "\u016B", "\u2010", "\u2011", "'", '"', "^", "\u030C",
+    ]
+    TABLE_TRANSCRIPTION_MAP: ClassVar[list[tuple[int, int]]] = [
+        (0x78, 0), (0x78, 0), (0x74, 0x73), (0x74, 0x73), (0x64, 0x7A),
+        (0x7A, 0x72), (0x7A, 0x72), (0x68, 0), (0x75, 0x75), (0x75, 0x75),
+        (0x2D, 0), (0x2D, 0), (0, 0), (0, 0), (0, 0), (0, 0),
+    ]
 
     def __init__(self):
         super().__init__(block_start=0x1800, block_end=0x18B0)
@@ -326,22 +332,15 @@ class Manchu(Language):
         self.on_clear(reset=True)
         result = ""
 
-        for i in range(start, end):
-            ch = text_in[i]
-            code = ord(ch)
-
-            # Convert uppercase to lowercase
-            if "A" <= ch <= "Z":
-                code += 0x20
-
-            e_result = self.on_char(chr(code))
+        for ch in self._expand_transcription(text_in[start:end]):
+            e_result = self.on_char(ch)
 
             if e_result == EInput.IN_PROGRESS:
                 continue
             elif e_result == EInput.INVALID:
                 result += self.get_output_string()
                 self.on_clear()
-                e_result = self.on_char(chr(code))
+                e_result = self.on_char(ch)
                 if e_result == EInput.INVALID:
                     result += ch
             elif e_result == EInput.CHARACTER:
@@ -351,6 +350,20 @@ class Manchu(Language):
 
         result += self.get_output_string()
         return result, 0
+
+    @classmethod
+    def _expand_transcription(cls, text: str) -> str:
+        transcription = dict(zip(cls.TABLE_TRANSCRIPTION_LETTERS, cls.TABLE_TRANSCRIPTION_MAP, strict=True))
+        converted_input = []
+        for ch in text:
+            if "A" <= ch <= "Z":
+                ch = ch.lower()
+            mapped = transcription.get(ch)
+            if mapped is None:
+                converted_input.append(ch)
+            else:
+                converted_input.extend(chr(code) for code in mapped if code)
+        return "".join(converted_input)
 
     # --- Private Helpers ---
 

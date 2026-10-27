@@ -1,0 +1,730 @@
+# BabelSoft Script Data: Tibetan Extended Wylie transliteration tables
+# Source: C++ codebase (Languages/LanguageTibetan.cpp)
+#
+# Description:
+#   One block per table; the line after [name] names that block's columns, and
+#   every value is the Tibetan text the key produces.  '-' means "nothing", and
+#   the Wylie key is quoted only when a bare key would be ambiguous: "" is the
+#   empty sequence (no prefix/superfix/vowel/final), " " is the Tsheg and "#"
+#   is the yig-mgo.
+#
+#   initial      stem is the syllable's base letter; prefix-superfix holds the
+#                prefix (ག ད བ མ འ) and superfix (ར ལ ས) letters carried by the
+#                key; subfixes holds the subjoined letters (ྭ ྱ ྲ ླ, at most
+#                two, in that order) — the three together drive the
+#                PREFIX_*/SUPERFIX_*/SUBFIX* masks in languages/tibetan.py.
+#   subjoin      the subjoined letter as a standalone character.
+#   medial       the a-chung (ཱ) and/or vowel sign.
+#   final        the final letters (up to four).
+#   punctuation  the Tibetan punctuation character.
+
+[initial]
+# wylie	stem	prefix-superfix	subfixes
+""	ཨ	-	-
+b	བ	-	-
+b+	བ	-	-
+bc	ཅ	བ	-
+bch	ཆ	བ	-
+bcw	ཅ	བ	ྭ
+bd	ད	བ	-
+bdr	ད	བ	ྲ
+bdw	ད	བ	ྭ
+bg	ག	བ	-
+bgl	ག	བ	ླ
+bgr	ག	བ	ྲ
+bgrw	ག	བ	ྲྭ
+bgw	ག	བ	ྭ
+bgy	ག	བ	ྱ
+bk	ཀ	བ	-
+bkh	ཁ	བ	-
+bkl	ཀ	བ	ླ
+bkr	ཀ	བ	ྲ
+bkw	ཀ	བ	ྭ
+bky	ཀ	བ	ྱ
+bl	བ	-	ླ
+blc	ྕ	བལ	-
+blcw	ྕ	བལ	ྭ
+bld	ྡ	བལ	-
+bldr	ྡ	བལ	ྲ
+bldw	ྡ	བལ	ྭ
+blg	ྒ	བལ	-
+blgr	ྒ	བལ	ྲ
+blgrw	ྒ	བལ	ྲྭ
+blgw	ྒ	བལ	ྭ
+blgy	ྒ	བལ	ྱ
+blk	ྐ	བལ	-
+blkr	ྐ	བལ	ྲ
+blkw	ྐ	བལ	ྭ
+blky	ྐ	བལ	ྱ
+blt	ྟ	བལ	-
+bltr	ྟ	བལ	ྲ
+bltw	ྟ	བལ	ྭ
+br	བ	-	ྲ
+brd	ྡ	བར	-
+brdr	ྡ	བར	ྲ
+brdw	ྡ	བར	ྭ
+brdz	ྫ	བར	-
+brg	ྒ	བར	-
+brgr	ྒ	བར	ྲ
+brgrw	ྒ	བར	ྲྭ
+brgw	ྒ	བར	ྭ
+brgy	ྒ	བར	ྱ
+brj	ྗ	བར	-
+brk	ྐ	བར	-
+brkr	ྐ	བར	ྲ
+brkw	ྐ	བར	ྭ
+brky	ྐ	བར	ྱ
+brl	ར	བ	ླ
+brn	ྣ	བར	-
+brng	ྔ	བར	-
+brny	ྙ	བར	-
+brnyw	ྙ	བར	ྭ
+brt	ྟ	བར	-
+brtr	ྟ	བར	ྲ
+brts	ྩ	བར	-
+brtsw	ྩ	བར	ྭ
+brtw	ྟ	བར	ྭ
+bs	ས	བ	-
+bsd	ྡ	བས	-
+bsdr	ྡ	བས	ྲ
+bsdw	ྡ	བས	ྭ
+bsg	ྒ	བས	-
+bsgr	ྒ	བས	ྲ
+bsgrw	ྒ	བས	ྲྭ
+bsgw	ྒ	བས	ྭ
+bsgy	ྒ	བས	ྱ
+bsh	ཤ	བ	-
+bshr	ཤ	བ	ྲ
+bshw	ཤ	བ	ྭ
+bsk	ྐ	བས	-
+bskr	ྐ	བས	ྲ
+bskw	ྐ	བས	ྭ
+bsky	ྐ	བས	ྱ
+bsl	ས	བ	ླ
+bsn	ྣ	བས	-
+bsng	ྔ	བས	-
+bsny	ྙ	བས	-
+bsnyw	ྙ	བས	ྭ
+bsr	ས	བ	ྲ
+bst	ྟ	བས	-
+bstr	ྟ	བས	ྲ
+bsts	ྩ	བས	-
+bstsw	ྩ	བས	ྭ
+bstw	ྟ	བས	ྭ
+bsw	ས	བ	ྭ
+bt	ཏ	བ	-
+bth	ཐ	བ	-
+btr	ཏ	བ	ྲ
+bts	ཙ	བ	-
+btsh	ཚ	བ	-
+btsw	ཙ	བ	ྭ
+btw	ཏ	བ	ྭ
+by	བ	-	ྱ
+bz	ཟ	བ	-
+bzh	ཞ	བ	-
+bzhw	ཞ	བ	ྭ
+bzl	ཟ	བ	ླ
+bzw	ཟ	བ	ྭ
+c	ཅ	-	-
+c+	ཅ	-	-
+ch	ཆ	-	-
+ch+	ཆ	-	-
+cw	ཅ	-	ྭ
+D	ཌ	-	-
+D+	ཌ	-	-
+d	ད	-	-
+d+	ད	-	-
+db	བ	ད	-
+dbl	བ	ད	ླ
+dbr	བ	ད	ྲ
+dby	བ	ད	ྱ
+dch	ཆ	ད	-
+dg	ག	ད	-
+dgl	ག	ད	ླ
+dgr	ག	ད	ྲ
+dgrw	ག	ད	ྲྭ
+dgw	ག	ད	ྭ
+dgy	ག	ད	ྱ
+dk	ཀ	ད	-
+dkh	ཁ	ད	-
+dkl	ཀ	ད	ླ
+dkr	ཀ	ད	ྲ
+dkw	ཀ	ད	ྭ
+dky	ཀ	ད	ྱ
+dlb	ྦ	དལ	-
+dlbr	ྦ	དལ	ྲ
+dlby	ྦ	དལ	ྱ
+dlg	ྒ	དལ	-
+dlgr	ྒ	དལ	ྲ
+dlgrw	ྒ	དལ	ྲྭ
+dlgw	ྒ	དལ	ྭ
+dlgy	ྒ	དལ	ྱ
+dlk	ྐ	དལ	-
+dlkr	ྐ	དལ	ྲ
+dlkw	ྐ	དལ	ྭ
+dlky	ྐ	དལ	ྱ
+dlng	ྔ	དལ	-
+dlp	ྤ	དལ	-
+dlpr	ྤ	དལ	ྲ
+dlpy	ྤ	དལ	ྱ
+dm	མ	ད	-
+dmr	མ	ད	ྲ
+dmy	མ	ད	ྱ
+dng	ང	ད	-
+dp	པ	ད	-
+dph	ཕ	ད	-
+dpr	པ	ད	ྲ
+dpy	པ	ད	ྱ
+dr	ད	-	ྲ
+drb	ྦ	དར	-
+drbr	ྦ	དར	ྲ
+drby	ྦ	དར	ྱ
+drg	ྒ	དར	-
+drgr	ྒ	དར	ྲ
+drgrw	ྒ	དར	ྲྭ
+drgw	ྒ	དར	ྭ
+drgy	ྒ	དར	ྱ
+drk	ྐ	དར	-
+drkr	ྐ	དར	ྲ
+drkw	ྐ	དར	ྭ
+drky	ྐ	དར	ྱ
+drm	ྨ	དར	-
+drmr	ྨ	དར	ྲ
+drmy	ྨ	དར	ྱ
+drng	ྔ	དར	-
+drw	ད	-	ྲྭ
+dsb	ྦ	དས	-
+dsbr	ྦ	དས	ྲ
+dsby	ྦ	དས	ྱ
+dsg	ྒ	དས	-
+dsgr	ྒ	དས	ྲ
+dsgrw	ྒ	དས	ྲྭ
+dsgw	ྒ	དས	ྭ
+dsgy	ྒ	དས	ྱ
+dsk	ྐ	དས	-
+dskr	ྐ	དས	ྲ
+dskw	ྐ	དས	ྭ
+dsky	ྐ	དས	ྱ
+dsm	ྨ	དས	-
+dsmr	ྨ	དས	ྲ
+dsmy	ྨ	དས	ྱ
+dsng	ྔ	དས	-
+dsp	ྤ	དས	-
+dspr	ྤ	དས	ྲ
+dspy	ྤ	དས	ྱ
+dth	ཐ	ད	-
+dw	ད	-	ྭ
+dw	ཝ	ད	-
+dz	ཛ	-	-
+dz+	ཛ	-	-
+F	ཧ	-	-
+f	ཕ	-	-
+g	ག	-	-
+g+	ག	-	-
+gc	ཅ	ག	-
+gch	ཆ	ག	-
+gcw	ཅ	ག	ྭ
+gd	ད	ག	-
+gdr	ད	ག	ྲ
+gdw	ད	ག	ྭ
+gl	ག	-	ླ
+glc	ྕ	གལ	-
+glcw	ྕ	གལ	ྭ
+gld	ྡ	གལ	-
+gldr	ྡ	གལ	ྲ
+gldw	ྡ	གལ	ྭ
+glt	ྟ	གལ	-
+gltr	ྟ	གལ	ྲ
+gltw	ྟ	གལ	ྭ
+gn	ན	ག	-
+gny	ཉ	ག	-
+gnyw	ཉ	ག	ྭ
+gr	ག	-	ྲ
+gr	ར	ག	-
+grd	ྡ	གར	-
+grdr	ྡ	གར	ྲ
+grdw	ྡ	གར	ྭ
+grn	ྣ	གར	-
+grny	ྙ	གར	-
+grnyw	ྙ	གར	ྭ
+grt	ྟ	གར	-
+grtr	ྟ	གར	ྲ
+grts	ྩ	གར	-
+grtsw	ྩ	གར	ྭ
+grtw	ྟ	གར	ྭ
+grw	ག	-	ྲྭ
+gs	ས	ག	-
+gsd	ྡ	གས	-
+gsdr	ྡ	གས	ྲ
+gsdw	ྡ	གས	ྭ
+gsh	ཤ	ག	-
+gshr	ཤ	ག	ྲ
+gshw	ཤ	ག	ྭ
+gsl	ས	ག	ླ
+gsn	ྣ	གས	-
+gsny	ྙ	གས	-
+gsnyw	ྙ	གས	ྭ
+gsr	ས	ག	ྲ
+gst	ྟ	གས	-
+gstr	ྟ	གས	ྲ
+gsts	ྩ	གས	-
+gstsw	ྩ	གས	ྭ
+gstw	ྟ	གས	ྭ
+gsw	ས	ག	ྭ
+gt	ཏ	ག	-
+gth	ཐ	ག	-
+gtr	ཏ	ག	ྲ
+gts	ཙ	ག	-
+gtsh	ཚ	ག	-
+gtsw	ཙ	ག	ྭ
+gtw	ཏ	ག	ྭ
+gw	ག	-	ྭ
+gy	ག	-	ྱ
+gy	ཡ	ག	-
+gz	ཟ	ག	-
+gzh	ཞ	ག	-
+gzhw	ཞ	ག	ྭ
+gzl	ཟ	ག	ླ
+gzw	ཟ	ག	ྭ
+h	ཧ	-	-
+h+	ཧ	-	-
+hr	ཧ	-	ྲ
+hw	ཧ	-	ྭ
+hy	ཧ	-	ྱ
+j	ཇ	-	-
+j+	ཇ	-	-
+k	ཀ	-	-
+k+	ཀ	-	-
+kh	ཁ	-	-
+kh+	ཁ	-	-
+khr	ཁ	-	ྲ
+khw	ཁ	-	ྭ
+khy	ཁ	-	ྱ
+kl	ཀ	-	ླ
+kr	ཀ	-	ྲ
+kw	ཀ	-	ྭ
+ky	ཀ	-	ྱ
+l	ལ	-	-
+l+	ལ	-	-
+lb	ྦ	ལ	-
+lbr	ྦ	ལ	ྲ
+lby	ྦ	ལ	ྱ
+lc	ྕ	ལ	-
+lcw	ྕ	ལ	ྭ
+ld	ྡ	ལ	-
+ldr	ྡ	ལ	ྲ
+ldw	ྡ	ལ	ྭ
+lg	ྒ	ལ	-
+lgr	ྒ	ལ	ྲ
+lgrw	ྒ	ལ	ྲྭ
+lgw	ྒ	ལ	ྭ
+lgy	ྒ	ལ	ྱ
+lh	ྷ	ལ	-
+lj	ྗ	ལ	-
+lk	ྐ	ལ	-
+lkr	ྐ	ལ	ྲ
+lkw	ྐ	ལ	ྭ
+lky	ྐ	ལ	ྱ
+lng	ྔ	ལ	-
+lp	ྤ	ལ	-
+lpr	ྤ	ལ	ྲ
+lpy	ྤ	ལ	ྱ
+lt	ྟ	ལ	-
+ltr	ྟ	ལ	ྲ
+ltw	ྟ	ལ	ྭ
+lw	ལ	-	ྭ
+m	མ	-	-
+m+	མ	-	-
+mc	ཅ	མ	-
+mch	ཆ	མ	-
+md	ད	མ	-
+mdr	ད	མ	ྲ
+mdw	ད	མ	ྭ
+mdz	ཛ	མ	-
+mg	ག	མ	-
+mgl	ག	མ	ླ
+mgr	ག	མ	ྲ
+mgrw	ག	མ	ྲྭ
+mgw	ག	མ	ྭ
+mgy	ག	མ	ྱ
+mj	ཇ	མ	-
+mk	ཀ	མ	-
+mkh	ཁ	མ	-
+mkhr	ཁ	མ	ྲ
+mkhw	ཁ	མ	ྭ
+mkhy	ཁ	མ	ྱ
+mld	ྡ	མལ	-
+mldr	ྡ	མལ	ྲ
+mldw	ྡ	མལ	ྭ
+mlg	ྒ	མལ	-
+mlgr	ྒ	མལ	ྲ
+mlgrw	ྒ	མལ	ྲྭ
+mlgw	ྒ	མལ	ྭ
+mlgy	ྒ	མལ	ྱ
+mlj	ྗ	མལ	-
+mlng	ྔ	མལ	-
+mn	ན	མ	-
+mng	ང	མ	-
+mny	ཉ	མ	-
+mnyw	ཉ	མ	ྭ
+mr	མ	-	ྲ
+mrd	ྡ	མར	-
+mrdr	ྡ	མར	ྲ
+mrdw	ྡ	མར	ྭ
+mrdz	ྫ	མར	-
+mrg	ྒ	མར	-
+mrgr	ྒ	མར	ྲ
+mrgrw	ྒ	མར	ྲྭ
+mrgw	ྒ	མར	ྭ
+mrgy	ྒ	མར	ྱ
+mrj	ྗ	མར	-
+mrn	ྣ	མར	-
+mrng	ྔ	མར	-
+mrny	ྙ	མར	-
+mrnyw	ྙ	མར	ྭ
+msd	ྡ	མས	-
+msdr	ྡ	མས	ྲ
+msdw	ྡ	མས	ྭ
+msg	ྒ	མས	-
+msgr	ྒ	མས	ྲ
+msgrw	ྒ	མས	ྲྭ
+msgw	ྒ	མས	ྭ
+msgy	ྒ	མས	ྱ
+msn	ྣ	མས	-
+msng	ྔ	མས	-
+msny	ྙ	མས	-
+msnyw	ྙ	མས	ྭ
+mt	ཏ	མ	-
+mth	ཐ	མ	-
+mthr	ཐ	མ	ྲ
+mts	ཙ	མ	-
+mtsh	ཚ	མ	-
+mtshw	ཚ	མ	ྭ
+my	མ	-	ྱ
+N	ཎ	-	-
+N+	ཎ	-	-
+n	ན	-	-
+n+	ན	-	-
+ng	ང	-	-
+ng+	ང	-	-
+ny	ཉ	-	-
+ny+	ཉ	-	-
+nyw	ཉ	-	ྭ
+p	པ	-	-
+p+	པ	-	-
+ph	ཕ	-	-
+ph+	ཕ	-	-
+phr	ཕ	-	ྲ
+phy	ཕ	-	ྱ
+phyw	ཕ	-	ྱྭ
+pr	པ	-	ྲ
+py	པ	-	ྱ
+'	འ	-	-
+'+	འ	-	-
+'b	བ	འ	-
+'bl	བ	འ	ླ
+'br	བ	འ	ྲ
+'by	བ	འ	ྱ
+'c	ཅ	འ	-
+'ch	ཆ	འ	-
+'d	ད	འ	-
+'dr	ད	འ	ྲ
+'dw	ད	འ	ྭ
+'dz	ཛ	འ	-
+'g	ག	འ	-
+'gl	ག	འ	ླ
+'gr	ག	འ	ྲ
+'grw	ག	འ	ྲྭ
+'gw	ག	འ	ྭ
+'gy	ག	འ	ྱ
+'j	ཇ	འ	-
+'k	ཀ	འ	-
+'kh	ཁ	འ	-
+'khr	ཁ	འ	ྲ
+'khw	ཁ	འ	ྭ
+'khy	ཁ	འ	ྱ
+'lb	ྦ	འལ	-
+'lbr	ྦ	འལ	ྲ
+'lby	ྦ	འལ	ྱ
+'ld	ྡ	འལ	-
+'ldr	ྡ	འལ	ྲ
+'ldw	ྡ	འལ	ྭ
+'lg	ྒ	འལ	-
+'lgr	ྒ	འལ	ྲ
+'lgrw	ྒ	འལ	ྲྭ
+'lgw	ྒ	འལ	ྭ
+'lgy	ྒ	འལ	ྱ
+'lj	ྗ	འལ	-
+'lp	ྤ	འལ	-
+'lpr	ྤ	འལ	ྲ
+'lpy	ྤ	འལ	ྱ
+'p	པ	འ	-
+'ph	ཕ	འ	-
+'phr	ཕ	འ	ྲ
+'phy	ཕ	འ	ྱ
+'phyw	ཕ	འ	ྱྭ
+'rb	ྦ	འར	-
+'rbr	ྦ	འར	ྲ
+'rby	ྦ	འར	ྱ
+'rd	ྡ	འར	-
+'rdr	ྡ	འར	ྲ
+'rdw	ྡ	འར	ྭ
+'rdz	ྫ	འར	-
+'rg	ྒ	འར	-
+'rgr	ྒ	འར	ྲ
+'rgrw	ྒ	འར	ྲྭ
+'rgw	ྒ	འར	ྭ
+'rgy	ྒ	འར	ྱ
+'rj	ྗ	འར	-
+'sb	ྦ	འས	-
+'sbr	ྦ	འས	ྲ
+'sby	ྦ	འས	ྱ
+'sd	ྡ	འས	-
+'sdr	ྡ	འས	ྲ
+'sdw	ྡ	འས	ྭ
+'sg	ྒ	འས	-
+'sgr	ྒ	འས	ྲ
+'sgrw	ྒ	འས	ྲྭ
+'sgw	ྒ	འས	ྭ
+'sgy	ྒ	འས	ྱ
+'sp	ྤ	འས	-
+'spr	ྤ	འས	ྲ
+'spy	ྤ	འས	ྱ
+'t	ཏ	འ	-
+'th	ཐ	འ	-
+'thr	ཐ	འ	ྲ
+'ts	ཙ	འ	-
+'tsh	ཚ	འ	-
+'tshw	ཚ	འ	ྭ
+'w	འ	-	ྭ
+R+	ཪ	-	-
+r	ར	-	-
+r+	ར	-	-
+rb	ྦ	ར	-
+rbr	ྦ	ར	ྲ
+rby	ྦ	ར	ྱ
+rd	ྡ	ར	-
+rdr	ྡ	ར	ྲ
+rdw	ྡ	ར	ྭ
+rdz	ྫ	ར	-
+rg	ྒ	ར	-
+rgr	ྒ	ར	ྲ
+rgrw	ྒ	ར	ྲྭ
+rgw	ྒ	ར	ྭ
+rgy	ྒ	ར	ྱ
+rh	ྷ	ར	-
+rhy	ྷ	ར	ྱ
+rj	ྗ	ར	-
+rk	ྐ	ར	-
+rkr	ྐ	ར	ྲ
+rkw	ྐ	ར	ྭ
+rky	ྐ	ར	ྱ
+rl	ར	-	ླ
+rm	ྨ	ར	-
+rmr	ྨ	ར	ྲ
+rmy	ྨ	ར	ྱ
+rn	ྣ	ར	-
+rng	ྔ	ར	-
+rny	ྙ	ར	-
+rnyw	ྙ	ར	ྭ
+rt	ྟ	ར	-
+rtr	ྟ	ར	ྲ
+rts	ྩ	ར	-
+rtsw	ྩ	ར	ྭ
+rtw	ྟ	ར	ྭ
+rw	ར	-	ྭ
+Sh	ཥ	-	-
+Sh+	ཥ	-	-
+s	ས	-	-
+s+	ས	-	-
+sb	ྦ	ས	-
+sbr	ྦ	ས	ྲ
+sby	ྦ	ས	ྱ
+sd	ྡ	ས	-
+sdr	ྡ	ས	ྲ
+sdw	ྡ	ས	ྭ
+sg	ྒ	ས	-
+sgr	ྒ	ས	ྲ
+sgrw	ྒ	ས	ྲྭ
+sgw	ྒ	ས	ྭ
+sgy	ྒ	ས	ྱ
+sh	ཤ	-	-
+sh+	ཤ	-	-
+shr	ཤ	-	ྲ
+shw	ཤ	-	ྭ
+sk	ྐ	ས	-
+skr	ྐ	ས	ྲ
+skw	ྐ	ས	ྭ
+sky	ྐ	ས	ྱ
+sl	ས	-	ླ
+sm	ྨ	ས	-
+smr	ྨ	ས	ྲ
+smy	ྨ	ས	ྱ
+sn	ྣ	ས	-
+sng	ྔ	ས	-
+snr	ྣ	ས	ྲ
+sny	ྙ	ས	-
+snyw	ྙ	ས	ྭ
+sp	ྤ	ས	-
+spr	ྤ	ས	ྲ
+spy	ྤ	ས	ྱ
+sr	ས	-	ྲ
+st	ྟ	ས	-
+str	ྟ	ས	ྲ
+sts	ྩ	ས	-
+stsw	ྩ	ས	ྭ
+stw	ྟ	ས	ྭ
+sw	ས	-	ྭ
+T	ཊ	-	-
+T+	ཊ	-	-
+Th	ཋ	-	-
+Th+	ཋ	-	-
+t	ཏ	-	-
+t+	ཏ	-	-
+th	ཐ	-	-
+th+	ཐ	-	-
+thr	ཐ	-	ྲ
+tr	ཏ	-	ྲ
+ts	ཙ	-	-
+ts+	ཙ	-	-
+tsh	ཚ	-	-
+tsh+	ཚ	-	-
+tshw	ཚ	-	ྭ
+tsw	ཙ	-	ྭ
+tw	ཏ	-	ྭ
+v	བ	-	-
+w	ཝ	-	-
+w+	ཝ	-	-
+y	ཡ	-	-
+y+	ཡ	-	-
+z	ཟ	-	-
+z+	ཟ	-	-
+zh	ཞ	-	-
+zh+	ཞ	-	-
+zhw	ཞ	-	ྭ
+zl	ཟ	-	ླ
+zw	ཟ	-	ྭ
+
+[subjoin]
+# wylie	tibetan
+""	-
+b	ྦ
+c	ྕ
+ch	ྖ
+d	ྡ
+dz	ྫ
+D	ྜ
+g	ྒ
+h	ྷ
+j	ྗ
+k	ྐ
+kh	ྑ
+l	ླ
+m	ྨ
+n	ྣ
+ng	ྔ
+ny	ྙ
+N	ྞ
+p	ྤ
+ph	ྥ
+r	ྲ
+R	ྼ
+s	ྶ
+sh	ྴ
+Sh	ྵ
+t	ྟ
+th	ྠ
+ts	ྩ
+tsh	ྪ
+T	ྚ
+Th	ྛ
+w	ྭ
+W	ྺ
+y	ྱ
+Y	ྻ
+z	ྯ
+zh	ྮ
+'	ྰ
+
+[medial]
+# wylie	tibetan
+""	-
+a	-
+ai	ཻ
+au	ཽ
+i	ི
+u	ུ
+e	ེ
+o	ོ
+A	ཱ
+AI	ཱཻ
+AU	ཱཽ
+I	ཱི
+U	ཱུ
+E	ཱེ
+O	ཱོ
+-i	ྀ
+-I	ཱྀ
+
+[final]
+# wylie	tibetan
+""	-
+b	བ
+bs	བས
+d	ད
+g	ག
+gs	གས
+l	ལ
+ld	ལད
+m	མ
+ms	མས
+n	ན
+nd	ནད
+ng	ང
+ngs	ངས
+r	ར
+rd	རད
+s	ས
+H	ཿ
+M	ཾ
+'	འ
+'a	འ
+'am	འམ
+'i	འི
+'i'i	འིའི
+'u	འུ
+'u'i	འུའི
+'e	འེ
+'e'i	འེའི
+'o	འོ
+'o'i	འོའི
+~M	ྃ
+~M`	ྂ
+
+[punctuation]
+# wylie	tibetan
+.	-
+" "	་
+!	༈
+@	༄
+"#"	༅
+$	༆
+%	༇
+&	྅
+(	༼
+)	༽
+*	༌
+/	།
+/	༎
+:	༔
+;	༏
+<	༺
+=	༴
+>	༻
+?	྄
+X	༷
+_	 
+{	༿
+|	༑
+}	༾
+~	༵

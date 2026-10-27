@@ -23,6 +23,23 @@ def _parse_rs_unihan(text: str) -> tuple[int, int, int]:
     return radical, variant, stroke
 
 
+def _parsed_value(field: str) -> int:
+    """Parse a codepoint or collation weight field: ``U+XXXX``, ``0x....``, or ``-`` for none."""
+    if field == "-":
+        return 0
+    if field[:2] == "U+":  # int(field, 0) understands the 0x prefix but not U+
+        digits = field[2:]
+        return int(digits, 16)
+    return int(field, 0)
+
+
+def _unquoted_key(field: str) -> str:
+    """Strip the quotes that mark a key a bare TSV field cannot express (empty, " ", "#")."""
+    if len(field) >= 2 and field.startswith('"') and field.endswith('"'):
+        return field[1:-1]
+    return field
+
+
 class CJKLoader:
     @staticmethod
     @functools.lru_cache(maxsize=1)
@@ -707,3 +724,53 @@ class ScriptsLoader:
                 "extra_count": int(row[5]) if row[5] else 0,
             }
         return data
+
+    # ─── UCA collation ──────────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_uca() -> dict[str, tuple[tuple[int, ...], ...]]:
+        """UCA tables from uca.tsv, keyed by block name.
+
+        Range blocks (ducet, cldr, tibetan_collation, tibetan_punctuation) hold
+        (cp_first, cp_last, l1, l2, l3); the others hold (c1, c2, c3, l1, l2, l3).
+        """
+        sections = TsvParser.get_sections(ScriptsLoader.DATA_DIR / "uca.tsv")
+        return {
+            name: tuple(tuple(_parsed_value(field) for field in row) for row in rows)
+            for name, rows in sections.items()
+        }
+
+    # ─── Yi transliteration ────────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_yi() -> dict[str, tuple]:
+        """Yi tables from yi.tsv.
+
+        ``syllables`` holds (initial, medial, final) index triples in U+A000
+        codepoint order, ``index`` the first codepoint of every initial group
+        and ``radicals`` the names of the 55 radicals.
+        """
+        sections = TsvParser.get_sections(ScriptsLoader.DATA_DIR / "yi.tsv")
+        return {
+            "syllables": tuple(
+                (int(row[1]), int(row[2]), int(row[3])) for row in sections["syllable"] if len(row) >= 4
+            ),
+            "index": tuple(parse_codepoint(row[1]) for row in sections["index"] if len(row) >= 2),
+            "radicals": tuple(row[1] for row in sections["radical"] if len(row) >= 2),
+        }
+
+    # ─── Tibetan Extended Wylie ────────────────────────────────
+
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def load_tibetan() -> dict[str, tuple[tuple[str, ...], ...]]:
+        """Extended Wylie tables from tibetan.tsv, keyed by block name.
+
+        Rows are the Wylie key followed by the Tibetan text it produces;
+        ``initial`` rows carry the stem, prefix-superfix and subfixes text.
+        A quoted Wylie key ("", " ", "#") is unquoted here.
+        """
+        sections = TsvParser.get_sections(ScriptsLoader.DATA_DIR / "tibetan.tsv")
+        return {name: tuple((_unquoted_key(row[0]), *row[1:]) for row in rows) for name, rows in sections.items()}

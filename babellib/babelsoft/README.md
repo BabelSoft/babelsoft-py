@@ -904,6 +904,52 @@ and carry no block info in the reconstructed `UnicodeData.txt`) live in
 `data/scripts/unicode_1_0_blocks.tsv`; character counts are computed from the
 reconstructed repertoire at load time.
 
+The large reference tables that used to be Python literals live in
+`data/scripts/` and are read through `ScriptsLoader` (lazy, `lru_cache`d). Each
+file is split into `[block]` sections whose first line names the columns, so the
+file documents itself. `TsvParser.get_sections()` reads this layout.
+
+| File          | Blocks                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| `uca.tsv`     | `ducet`, `cldr`, `*_contraction`, the locale tailorings, and the Tibetan UCA tailoring       |
+| `yi.tsv`      | `syllable` (U+A000… index triples), `index` (initial-group starts), `radical` (radical names) |
+| `tibetan.tsv` | `initial`, `subjoin`, `medial`, `final`, `punctuation` (Extended Wylie)                       |
+
+`uca.tsv` holds collation data, so it uses `U+XXXX` codepoints, `0x....`
+weights and `-` for "none":
+
+```
+[spanish_ducet]
+# c1	c2	c3	l1	l2	l3
+U+0043	U+0048	-	0x2422	0x0020	0x0008
+```
+
+`tibetan.tsv` instead stores the Tibetan text each key produces, which makes the
+transliteration tables verifiable by eye (`-` is "nothing", quoted keys are the
+empty sequence, Tsheg and yig-mgo):
+
+```
+[final]
+# wylie	tibetan
+b	བ
+bs	བས
+```
+
+The `initial` block keeps four columns because the state machine needs the
+stem/prefix/superfix/subfix split, and spells the masks as the letters they
+contribute (`བ` prefix, `ར` superfix, `ྲ` subfix):
+
+```
+[initial]
+# wylie	stem	prefix-superfix	subfixes
+bch	ཆ	བ	-
+bgrw	ག	བ	ྲྭ
+```
+
+All three files are checked in (they derive from `cpp-reference/`, which is not
+part of the repository) and ship with the app through the `babellib/data` Tauri
+resource.
+
 ---
 
 ## 10. Running Tests

@@ -144,8 +144,16 @@ class Mongolian(Language):
         0x1842,  # ch
     ]
 
-    TABLE_TRANSCRIPTION_LETTERS: ClassVar[list[str]] = []
-    TABLE_TRANSCRIPTION_MAP: ClassVar[list[int]] = []
+    TABLE_TRANSCRIPTION_LETTERS: ClassVar[list[str]] = [
+        "\u010C", "\u010D", "\u01F0", "\u0160", "\u0161", "k", "\u03B3", "\u0194",
+        "\u0263", "v", "\u00D6", "\u00F6", "\u00DC", "\u00FC", "\u2010", "\u2011",
+        "'", '"', "^", "\u030C",
+    ]
+    TABLE_TRANSCRIPTION_MAP: ClassVar[list[tuple[int, int]]] = [
+        (0x63, 0), (0x63, 0), (0x6A, 0), (0x78, 0), (0x78, 0), (0x71, 0),
+        (0x67, 0), (0x67, 0), (0x77, 0), (0x77, 0), (0x6F, 0x65), (0x6F, 0x65),
+        (0x75, 0x65), (0x75, 0x65), (0x2D, 0), (0x2D, 0), (0, 0), (0, 0), (0, 0), (0, 0),
+    ]
 
     def __init__(self):
         super().__init__(block_start=0x1800, block_end=0x18B0)
@@ -326,14 +334,7 @@ class Mongolian(Language):
         self.on_clear(reset=True)
         result = ""
 
-        for i in range(start, end):
-            ch = text_in[i]
-            code = ord(ch)
-
-            if "A" <= ch <= "Z":
-                code += 0x20
-                ch = chr(code)
-
+        for ch in self._expand_transcription(text_in[start:end]):
             e_result = self.on_char(ch)
 
             if e_result == EInput.IN_PROGRESS:
@@ -351,6 +352,20 @@ class Mongolian(Language):
 
         result += self.get_output_string()
         return result, 0
+
+    @classmethod
+    def _expand_transcription(cls, text: str) -> str:
+        transcription = dict(zip(cls.TABLE_TRANSCRIPTION_LETTERS, cls.TABLE_TRANSCRIPTION_MAP, strict=True))
+        converted_input = []
+        for ch in text:
+            if "A" <= ch <= "Z":
+                ch = ch.lower()
+            mapped = transcription.get(ch)
+            if mapped is None:
+                converted_input.append(ch)
+            else:
+                converted_input.extend(chr(code) for code in mapped if code)
+        return "".join(converted_input)
 
     # --- Private Helpers ---
 

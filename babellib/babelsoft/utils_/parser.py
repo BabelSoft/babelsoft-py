@@ -60,3 +60,26 @@ class TsvParser:
                     continue
                 rows.append(line.split("\t"))
         return rows
+
+    @staticmethod
+    def get_sections(file_path: Path) -> dict[str, list[list[str]]]:
+        """Parse a TSV file split into ``[name]`` blocks.
+
+        ``#`` lines (the file header and the per-block column headers) and blank
+        lines are skipped.  Only the line terminator is stripped from data rows,
+        so a field may be empty or consist of whitespace.
+        """
+        sections: dict[str, list[list[str]]] = {}
+        current: list[list[str]] | None = None
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.rstrip("\r\n")
+                if not line.strip() or line.startswith("#"):
+                    continue
+                if line.startswith("[") and line.endswith("]"):
+                    current = sections.setdefault(line[1:-1], [])
+                    continue
+                if current is None:
+                    raise ValueError(f"{file_path.name}: data row outside a [section]: {line!r}")
+                current.append(line.split("\t"))
+        return sections
