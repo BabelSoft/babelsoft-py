@@ -3,12 +3,27 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 LIB_DIR = Path(__file__).parent.parent
 sys.path.append(str(LIB_DIR))
 
 from babelsoft.unicode import Unicode
+from babelsoft.utils_.dirs import Dirs
+from babelsoft.utils_.versions import VERSION_DIRS
 
 from babelmap.backend.history import character_history
+
+# Comparing releases needs every historical UCD snapshot, which the source
+# checkout does not carry (see babellib/tools/sync_data.py --all).
+_MISSING_SNAPSHOTS = [folder for _version, folder in VERSION_DIRS if not (Dirs.UNICODE / folder).is_dir()]
+pytestmark = pytest.mark.skipif(
+    bool(_MISSING_SNAPSHOTS),
+    reason=(
+        f"{len(_MISSING_SNAPSHOTS)} historical Unicode snapshot(s) not installed;"
+        " run: python babellib/tools/sync_data.py --all"
+    ),
+)
 
 
 class TestUnicode1Mappings:

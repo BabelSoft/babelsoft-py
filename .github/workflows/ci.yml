@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python — ruff + pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: ruff
+        # E501 is ignored on purpose: the project formats at 120 columns
+        # (see .vscode/settings.json) while ruff defaults to 88.
+        run: uv run ruff check . --exclude .venv,node_modules,dist,target --ignore E501
+
+      # The raw UCD archives are not in git (~850 MB).  The current release is
+      # ~90 MB and covers everything except the version-history tests, which
+      # skip themselves when the historical snapshots are absent.
+      - name: Cache Unicode data
+        uses: actions/cache@v4
+        with:
+          path: babellib/data/unicode
+          key: ucd-${{ runner.os }}-${{ hashFiles('babellib/babelsoft/utils_/versions.py') }}
+
+      - name: Fetch Unicode data (current release)
+        run: uv run python babellib/tools/sync_data.py
+
+      - name: pytest
+        run: uv run pytest -q
+
+  frontend:
+    name: Frontend — svelte-check + vite build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: babelmap/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: babelmap/frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+
+  desktop:
+    name: Desktop — sidecar + cargo check (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: babelmap/frontend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # cargo check compiles tauri::generate_context!, which validates the
+      # configured frontendDist, so the bundle has to exist first.
+      - name: Build frontend bundle
+        working-directory: babelmap/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Freeze the Python backend (PyInstaller sidecar)
+        run: |
+          uv sync --locked
+          uv run python babelmap/backend/build_sidecar.py
+
+      - name: cargo check
+        working-directory: babelmap/src-tauri
+        run: cargo check --locked

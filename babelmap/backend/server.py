@@ -19,6 +19,7 @@ sys.path.insert(0, str(BABELLIB))
 import logging
 
 from babelsoft.unicode.core import Unicode
+from babelsoft.utils_.preflight import DATA_MISSING_HINT, missing_data
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -30,12 +31,55 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="BabelMap Backend", version="2.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+
+@app.middleware("http")
+async def _require_data(request, call_next):
+    """Refuse data endpoints while the data set is absent (see preflight)."""
+    if _MISSING_DATA and request.url.path not in ("/api/health", "/api/about"):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "Unicode data is missing",
+                "missing": _MISSING_DATA,
+                "hint": DATA_MISSING_HINT,
+            },
+        )
+    return await call_next(request)
+
+
+@app.exception_handler(FileNotFoundError)
+def _data_file_missing(_request, exc: FileNotFoundError) -> JSONResponse:
+    """A data file is absent: answer 503 with the command that fetches it."""
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "Unicode data is missing",
+            "path": str(exc.filename or exc),
+            "hint": DATA_MISSING_HINT,
+        },
+    )
+
 GRID_ROWS, GRID_COLS = 8, 16
 VALID_PLANES = list(range(17))  # 0–16, all Unicode planes
 
 # ── Blocks + assigned code points (reused from babelsoft/unicode/core.py) ──
-_ASSIGNED_CPS = Unicode._assigned_codepoints()
-_BLOCK_TABLE, _BLOCK_NAMES = Unicode._block_data()
+# The UCD archives are not in git, so a checkout without them must still start:
+# every data-backed endpoint answers 503 with the hint below instead of the
+# process dying with a bare FileNotFoundError at import time.
+_MISSING_DATA = missing_data()
+if _MISSING_DATA:
+    logger.error(
+        "Unicode data is missing (%d file(s)); data endpoints will answer 503.\n  %s\n  Fetch it with: %s",
+        len(_MISSING_DATA),
+        "\n  ".join(_MISSING_DATA),
+        DATA_MISSING_HINT,
+    )
+try:
+    _ASSIGNED_CPS = Unicode._assigned_codepoints()
+    _BLOCK_TABLE, _BLOCK_NAMES = Unicode._block_data()
+except OSError:  # pragma: no cover - only when the data set is absent
+    _ASSIGNED_CPS = []
+    _BLOCK_TABLE, _BLOCK_NAMES = [], {}
 
 _ALL_BLOCKS: list[dict] = []
 for _s, _e, _idx in _BLOCK_TABLE:
@@ -1317,7 +1361,11 @@ def convert_edit(text: str = "", mode: str = "char"):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    """Liveness probe; ``data`` says whether the Unicode data set is installed."""
+    return {
+        "status": "ok",
+        "data": {"ok": not _MISSING_DATA, "missing": _MISSING_DATA, "hint": DATA_MISSING_HINT if _MISSING_DATA else ""},
+    }
 
 
 @app.get("/api/about")
@@ -2410,11 +2458,14 @@ def unicode_character_history(cp: int):
 if __name__ == "__main__":
     import uvicorn
 
+    # A frozen build (the Tauri sidecar) has no source tree to watch and cannot
+    # resolve the "module:attr" import string, so hand uvicorn the app object.
+    _frozen = bool(getattr(sys, "frozen", False))
     uvicorn.run(
-        "babelmap.backend.server:app",
+        app if _frozen else "babelmap.backend.server:app",
         host="127.0.0.1",
-        port=18080,
+        port=int(os.environ.get("BABELMAP_BACKEND_PORT", "18080")),
         log_level="warning",
-        reload=True,
-        reload_dirs=[str(BABELLIB / "babelsoft"), str(REPO_ROOT / "babelmap")],
+        reload=not _frozen,
+        reload_dirs=None if _frozen else [str(BABELLIB / "babelsoft"), str(REPO_ROOT / "babelmap")],
     )

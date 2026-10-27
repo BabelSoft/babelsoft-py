@@ -7,9 +7,12 @@ echo ============================================
 echo.
 
 set ROOT=%~dp0
+pushd "%ROOT%.."
+set PROJ=%CD%
+popd
 
-:: [1/3] Install npm dependencies (if needed)
-echo [1/3] Checking frontend dependencies...
+:: [1/4] Frontend dependencies
+echo [1/4] Checking frontend dependencies...
 cd /d "%ROOT%frontend"
 if not exist "node_modules\" (
     echo        Installing frontend packages...
@@ -18,7 +21,7 @@ if not exist "node_modules\" (
     echo        Frontend dependencies OK.
 )
 
-cd /d "%ROOT%"
+cd /d "%PROJ%"
 if not exist "node_modules\" (
     echo        Installing Tauri CLI...
     call npm install
@@ -26,16 +29,43 @@ if not exist "node_modules\" (
     echo        Tauri CLI OK.
 )
 
-:: [2/3] Build the Tauri app
+:: [2/4] Freeze the Python backend into the Tauri sidecar binary
 echo.
-echo [2/3] Killing previous instance...
+echo [2/4] Building the Python backend sidecar...
+cd /d "%PROJ%"
+if not exist ".venv\Scripts\python.exe" (
+    echo        Setting up uv environment ^(first run^)...
+    call uv sync
+)
+call uv run python babelmap/backend/build_sidecar.py
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Sidecar build failed! See output above.
+    pause
+    exit /b 1
+)
+
+:: [3/4] Build the Tauri app (bundles the sidecar + babellib/data resources)
+echo.
+echo [3/4] Killing previous instance...
 taskkill /f /im BabelMap.exe >nul 2>&1
 echo        (Done)
 
 echo.
-echo [3/4] Building BabelMap.exe (this may take a while)...
-cd /d "%ROOT%"
-call npx tauri build 2>&1
+echo [3/4] Building the frontend bundle...
+cd /d "%ROOT%frontend"
+call npm run build
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Frontend build failed!
+    pause
+    exit /b 1
+)
+
+echo.
+echo [3/4] Building BabelMap.exe (this may take a while, ~850 MB of data)...
+cd /d "%PROJ%"
+call npx tauri build --bundles nsis 2>&1
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Build failed! See output above for details.

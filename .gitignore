@@ -2,18 +2,22 @@ cpp-reference/
 babellib/data/unicode/
 babellib/data/babelstone/
 babellib/data/ivd/
-babellib/tools/
 
 # User-uploaded fonts managed by babelmap/backend/font_registry.py
 babelmap/backend/var/
 
 # Svelte build output
 package-lock.json
+!babelmap/frontend/package-lock.json
 node_modules/
 .svelte-check/
+
+# Frozen Python backend produced by babelmap/backend/build_sidecar.py
+babelmap/src-tauri/binaries/
 # Stray svelte-check console output (was committed by mistake once)
 sc.txt
 Cargo.lock
+!babelmap/src-tauri/Cargo.lock
 gen/
 
 # Byte-compiled / optimized / DLL files

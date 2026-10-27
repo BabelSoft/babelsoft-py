@@ -1,0 +1,14 @@
+{
+  "name": "babelsoft-py",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build tooling for the BabelMap desktop app (Tauri CLI + sidecar build).",
+  "scripts": {
+    "sidecar": "python babelmap/backend/build_sidecar.py",
+    "build": "python babelmap/backend/build_sidecar.py && tauri build",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5"
+  }
+}

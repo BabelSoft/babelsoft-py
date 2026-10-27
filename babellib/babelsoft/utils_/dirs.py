@@ -6,7 +6,9 @@ class Dirs:
     # babellib/ — the shared-library root that owns this package plus data/.
     REPO = Path(__file__).parent.parent.parent
     SRC = REPO / "babelsoft"
-    DATA = REPO / "data"
+    # Packaged builds ship the data tree next to the executable and point
+    # BABELSOFT_DATA_DIR at it; the source checkout keeps it in babellib/data.
+    DATA = Path(os.environ["BABELSOFT_DATA_DIR"]) if os.environ.get("BABELSOFT_DATA_DIR") else REPO / "data"
     BABELSTONE = DATA / "babelstone"
     BABELSOFT = DATA / "cjkv"
     IVD = DATA / "ivd"
