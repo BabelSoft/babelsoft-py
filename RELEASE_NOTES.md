@@ -22,11 +22,10 @@ connections, and shuts it down when the window closes.  Backend output goes to
 
 ## Beta notes
 
-This is a beta, and this prerelease ships **source only** — there is no installer
-attached to it.  Build one with `babelmap\build.bat` (CI runs svelte-check,
-pytest and `cargo check`, so the NSIS bundle itself is not covered by CI).
-BabelPad is not included and the `.tim` input-method tables are still missing
-(see the limitations below).  Please report anything that breaks.
+This is a beta: the installer was built locally with `babelmap\build.bat`, and CI
+covers svelte-check, pytest and `cargo check` only — it does not build or run the
+bundle.  BabelPad is not included and the `.tim` input-method tables are still
+missing (see the limitations below).  Please report anything that breaks.
 
 ## What is in it
 
