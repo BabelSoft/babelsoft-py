@@ -3,6 +3,20 @@
 Monorepo for the BabelSoft Unicode tooling — a Python port of the BabelMap /
 BabelPad data-processing libraries, plus the cross-platform desktop apps.
 
+## Download
+
+**BabelMap 1.0.0 beta 1** — Windows 10/11 x64, self-contained NSIS installer,
+no Python installation required:
+
+<https://github.com/BabelSoft/babelsoft-py/releases/tag/v1.0.0-beta.1>
+
+→ `BabelMap_1.0.0_x64-setup.exe` (136 MiB).  Full notes:
+[RELEASE_NOTES.md](./RELEASE_NOTES.md).
+
+This is published as a **pre-release**, so it is *not* served by
+`/releases/latest` and GitHub folds it under *Pre-releases* on the Releases
+page — link to the tag URL above, not to `latest`.
+
 ## Layout
 
 | Path                  | Contents                                                                             |
